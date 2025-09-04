@@ -89,3 +89,4 @@ Anda dapat meminta fitur baru maupun melaporkan bug melalui menu **issues** yang
 ## Berkontribusi
 
 Siapapun dapat berkontribusi pada proyek ini mulai dari pemrograman, pembuakan buku manual, sampai dengan mengenalkan produk ini kepada masyarakat Indonesia agar mengurangi kesenjangan pendidikan teknologi dengan cara membuat postingan issue di repository ini.
+# Toko85
