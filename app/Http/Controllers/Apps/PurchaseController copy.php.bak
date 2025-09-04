@@ -1,0 +1,221 @@
+<?php
+namespace App\Http\Controllers\Apps;
+
+use App\Models\Unit;
+use Inertia\Inertia;
+use App\Models\Stock;
+use App\Models\Product;
+use App\Models\Category;
+use App\Models\Customer;
+use App\Models\Purchase;
+use App\Models\Supplier;
+use App\Models\Warehouse;
+use App\Models\PriceHistory;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+use App\Helpers\UnitConversionHelper;
+
+class PurchaseController extends Controller
+{
+   public function index()
+    {
+        $purchases = Purchase::with([
+            'supplier',
+            'warehouse',
+            'items.product',
+            'items.unit',
+            'items.category' // Tambahkan ini
+        ])->latest()->get();
+
+        // Hapus dd($purchases) untuk produksi, gunakan hanya untuk debugging
+        // dd($purchases);
+        return Inertia::render('Dashboard/Purchases/Index', [
+            'purchases' => $purchases
+        ]);
+    }
+
+    public function create()
+    {
+        $units = Unit::all();
+        $units = $units->map(function($u) {
+            $label = [];
+            if ($u->ton && $u->ton > 0) $label[] = 'Ton (' . ($u->ton * 1000) . ' kg)';
+            if ($u->sak && $u->sak > 0) $label[] = 'Sak (' . ($u->sak * 25) . ' kg)';
+            if ($u->inner && $u->inner > 0) $label[] = 'Inner (' . ($u->inner * 5) . ' kg)';
+            if ($u->qty && $u->qty > 0) $label[] = 'Kg (' . $u->qty . ' kg)';
+            $u->label = implode(' / ', $label) ?: 'Satuan';
+            return $u;
+        });
+
+        return Inertia::render('Dashboard/Purchases/Create', [
+            'suppliers' => Supplier::all(),
+            'warehouses' => Warehouse::all(),
+            'products' => Product::all(),
+            'units' => $units,
+            'categories' => Category::select('id', 'name')->get(),
+        ]);
+    }
+
+   public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'supplier_id' => 'required|exists:suppliers,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'purchase_date' => 'required|date',
+            'items' => 'required|array|min:1',
+            'items.*.product_id' => 'required|exists:products,id',
+            'items.*.unit_id' => 'required|exists:units,id',
+            'items.*.category_id' => 'required|exists:categories,id',
+            'items.*.qty' => 'required|numeric|min:1',
+            'items.*.price' => 'required|numeric|min:0',
+        ]);
+
+        Log::info('Validated Data:', $validated); // Log data yang divalidasi
+
+        return DB::transaction(function () use ($validated) {
+            $total = 0;
+            foreach ($validated['items'] as $item) {
+                $subtotal = $item['qty'] * $item['price'];
+                $total += $subtotal;
+            }
+
+            $purchase = Purchase::create([
+                'supplier_id' => $validated['supplier_id'],
+                'warehouse_id' => $validated['warehouse_id'],
+                'purchase_date' => $validated['purchase_date'],
+                'total' => $total,
+                'user_id' => Auth::id(),
+            ]);
+
+            foreach ($validated['items'] as $item) {
+                $subtotal = $item['qty'] * $item['price'];
+                // Simpan detail item
+                $purchaseItem = $purchase->items()->create([
+                    'purchase_id' => $purchase->id,
+                    'product_id' => $item['product_id'],
+                    'unit_id' => $item['unit_id'],
+                    'category_id' => $item['category_id'],
+                    'qty' => $item['qty'], // qty asal
+                    'price' => $item['price'],
+                    'subtotal' => $subtotal,
+                ]);
+                // Konversi qty ke satuan dasar (kg) pakai helper
+                $unit = \App\Models\Unit::find($item['unit_id']);
+                $qty_kg = UnitConversionHelper::toKg($item['qty'], $unit ? $unit->conversion_to_kg : 1);
+                $konversi = UnitConversionHelper::fromKg($qty_kg);
+                // Tambah stok ton
+                $stockTon = \App\Models\Stock::firstOrCreate([
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $validated['warehouse_id'],
+                    'unit_id' => 3, // 3 = ton
+                    'purchase_date' => $validated['purchase_date'],
+                ]);
+                $stockTon->qty += $konversi['ton'];
+                $stockTon->purchase_date = $validated['purchase_date'];
+                $stockTon->save();
+                // Tambah stok sak
+                $stockSak = \App\Models\Stock::firstOrCreate([
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $validated['warehouse_id'],
+                    'unit_id' => 2, // 2 = sak
+                    'purchase_date' => $validated['purchase_date'],
+                ]);
+                $stockSak->qty += $konversi['sak'];
+                $stockSak->purchase_date = $validated['purchase_date'];
+                $stockSak->save();
+                // Tambah stok kg
+                $stockKg = \App\Models\Stock::firstOrCreate([
+                    'product_id' => $item['product_id'],
+                    'warehouse_id' => $validated['warehouse_id'],
+                    'unit_id' => 1, // 1 = kg
+                    'purchase_date' => $validated['purchase_date'],
+                ]);
+                $stockKg->qty += $konversi['kg'];
+                $stockKg->purchase_date = $validated['purchase_date'];
+                $stockKg->save();
+            }
+
+            return redirect()->route('purchases.index')->with('success', 'Pembelian berhasil disimpan');
+        });
+    }
+
+    public function edit($id)
+    {
+        $purchase = Purchase::with(['items', 'supplier', 'warehouse'])->findOrFail($id);
+        $units = Unit::all();
+        return Inertia::render('Dashboard/Purchases/Edit', [
+            'purchase' => $purchase,
+            'suppliers' => Supplier::all(),
+            'warehouses' => Warehouse::all(),
+            'products' => Product::all(),
+            'units' => $units,
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $purchase = Purchase::findOrFail($id);
+        $request->validate([
+            'no_po' => 'required',
+            'supplier_id' => 'required|exists:suppliers,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'purchase_date' => 'required|date',
+            'product_id' => 'required|exists:products,id',
+            'unit_id' => 'required|exists:units,id',
+            'qty' => 'required|numeric|min:1',
+            'price' => 'required|numeric|min:0',
+        ], [
+            'no_po.required' => 'Nomor PO wajib diisi.',
+            'supplier_id.required' => 'Supplier wajib dipilih.',
+            'warehouse_id.required' => 'Gudang wajib dipilih.',
+            'purchase_date.required' => 'Tanggal pembelian wajib diisi.',
+            'product_id.required' => 'Produk wajib dipilih.',
+            'unit_id.required' => 'Satuan wajib dipilih.',
+            'qty.min' => 'Kuantitas harus lebih dari 0.',
+            'price.min' => 'Harga tidak boleh negatif.',
+        ]);
+
+        DB::transaction(function () use ($request, $purchase) {
+            $purchase->update([
+                'no_po' => $request->no_po,
+                'supplier_id' => $request->supplier_id,
+                'warehouse_id' => $request->warehouse_id,
+                'purchase_date' => $request->purchase_date,
+                'total' => $request->qty * $request->price,
+            ]);
+
+            // Update or create purchase item
+            $purchase->items()->updateOrCreate(
+                ['id' => $request->id],
+                [
+                    'product_id' => $request->product_id,
+                    'unit_id' => $request->unit_id,
+                    'qty' => $request->qty,
+                    'price' => $request->price,
+                    'subtotal' => $request->qty * $request->price,
+                ]
+            );
+        });
+
+        return to_route('purchases.index')->with('success', 'Pembelian berhasil diperbarui');
+    }
+
+    public function destroy($id)
+    {
+        $purchase = Purchase::findOrFail($id);
+        $purchase->items()->delete(); // Delete related items
+        $purchase->delete();
+        return to_route('purchases.index')->with('success', 'Pembelian berhasil dihapus');
+    }
+
+    public function show($id)
+    {
+        $purchase = Purchase::with(['items.unit', 'supplier', 'warehouse'])->findOrFail($id);
+        return Inertia::render('Dashboard/Purchases/Show', [
+            'purchase' => $purchase
+        ]);
+    }
+}

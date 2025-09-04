@@ -1,0 +1,84 @@
+<?php
+
+namespace App\Http\Controllers\Apps;
+
+use App\Models\Subcategory;
+use App\Models\Category;
+use Illuminate\Http\Request;
+use App\Http\Controllers\Controller;
+use Inertia\Inertia;
+
+class SubcategoryController extends Controller
+
+{
+    public function index()
+    {
+        $subcategories = Subcategory::with('category')->latest()->paginate(10);
+        return Inertia::render('Dashboard/Subcategories/Index', [
+            'subcategories' => $subcategories,
+        ]);
+    }
+
+    public function create()
+    {
+        $categories = Category::all(['id', 'name']);
+        return Inertia::render('Dashboard/Subcategories/Create', [
+            'categories' => $categories,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|unique:subcategories,code',
+            'name' => 'required',
+            'description' => 'nullable',
+            'category_id' => 'required|exists:categories,id',
+        ]);
+        Subcategory::create($request->only('code', 'name', 'description', 'category_id'));
+
+        // Cek jika ada query string from=purchase_create, redirect ke purchases.create
+        if ($request->query('from') === 'purchase_create') {
+            return to_route('purchases.create')->with('success', 'Subkategori berhasil ditambahkan.');
+        }
+        return to_route('subcategories.index');
+    }
+
+    public function edit(Subcategory $subcategory)
+    {
+        $categories = Category::all(['id', 'name']);
+        return Inertia::render('Dashboard/Subcategories/Edit', [
+            'subcategory' => $subcategory,
+            'categories' => $categories,
+        ]);
+    }
+
+    public function update(Request $request, Subcategory $subcategory)
+    {
+        $request->validate([
+            'code' => 'required|unique:subcategories,code,' . $subcategory->getKey(),
+            'name' => 'required',
+            'description' => 'nullable',
+            'category_id' => 'required|exists:categories,id',
+        ]);
+        $subcategory->update($request->only('code', 'name', 'description', 'category_id'));
+        return to_route('subcategories.index');
+    }
+
+    public function destroy(Subcategory $subcategory)
+    {
+        $subcategory->delete();
+        return to_route('subcategories.index');
+    }
+
+    // Tambahkan method show di akhir class
+    public function show(Subcategory $subcategory)
+    {
+        $subcategory->load('category');
+        // Jika ingin menampilkan produk, tambahkan relasi 'products' di model Subcategory
+        // $subcategory->load('products');
+        return Inertia::render('Dashboard/Subcategories/Show', [
+            'subcategory' => $subcategory,
+        ]);
+    }
+}

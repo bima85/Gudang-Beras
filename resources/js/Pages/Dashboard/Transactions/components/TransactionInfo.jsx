@@ -1,0 +1,144 @@
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Badge } from "@/Components/ui/badge";
+import { Button } from "@/Components/ui/button";
+import { cn } from "@/lib/utils";
+import { Info, MapPin, User, Calendar, Clock, Receipt } from "lucide-react";
+
+export default function TransactionInfo({
+    selectedWarehouse,
+    warehouses,
+    location,
+    auth,
+    className,
+}) {
+    const currentWarehouse = selectedWarehouse
+        ? warehouses.find((w) => w.id === selectedWarehouse)
+        : null;
+
+    const currentDate = new Date();
+    const formattedDate = currentDate.toLocaleDateString("id-ID", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+    });
+
+    const formattedTime = currentDate.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+
+    return (
+        <Card className={cn("h-fit", className)}>
+            <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-lg">
+                    <Info className="w-5 h-5 text-primary" />
+                    Informasi Transaksi
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                {/* Date and Time */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="w-4 h-4" />
+                            <span className="font-medium">Tanggal</span>
+                        </div>
+                        <p className="text-sm font-semibold">{formattedDate}</p>
+                    </div>
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Clock className="w-4 h-4" />
+                            <span className="font-medium">Waktu</span>
+                        </div>
+                        <p className="text-sm font-semibold">{formattedTime}</p>
+                    </div>
+                </div>
+
+                {/* User Info */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <User className="w-4 h-4" />
+                        <span className="font-medium">Kasir</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">
+                            {auth?.user?.name}
+                        </p>
+                        <Badge variant="outline" className="text-xs">
+                            {auth?.user?.email}
+                        </Badge>
+                    </div>
+                </div>
+
+                {/* Location Info */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <MapPin className="w-4 h-4" />
+                        <span className="font-medium">Lokasi</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold">
+                            {location || "Tidak diketahui"}
+                        </p>
+                        {location && (
+                            <Badge variant="secondary" className="text-xs">
+                                {location.toLowerCase().includes("toko")
+                                    ? "Toko"
+                                    : "Gudang"}
+                            </Badge>
+                        )}
+                    </div>
+                </div>
+
+                {/* Warehouse Info */}
+                {currentWarehouse && (
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Receipt className="w-4 h-4" />
+                            <span className="font-medium">Gudang Aktif</span>
+                        </div>
+                        <div className="p-3 bg-muted/30 rounded-lg border">
+                            <p className="text-sm font-semibold">
+                                {currentWarehouse.name}
+                            </p>
+                            {currentWarehouse.address && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                    {currentWarehouse.address}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* Quick Actions */}
+                <div className="pt-4 border-t">
+                    <div className="space-y-2">
+                        <p className="text-sm font-medium text-muted-foreground">
+                            Aksi Cepat
+                        </p>
+                        <div className="grid grid-cols-2 gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                            >
+                                <Receipt className="w-3 h-3 mr-1" />
+                                Riwayat
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="text-xs"
+                            >
+                                <Info className="w-3 h-3 mr-1" />
+                                Bantuan
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </CardContent>
+        </Card>
+    );
+}

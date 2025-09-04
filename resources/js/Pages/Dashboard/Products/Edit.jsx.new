@@ -1,0 +1,218 @@
+import React, { useState } from "react";
+import DashboardLayout from "@/Layouts/DashboardLayout";
+import { Head, useForm, usePage, router } from "@inertiajs/react";
+import Card from "@/Components/Dashboard/Card";
+import Button from "@/Components/Dashboard/Button";
+import { IconPencilPlus, IconUsersPlus } from "@tabler/icons-react";
+import Input from "@/Components/Dashboard/Input";
+import toast from "react-hot-toast";
+import InputSelect from "@/Components/Dashboard/InputSelect";
+
+export default function Edit({ categories, product, subcategories }) {
+    const { errors } = usePage().props;
+    const { data, setData, post, processing } = useForm({
+        name: product.name || "",
+        category_id: product.category_id || "",
+        subcategory_id: product.subcategory_id || "",
+        unit_id: product.unit_id || "",
+        barcode: product.barcode || "",
+        image: "",
+        min_stock: product.min_stock || "",
+        description: product.description || "",
+        _method: "PUT",
+    });
+    
+    const [selectedCategory, setSelectedCategory] = useState(
+        product.category_id ? categories.find(c => c.id === product.category_id) : null
+    );
+    const [selectedSubcategory, setSelectedSubcategory] = useState(
+        product.subcategory_id ? subcategories.find(s => s.id === product.subcategory_id) : null
+    );
+
+    const handleImageChange = (e) => {
+        const image = e.target.files[0];
+        setData("image", image);
+    };
+
+    const setSelectedCategoryHandler = (value) => {
+        setSelectedCategory(value);
+        setData("category_id", value ? value.id : "");
+        setSelectedSubcategory(null);
+        setData("subcategory_id", "");
+    };
+
+    const setSelectedSubcategoryHandler = (value) => {
+        setSelectedSubcategory(value);
+        setData("subcategory_id", value ? value.id : "");
+    };
+
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        post(route("products.update", product.id), {
+            onSuccess: () => {
+                toast.success("Data berhasil diubah");
+            },
+            onError: () => {
+                toast.error("Gagal mengubah data");
+            }
+        });
+    };
+
+    const handleBack = () => {
+        router.get(route("products.index"));
+    };
+
+    return (
+        <>
+            <Head title="Ubah Data Produk" />
+            <Card
+                title="Ubah Data Produk"
+                icon={<IconUsersPlus size={20} strokeWidth={1.5} />}
+                footer={
+                    <div className="flex gap-2">
+                        <Button
+                            type="button"
+                            label="Kembali"
+                            className="border bg-gray-300 text-gray-800 hover:bg-gray-400 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 transition-colors px-4 py-2 rounded shadow"
+                            onClick={handleBack}
+                        />
+                        <Button
+                            type="submit"
+                            label="Simpan Perubahan"
+                            icon={<IconPencilPlus size={20} strokeWidth={1.5} />}
+                            className="border bg-blue-600 text-white hover:bg-blue-800 dark:bg-blue-700 dark:hover:bg-blue-800 transition-colors px-4 py-2 rounded shadow"
+                            processing={processing}
+                            disabled={processing}
+                            onClick={handleSubmit}
+                        />
+                    </div>
+                }
+            >
+                <div className="grid grid-cols-12 gap-6 md:gap-4">
+                    {/* Kategori & Subkategori */}
+                    <div className="col-span-12 md:col-span-6 grid grid-cols-2 gap-4">
+                        <InputSelect
+                            label="Kategori"
+                            data={categories}
+                            selected={selectedCategory}
+                            setSelected={setSelectedCategoryHandler}
+                            placeholder="Pilih kategori"
+                            error={errors.category_id}
+                            displayKey="name"
+                            className="w-full"
+                        />
+                        <InputSelect
+                            label="Subkategori"
+                            data={subcategories.filter(
+                                (sub) =>
+                                    !selectedCategory ||
+                                    sub.category_id === selectedCategory.id
+                            )}
+                            selected={selectedSubcategory}
+                            setSelected={setSelectedSubcategoryHandler}
+                            placeholder={
+                                selectedCategory
+                                    ? "Pilih subkategori"
+                                    : "Pilih kategori dulu"
+                            }
+                            error={errors.subcategory_id}
+                            displayKey="name"
+                            className="w-full"
+                            disabled={!selectedCategory}
+                        />
+                    </div>
+
+                    {/* Barcode & Nama */}
+                    <div className="col-span-12 md:col-span-6 grid grid-cols-2 gap-4">
+                        <Input
+                            type="text"
+                            label="Kode Produk/Barcode"
+                            value={data.barcode}
+                            onChange={(e) => setData("barcode", e.target.value)}
+                            error={errors.barcode}
+                            placeholder="Barcode"
+                        />
+                        <Input
+                            type="text"
+                            label="Nama"
+                            value={data.name}
+                            onChange={(e) => setData("name", e.target.value)}
+                            error={errors.name}
+                            placeholder="Nama produk"
+                        />
+                    </div>
+
+                    {/* Satuan */}
+                    <div className="col-span-12 md:col-span-6">
+                        <InputSelect
+                            label="Satuan"
+                            data={product.units || []}
+                            selected={
+                                product.units?.find(
+                                    (u) => u.id === data.unit_id
+                                ) || null
+                            }
+                            setSelected={(unit) =>
+                                setData("unit_id", unit ? unit.id : "")
+                            }
+                            placeholder="Pilih satuan"
+                            error={errors.unit_id}
+                            displayKey="name"
+                        />
+                    </div>
+
+                    {/* Stok Minimal */}
+                    <div className="col-span-12 md:col-span-6">
+                        <Input
+                            type="number"
+                            label="Stok Minimal"
+                            value={data.min_stock}
+                            onChange={(e) =>
+                                setData("min_stock", e.target.value)
+                            }
+                            error={errors.min_stock}
+                            placeholder="Stok minimal"
+                        />
+                    </div>
+
+                    {/* Deskripsi */}
+                    <div className="col-span-12">
+                        <Input
+                            type="text"
+                            label="Deskripsi"
+                            value={data.description}
+                            onChange={(e) =>
+                                setData("description", e.target.value)
+                            }
+                            error={errors.description}
+                            placeholder="Deskripsi produk"
+                        />
+                    </div>
+
+                    {/* Upload Gambar */}
+                    <div className="col-span-12">
+                        <Input
+                            type="file"
+                            label="Gambar"
+                            onChange={handleImageChange}
+                            error={errors.image}
+                            placeholder="Gambar produk"
+                        />
+                    </div>
+                </div>
+
+                {errors && Object.keys(errors).length > 0 && (
+                    <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded text-sm">
+                        <ul className="list-disc pl-5">
+                            {Object.entries(errors).map(([field, msg]) => (
+                                <li key={field}>{msg}</li>
+                            ))}
+                        </ul>
+                    </div>
+                )}
+            </Card>
+        </>
+    );
+}
+
+Edit.layout = (page) => <DashboardLayout children={page} />;

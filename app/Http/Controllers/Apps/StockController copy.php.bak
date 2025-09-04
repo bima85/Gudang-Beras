@@ -1,0 +1,118 @@
+<?php
+
+namespace App\Http\Controllers\Apps;
+
+use App\Models\Unit;
+use App\Models\Stock;
+use App\Models\Product;
+use App\Models\Category;
+use App\Models\Warehouse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+use Illuminate\Support\Facades\Auth;
+
+class StockController extends Controller
+{
+    public function index(Request $request)
+    {
+        $products = Product::with(['category'])->get();
+        $units = Unit::all(['id', 'name', 'conversion_to_kg', 'symbol']);
+        $warehouses = Warehouse::all(['id', 'name']);
+
+        // Rekap stok per tanggal, produk, dan unit
+        $stocks = Stock::selectRaw('
+                purchase_date,
+                product_id,
+                unit_id,
+                SUM(qty) as total_qty
+            ')
+            ->with(['product', 'product.category', 'unit', 'warehouse'])
+            ->groupBy('purchase_date', 'product_id', 'unit_id')
+            ->orderBy('purchase_date', 'desc')
+            ->orderBy('product_id')
+            ->orderBy('unit_id')
+            ->get();
+
+        return inertia('Dashboard/Stocks/Index', [
+            'stocks' => $stocks,
+            'products' => $products,
+            'units' => $units,
+            'warehouses' => $warehouses,
+            'filters' => $request->only(['product_id', 'warehouse_id', 'type', 'start_date', 'end_date']),
+        ]);
+    }
+
+    public function create()
+    {
+        $products = Product::all();
+        $units = Unit::all(['id', 'name', 'conversion_to_kg', 'symbol']);
+        $categories = Category::all(['id', 'name']);
+        $warehouses = Warehouse::all(['id', 'name']);
+        return inertia('Dashboard/Stocks/Create', [
+            'products' => $products,
+            'units' => $units,
+            'categories' => $categories,
+            'warehouses' => $warehouses,
+        ]);
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'product_id' => 'required|exists:products,id',
+            'unit_id' => 'required|exists:units,id',
+            'warehouse_id' => 'nullable|exists:warehouses,id',
+            'qty' => 'required|numeric|min:1',
+            'type' => 'required|in:initial,in,out,adjustment',
+        ]);
+        $unit = Unit::find($request->unit_id);
+        $qty_kg = $request->qty * $unit->multiplier;
+        $lastStock = Stock::where('product_id', $request->product_id)
+            ->where('warehouse_id', $request->warehouse_id)
+            ->orderByDesc('id')->first();
+        $sisa_stok = $lastStock ? $lastStock->sisa_stok : 0;
+        if ($request->type === 'in' || $request->type === 'initial') {
+            $sisa_stok += $qty_kg;
+        } elseif ($request->type === 'out') {
+            $sisa_stok -= $qty_kg;
+        } elseif ($request->type === 'adjustment') {
+            $sisa_stok = $qty_kg;
+        }
+        Stock::create([
+            'product_id' => $request->product_id,
+            'unit_id' => $request->unit_id,
+            'warehouse_id' => $request->warehouse_id,
+            'qty' => $request->qty,
+            'type' => $request->type,
+            'note' => $request->note,
+            'sisa_stok' => $sisa_stok,
+            'user_id' => $request->user()->id,
+        ]);
+        $product = Product::find($request->product_id);
+        if ($product) {
+            $product->stock = $sisa_stok;
+            $product->save();
+        }
+        return redirect()->route('stocks.index')->with('success', 'Stok berhasil diperbarui');
+    }
+
+    public function destroy(Stock $stock)
+    {
+        $stock->delete();
+        return redirect()->route('stocks.index')->with('success', 'Data stok berhasil dihapus.');
+    }
+
+    // Hapus semua stok berdasarkan product_id (untuk agregasi stok per produk)
+    public function deleteByProduct($productId)
+    {
+        $deleted = Stock::where('product_id', $productId)->delete();
+        Log::info('DeleteByProduct', [
+            'product_id' => $productId,
+            'deleted_rows' => $deleted,
+            'user_id' => Auth::id(),
+            'time' => now()->toDateTimeString(),
+        ]);
+        return redirect()->route('stocks.index')->with('success', 'Semua stok produk berhasil dihapus. (' . $deleted . ' baris)');
+    }
+}

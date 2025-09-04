@@ -1,0 +1,17 @@
+HAPUS FILE MIGRATION BERIKUT (duplikat, sudah digantikan oleh migration terbaru):
+
+- database/migrations/2025_07_04_000000_create_units_table.php
+- database/migrations/2024_06_13_132751_create_warehouses_table.php
+- database/migrations/2025_07_06_199999_create_suppliers_table.php
+- database/migrations/2024_06_13_131744_create_products_table.php
+- database/migrations/2025_07_03_000000_create_stocks_table.php
+- database/migrations/2025_07_06_200000_create_purchases_table.php
+- database/migrations/2025_07_06_200001_create_purchase_details_table.php
+
+SISAKAN migration terbaru:
+- database/migrations/2025_07_10_000001_create_purchases_and_related_tables.php
+
+Setelah menghapus file di atas, jalankan kembali:
+php artisan migrate:fresh --seed
+
+Catatan: Migration update/alter (misal: update_category_fk_products_table, make_image_nullable_in_products_table, update_products_unit_id) boleh dipertahankan jika memang diperlukan.

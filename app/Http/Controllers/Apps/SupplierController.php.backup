@@ -1,0 +1,75 @@
+<?php
+
+namespace App\Http\Controllers\Apps;
+
+use App\Http\Controllers\Controller;
+use App\Models\Supplier;
+use Illuminate\Http\Request;
+use Inertia\Inertia;
+
+class SupplierController extends Controller
+{
+    public function index()
+    {
+        $suppliers = Supplier::all();
+        return Inertia::render('Dashboard/Suppliers/Index', [
+            'suppliers' => $suppliers
+        ]);
+    }
+
+    public function create()
+    {
+        return Inertia::render('Dashboard/Suppliers/Create');
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:255',
+        ]);
+        $supplier = Supplier::create($validated);
+
+        if ($request->expectsJson() || $request->ajax()) {
+            return response()->json($supplier, 201);
+        }
+
+        return redirect()->route('suppliers.index')->with('success', 'Supplier created successfully.');
+    }
+
+    public function edit($id)
+    {
+        $supplier = Supplier::findOrFail($id);
+        return Inertia::render('Dashboard/Suppliers/Edit', [
+            'supplier' => $supplier
+        ]);
+    }
+
+    public function update(Request $request, $id)
+    {
+        $supplier = Supplier::findOrFail($id);
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20',
+            'address' => 'nullable|string|max:255',
+        ]);
+        $supplier->update($validated);
+        return redirect()->route('suppliers.index')->with('success', 'Supplier updated successfully.');
+    }
+
+    public function destroy($id)
+    {
+        $supplier = Supplier::findOrFail($id);
+        $supplier->delete();
+        return redirect()->route('suppliers.index')->with('success', 'Supplier deleted successfully.');
+    }
+
+    public function show($id)
+    {
+        $supplier = Supplier::findOrFail($id);
+        return Inertia::render('Dashboard/Suppliers/Show', [
+            'supplier' => $supplier
+        ]);
+    }
+}

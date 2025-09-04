@@ -1,0 +1,400 @@
+<?php
+
+namespace App\Http\Controllers\Apps;
+
+use App\Models\Cart;
+use App\Models\Unit;
+use Inertia\Inertia;
+use App\Models\Stock;
+use App\Models\Product;
+use App\Models\Category;
+use App\Models\Customer;
+use App\Models\Transaction;
+use Illuminate\Support\Str;
+use Illuminate\Http\Request;
+use App\Models\UnitConversion;
+use Illuminate\Support\Facades\Log;
+use App\Http\Controllers\Controller;
+
+class TransactionController extends Controller
+{
+    /**
+     * Display the transaction index page.
+     *
+     * @return \Inertia\Response
+     */
+    public function index()
+    {
+        $userId = request()->user()->id;
+
+        $carts = Cart::with(['product.category', 'unit'])
+            ->where('cashier_id', $userId)
+            ->latest()
+            ->get();
+        $customers = Customer::latest()->get();
+        $warehouses = \App\Models\Warehouse::all();
+        $categories = Category::select('id', 'name')->get();
+        $units = Unit::all(['id', 'name', 'conversion_to_kg']);
+
+        return Inertia::render('Dashboard/Transactions/Index', [
+            'carts' => $carts->map(function ($cart) {
+                return [
+                    'id' => $cart->id,
+                    'product' => $cart->product,
+                    'qty' => $cart->qty,
+                    'price' => $cart->price,
+                    'satuan' => $cart->satuan,
+                    'unit' => $cart->unit,
+                ];
+            }),
+            // carts_total = qty * konversi satuan * harga satuan (price manual jika ada)
+            'carts_total' => $carts->reduce(function ($total, $cart) {
+                $qty = $cart->qty ?? 0;
+                $konversi = $cart->unit ? $cart->unit->conversion_to_kg : 1;
+                $harga = $cart->price ?? 0;
+                return $total + ($qty * $konversi * $harga);
+            }, 0),
+            'customers' => $customers,
+            'warehouses' => $warehouses,
+            'categories' => $categories,
+            'units' => $units,
+        ]);
+    }
+
+    /**
+     * Search product by barcode or name.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function searchProduct(Request $request)
+    {
+        $query = $request->barcode;
+        $product = Product::where('barcode', $query)
+            ->orWhere('name', 'like', "%$query%")
+            ->first();
+
+        if ($product) {
+            // Ambil satuan dari tabel units
+            $units = Unit::all(['id', 'name', 'conversion_to_kg']);
+            $product->units = $units;
+            $product->selectedUnit = $units->first();
+            // Ambil stok per gudang jika warehouse_id dikirim
+            $stockQuery = Stock::where('product_id', $product->id);
+            if ($request->has('warehouse_id') && $request->warehouse_id) {
+                $stockQuery = $stockQuery->where('warehouse_id', $request->warehouse_id);
+            }
+            $stock = $stockQuery->orderByDesc('id')->first();
+            $product->stock = $stock ? $stock->sisa_stok : 0;
+            return response()->json([
+                'success' => true,
+                'data' => $product,
+            ]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'data' => null,
+        ]);
+    }
+
+    /**
+     * Add product to cart.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function addToCart(Request $request)
+    {
+        // dd($request->all());
+        // Log::info('[addToCart] request', $request->all());
+        $product = Product::find($request->product_id);
+
+        // Validasi qty
+        $qty = (int) $request->qty;
+        if ($qty < 1) {
+            return response()->json(['success' => false, 'message' => 'Qty tidak boleh kosong'], 422);
+        }
+
+        if (!$product) {
+            return response()->json(['success' => false, 'message' => 'Product not found.'], 404);
+        }
+
+        // Ambil satuan dari tabel units
+        $unit = Unit::find($request->satuan);
+        $conversion = $unit ? $unit->conversion_to_kg : 1;
+        $qty_kg = $qty * $conversion;
+
+        // Pastikan $userId didefinisikan sebelum digunakan
+        $userId = request()->user()->id;
+
+        $cart = Cart::where('product_id', $request->product_id)
+            ->where('cashier_id', $userId)
+            ->where('satuan', $request->satuan)
+            ->first();
+
+        // Gunakan harga satuan dari input jika ada, jika tidak pakai default
+        $input_price = $request->has('sell_price') && $request->sell_price !== null && $request->sell_price !== ''
+            ? floatval($request->sell_price)
+            : ($product->sell_price * $conversion);
+
+        if ($cart) {
+            // Update harga jika user input harga manual berbeda
+            $cart->qty += $qty;
+            $cart->price = $input_price;
+            $cart->save();
+        } else {
+            Cart::create([
+                'cashier_id' => $userId,
+                'product_id' => $request->product_id,
+                'qty' => $qty,
+                'satuan' => $request->satuan,
+                'price' => $input_price,
+            ]);
+        }
+
+        // Ambil carts dan carts_total terbaru untuk user ini
+        $carts = Cart::with(['product.category', 'unit'])
+            ->where('cashier_id', $userId)
+            ->latest()
+            ->get();
+        $cartsData = $carts->map(function ($cart) {
+            return [
+                'id' => $cart->id,
+                'product' => $cart->product,
+                'qty' => $cart->qty,
+                'price' => $cart->price,
+                'satuan' => $cart->satuan,
+                'unit' => $cart->unit,
+            ];
+        });
+        $carts_total = $carts->reduce(function ($total, $cart) {
+            return $total + (($cart->unit ? $cart->unit->conversion_to_kg : 1) * $cart->product->sell_price);
+        }, 0);
+
+        Log::info('[addToCart] cart created/updated', [
+            'userId' => $userId,
+            'product_id' => $request->product_id,
+            'qty' => $qty,
+            'satuan' => $request->satuan,
+        ]);
+
+        // Kembalikan data carts dan carts_total agar frontend bisa update tanpa reload
+        return response()->json([
+            'success' => true,
+            'message' => 'Product Added Successfully!',
+            'carts' => $cartsData,
+            'carts_total' => $carts_total,
+        ]);
+    }
+
+    /**
+     * Remove cart item.
+     *
+     * @param  int  $cart_id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function destroyCart($cart_id)
+    {
+        $cart = Cart::find($cart_id);
+
+        if ($cart) {
+            $cart->delete();
+        }
+
+        // Ambil ulang carts dan carts_total untuk user saat ini
+        $userId = request()->user()->id;
+        $carts = Cart::with(['product.category', 'unit'])
+            ->where('cashier_id', $userId)
+            ->latest()
+            ->get();
+        $cartsData = $carts->map(function ($cart) {
+            return [
+                'id' => $cart->id,
+                'product' => $cart->product,
+                'qty' => $cart->qty,
+                'price' => $cart->price,
+                'satuan' => $cart->satuan,
+                'unit' => $cart->unit,
+            ];
+        });
+        $carts_total = $carts->reduce(function ($total, $cart) {
+            return $total + (($cart->unit ? $cart->unit->conversion_to_kg : 1) * $cart->product->sell_price);
+        }, 0);
+
+        return response()->json([
+            'success' => true,
+            'carts' => $cartsData,
+            'carts_total' => $carts_total,
+        ]);
+    }
+
+    /**
+     * Store a new transaction.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function store(Request $request)
+    {
+        Log::info('DEPOSIT DEBUG', [
+            'cash' => $request->cash,
+            'grand_total' => $request->grand_total,
+            'is_deposit' => $request->is_deposit,
+            'deposit_amount' => $request->deposit_amount,
+        ]);
+
+        $random = Str::random(10);
+        $invoice = 'TRX-' . Str::upper($random);
+
+        $transaction = Transaction::create([
+            'cashier_id' => $request->user()->id,
+            'customer_id' => $request->customer_id,
+            'warehouse_id' => $request->warehouse_id,
+            'invoice' => $invoice,
+            'cash' => $request->cash,
+            'change' => $request->change,
+            'discount' => $request->discount,
+            'grand_total' => $request->grand_total,
+            'payment_method' => $request->payment_method ?? 'cash',
+            'is_tempo' => $request->is_tempo ?? false,
+            'tempo_due_date' => $request->tempo_due_date ?? null,
+            'is_deposit' => $request->is_deposit ?? false,
+            'deposit_amount' => $request->deposit_amount ?? null,
+        ]);
+
+        $carts = Cart::with(['product', 'unit'])
+            ->where('cashier_id', $request->user()->id)
+            ->get();
+
+
+        foreach ($carts as $cart) {
+            if (!$cart->product) {
+                continue;
+            }
+
+            $unit = $cart->unit;
+            $unit_id = $unit ? $unit->id : null;
+            $multiplier = $unit ? $unit->multiplier : 1;
+            $qty_kg = $cart->qty * $multiplier;
+
+            $transaction->details()->create([
+                'transaction_id' => $transaction->id,
+                'product_id' => $cart->product_id,
+                'qty' => $cart->qty,
+                'price' => $cart->price,
+                'satuan' => $cart->satuan,
+            ]);
+
+            $total_buy_price = $cart->product->buy_price * $qty_kg;
+            $total_sell_price = $cart->product->sell_price * $qty_kg;
+            $profits = $total_sell_price - $total_buy_price;
+
+            $transaction->profits()->create([
+                'transaction_id' => $transaction->id,
+                'total' => $profits,
+            ]);
+
+            // Update stok per unit di tabel Stock
+            $warehouse_id = $transaction->warehouse_id;
+            $stock = \App\Models\Stock::where('product_id', $cart->product_id)
+                ->where('warehouse_id', $warehouse_id)
+                ->where('unit_id', $unit_id)
+                ->orderByDesc('id')
+                ->first();
+            $old_sisa = $stock ? $stock->sisa_stok : 0;
+            $new_sisa = $old_sisa - $cart->qty;
+            // Catat pengurangan stok
+            \App\Models\Stock::create([
+                'product_id' => $cart->product_id,
+                'unit_id' => $unit_id,
+                'warehouse_id' => $warehouse_id,
+                'qty' => -$cart->qty,
+                'type' => 'out',
+                'note' => 'Transaksi penjualan',
+                'sisa_stok' => $new_sisa,
+                'user_id' => $request->user()->id,
+            ]);
+
+            // Update stock di tabel products (total stock dalam kg)
+            $product = Product::find($cart->product_id);
+            if ($product) {
+                $product->stock -= $qty_kg;
+                $product->save();
+            }
+        }
+
+        Cart::where('cashier_id', $request->user()->id)->delete();
+
+        // Jika pembayaran pakai deposit, kurangi saldo deposit customer sesuai deposit_amount
+        if ($request->payment_method === 'deposit' && $transaction->customer_id) {
+            $customer = Customer::find($transaction->customer_id);
+            if ($customer && $request->deposit_amount > 0) {
+                $customer->deposit -= $request->deposit_amount;
+                if ($customer->deposit < 0) $customer->deposit = 0;
+                $customer->save();
+            }
+        }
+        // Jika input deposit_amount > 0 dan bukan pembayaran deposit, tambahkan ke saldo deposit customer
+        if ($request->deposit_amount && $request->deposit_amount > 0 && $request->payment_method !== 'deposit' && $transaction->customer_id) {
+            $customer = Customer::find($transaction->customer_id);
+            if ($customer) {
+                $customer->deposit += $request->deposit_amount;
+                $customer->save();
+            }
+        }
+
+        return to_route('transactions.print', $transaction->invoice);
+    }
+
+    /**
+     * Print transaction.
+     *
+     * @param  string  $invoice
+     * @return \Inertia\Response
+     */
+    public function print($invoice)
+    {
+        $transaction = Transaction::with([
+            'details.product',
+            'details.unit',
+            'cashier',
+            'customer',
+            'warehouse',
+        ])->where('invoice', $invoice)->firstOrFail();
+
+        return Inertia::render('Dashboard/Transactions/Print', [
+            'transaction' => $transaction,
+        ]);
+    }
+
+    /**
+     * Delete a transaction and its details.
+     *
+     * @param  int  $id
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function destroy($id)
+    {
+        $transaction = Transaction::with(['details', 'profits'])->find($id);
+        if (!$transaction) {
+            return back()->withErrors(['message' => 'Transaksi tidak ditemukan']);
+        }
+        // Hapus detail dan profit
+        if ($transaction->details) {
+            $transaction->details()->delete();
+        }
+        if ($transaction->profits) {
+            $transaction->profits()->delete();
+        }
+        $transaction->delete();
+        return back()->with('success', 'Transaksi berhasil dihapus.');
+    }
+
+    /**
+     * Bulk delete transactions.
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\RedirectResponse
+     */
+    public function bulkDestroy(Request $request)
