@@ -1,25 +1,30 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
-import { Head, usePage } from "@inertiajs/react";
-import Button from "@/Components/Dashboard/Button";
-import {
-    IconCirclePlus,
-    IconDatabaseOff,
-    IconEyeBolt,
-    IconPencilCog,
-    IconTrash,
-} from "@tabler/icons-react";
+import { Head, usePage, Link, router } from "@inertiajs/react";
+import { Button } from "@/Components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
 import {
     Table,
-    Thead,
-    Tbody,
-    Tr,
-    Th,
-    Td,
-    Card,
-    Empty,
-} from "@/Components/Dashboard/Table";
-import Pagination from "@/Components/Dashboard/Pagination";
+    TableHeader,
+    TableBody,
+    TableRow,
+    TableHead,
+    TableCell,
+} from "@/Components/ui/table";
+import { Input } from "@/Components/ui/input";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/Components/ui/select";
+import {
+    IconCirclePlus,
+    IconPencilCog,
+    IconTrash,
+    IconSearch,
+} from "@tabler/icons-react";
 
 export default function Index({ customers }) {
     const { errors } = usePage().props;
@@ -36,166 +41,202 @@ export default function Index({ customers }) {
     return (
         <>
             <Head title="Pelanggan" />
-            <div className="mb-2">
-                <div className="flex justify-between items-center gap-2">
-                    <Button
-                        type="link"
-                        icon={<IconCirclePlus size={20} strokeWidth={1.5} />}
-                        className="border bg-blue-600 text-white hover:bg-blue-700 dark:bg-blue-700 dark:text-white dark:border-blue-700 dark:hover:bg-blue-800"
-                        label="Tambah Data Pelanggan"
-                        href={route("customers.create")}
-                    />
-                    <div className="w-full md:w-4/12 flex gap-2">
-                        <select
-                            value={filterField}
-                            onChange={(e) => setFilterField(e.target.value)}
-                            className="w-1/3 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                        >
-                            <option value="name">Nama</option>
-                            <option value="no_telp">No. Handphone</option>
-                            <option value="address">Alamat</option>
-                        </select>
-                        <input
-                            type="text"
-                            value={filterValue}
-                            onChange={(e) => setFilterValue(e.target.value)}
-                            placeholder={`Cari berdasarkan ${
-                                filterField === "name"
-                                    ? "nama"
-                                    : filterField === "no_telp"
-                                    ? "no. handphone"
-                                    : "alamat"
-                            }...`}
-                            className="w-2/3 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
-                        />
+            <div className="space-y-4">
+                {/* Header with Add Button */}
+                <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+                            Data Pelanggan
+                        </h1>
+                        <p className="text-sm text-gray-600 dark:text-gray-400">
+                            Kelola data pelanggan toko
+                        </p>
                     </div>
+
+                    <Button asChild className="w-full sm:w-auto">
+                        <Link href={route("customers.create")}>
+                            <IconCirclePlus className="w-4 h-4 mr-2" />
+                            Tambah Pelanggan
+                        </Link>
+                    </Button>
                 </div>
-            </div>
-            <Card
-                title={
-                    <span className="text-blue-800 font-bold text-lg">
-                        Data Pelanggan
-                    </span>
-                }
-            >
-                <Table>
-                    <Thead>
-                        <tr>
-                            <Th className="w-10 text-blue-700 font-semibold">
-                                No
-                            </Th>
-                            <Th className="text-blue-700 font-semibold">
-                                Nama
-                            </Th>
-                            <Th className="text-blue-700 font-semibold">
-                                No. Handphone
-                            </Th>
-                            <Th className="text-blue-700 font-semibold">
-                                Alamat
-                            </Th>
-                            <Th className="text-blue-700 font-semibold">
-                                Option
-                            </Th>
-                        </tr>
-                    </Thead>
-                    <Tbody>
-                        {filteredCustomers.length ? (
-                            filteredCustomers.map((customer, i) => (
-                                <tr
-                                    className="hover:bg-blue-50 dark:hover:bg-gray-900"
-                                    key={i}
-                                >
-                                    <Td className="text-center text-blue-900 font-semibold">
-                                        {++i +
-                                            (customers.current_page - 1) *
-                                                customers.per_page}
-                                    </Td>
-                                    <Td className="font-mono text-blue-700 font-bold">
-                                        {customer.name}
-                                    </Td>
-                                    <Td className="text-gray-700">
-                                        {customer.no_telp}
-                                    </Td>
-                                    <Td className="text-gray-900 font-semibold">
-                                        {customer.address}
-                                    </Td>
-                                    <Td>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                type="edit"
-                                                icon={
-                                                    <IconPencilCog
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className="border bg-orange-100 border-orange-300 text-orange-500 hover:bg-orange-200 dark:bg-orange-950 dark:border-orange-800 dark:text-gray-300 dark:hover:bg-orange-900"
-                                                href={route(
-                                                    "customers.edit",
-                                                    customer.id
-                                                )}
-                                            />
-                                            <Button
-                                                type="delete"
-                                                icon={
-                                                    <IconTrash
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className="border bg-rose-100 border-rose-300 text-rose-500 hover:bg-rose-200 dark:bg-rose-950 dark:border-rose-800 dark:text-gray-300 dark:hover:bg-rose-900"
-                                                url={route(
-                                                    "customers.destroy",
-                                                    customer.id
-                                                )}
-                                            />
-                                            <Button
-                                                type="link"
-                                                icon={
-                                                    <IconEyeBolt
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className="border bg-green-100 border-green-300 text-green-700 hover:bg-green-200 dark:bg-green-950 dark:border-green-800 dark:text-gray-300 dark:hover:bg-green-900"
-                                                href={route(
-                                                    "customers.show",
-                                                    customer.id
-                                                )}
-                                                label="Detail"
-                                            />
-                                        </div>
-                                    </Td>
-                                </tr>
-                            ))
+
+                {/* Search Filter */}
+                <Card>
+                    <CardContent className="pt-6">
+                        <div className="flex flex-col gap-4 sm:flex-row">
+                            <Select
+                                value={filterField}
+                                onValueChange={setFilterField}
+                            >
+                                <SelectTrigger className="w-full sm:w-48">
+                                    <SelectValue placeholder="Pilih filter" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="name">Nama</SelectItem>
+                                    <SelectItem value="no_telp">
+                                        No. Handphone
+                                    </SelectItem>
+                                    <SelectItem value="address">
+                                        Alamat
+                                    </SelectItem>
+                                </SelectContent>
+                            </Select>
+
+                            <div className="relative flex-1">
+                                <IconSearch className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                                <Input
+                                    type="text"
+                                    value={filterValue}
+                                    onChange={(e) =>
+                                        setFilterValue(e.target.value)
+                                    }
+                                    placeholder={`Cari berdasarkan ${
+                                        filterField === "name"
+                                            ? "nama"
+                                            : filterField === "no_telp"
+                                            ? "no. handphone"
+                                            : "alamat"
+                                    }...`}
+                                    className="pl-10"
+                                />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Data Table */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center justify-between">
+                            <span>Daftar Pelanggan</span>
+                            <span className="text-sm font-normal text-gray-500">
+                                {filteredCustomers.length} dari{" "}
+                                {customers.total} pelanggan
+                            </span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {filteredCustomers.length > 0 ? (
+                            <div className="border rounded-md">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-16">
+                                                No
+                                            </TableHead>
+                                            <TableHead>Nama</TableHead>
+                                            <TableHead>No. Handphone</TableHead>
+                                            <TableHead>Alamat</TableHead>
+                                            <TableHead className="w-32">
+                                                Deposit
+                                            </TableHead>
+                                            <TableHead className="w-24 text-center">
+                                                Aksi
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredCustomers.map(
+                                            (customer, i) => (
+                                                <TableRow key={customer.id}>
+                                                    <TableCell className="font-medium">
+                                                        {++i +
+                                                            (customers.current_page -
+                                                                1) *
+                                                                customers.per_page}
+                                                    </TableCell>
+                                                    <TableCell className="font-semibold">
+                                                        {customer.name}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {customer.no_telp}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        {customer.address ||
+                                                            "-"}
+                                                    </TableCell>
+                                                    <TableCell className="font-mono">
+                                                        Rp{" "}
+                                                        {parseFloat(
+                                                            customer.deposit ||
+                                                                0
+                                                        ).toLocaleString(
+                                                            "id-ID"
+                                                        )}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex justify-center gap-2">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                asChild
+                                                            >
+                                                                <Link
+                                                                    href={route(
+                                                                        "customers.edit",
+                                                                        customer.id
+                                                                    )}
+                                                                >
+                                                                    <IconPencilCog className="w-4 h-4" />
+                                                                </Link>
+                                                            </Button>
+                                                            <Button
+                                                                variant="destructive"
+                                                                size="sm"
+                                                                onClick={() => {
+                                                                    if (
+                                                                        confirm(
+                                                                            "Apakah Anda yakin ingin menghapus pelanggan ini?"
+                                                                        )
+                                                                    ) {
+                                                                        router.delete(
+                                                                            route(
+                                                                                "customers.destroy",
+                                                                                customer.id
+                                                                            )
+                                                                        );
+                                                                    }
+                                                                }}
+                                                            >
+                                                                <IconTrash className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
                         ) : (
-                            <Empty
-                                colSpan={5}
-                                message={
-                                    <>
-                                        <div className="flex justify-center items-center text-center mb-2">
-                                            <IconDatabaseOff
-                                                size={24}
-                                                strokeWidth={1.5}
-                                                className="text-gray-500 dark:text-white"
-                                            />
-                                        </div>
-                                        <span className="text-gray-500">
-                                            Data pelanggan
-                                        </span>{" "}
-                                        <span className="text-rose-500 underline underline-offset-2">
-                                            tidak ditemukan.
-                                        </span>
-                                    </>
-                                }
-                            />
+                            <div className="py-12 text-center">
+                                <div className="flex items-center justify-center w-24 h-24 mx-auto mb-4 bg-gray-100 rounded-full dark:bg-gray-800">
+                                    <IconSearch className="w-8 h-8 text-gray-400" />
+                                </div>
+                                <h3 className="mb-2 text-lg font-medium text-gray-900 dark:text-gray-100">
+                                    Tidak ada data
+                                </h3>
+                                <p className="text-gray-500 dark:text-gray-400">
+                                    {filterValue
+                                        ? "Tidak ada pelanggan yang sesuai dengan pencarian."
+                                        : "Belum ada data pelanggan."}
+                                </p>
+                            </div>
                         )}
-                    </Tbody>
-                </Table>
-            </Card>
-            {customers.last_page !== 1 && (
-                <Pagination links={customers.links} />
-            )}
+                    </CardContent>
+                </Card>
+
+                {/* Pagination - if needed, can be added later with Shadcn UI Pagination */}
+                {customers.last_page > 1 && (
+                    <div className="flex justify-center">
+                        <div className="text-sm text-gray-500">
+                            Halaman {customers.current_page} dari{" "}
+                            {customers.last_page}
+                        </div>
+                    </div>
+                )}
+            </div>
         </>
     );
 }

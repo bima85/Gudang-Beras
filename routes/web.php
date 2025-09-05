@@ -45,6 +45,25 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// Test route for CSRF debugging
+Route::get('/test-csrf', function () {
+    return view('test-csrf');
+})->middleware(['auth', 'verified']);
+
+// Test route for debugging addToCart permissions  
+Route::post('/test-addtocart-permission', function (\Illuminate\Http\Request $request) {
+    $user = $request->user();
+    return response()->json([
+        'user_id' => $user->id,
+        'user_name' => $user->name,
+        'roles' => $user->roles->pluck('name'),
+        'has_transactions_sell' => $user->hasPermissionTo('transactions.sell'),
+        'is_super_admin' => $user->hasRole('super-admin'),
+        'request_data' => $request->all(),
+        'csrf_token' => csrf_token()
+    ]);
+})->middleware(['auth', 'verified']);
+
 
 // Grup rute dashboard dengan middleware autentikasi
 Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], function () {

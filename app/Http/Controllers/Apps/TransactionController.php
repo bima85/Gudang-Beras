@@ -42,6 +42,80 @@ class TransactionController extends Controller
             'transactions' => $transactions,
         ]);
     }
+
+    /**
+     * Generate automatic invoice number with format TRX-DD/MM/YYYY-XXX
+     */
+    private function generateInvoiceNumber()
+    {
+        $today = now()->format('d/m/Y');
+        $prefix = "TRX-{$today}-";
+
+        // Find the last transaction number for today
+        $lastTransaction = Transaction::where('transaction_number', 'like', $prefix . '%')
+            ->orderBy('transaction_number', 'desc')
+            ->first();
+
+        if ($lastTransaction) {
+            // Extract the last number and increment
+            $lastNumber = (int) substr($lastTransaction->transaction_number, -3);
+            $nextNumber = $lastNumber + 1;
+        } else {
+            // First transaction of the day
+            $nextNumber = 1;
+        }
+
+        // Format with leading zeros (XXX)
+        $formattedNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+
+        return $prefix . $formattedNumber;
+    }
+
+    /**
+     * Generate automatic sequential number (no_urut) globally
+     * Ensures no duplicates and thread-safe operation
+     */
+    private function generateNoUrut()
+    {
+        // Use database transaction with retry mechanism for absolute safety
+        return DB::transaction(function () {
+            $maxRetries = 3;
+            $attempt = 0;
+
+            while ($attempt < $maxRetries) {
+                try {
+                    // Find the highest no_urut with exclusive lock
+                    $maxNoUrut = DB::table('transactions')
+                        ->lockForUpdate()
+                        ->max('no_urut');
+
+                    $nextNumber = ($maxNoUrut ?? 0) + 1;
+
+                    // Double-check that this number is not already used
+                    $exists = Transaction::where('no_urut', $nextNumber)->exists();
+
+                    if (!$exists) {
+                        return $nextNumber;
+                    } else {
+                        // If somehow exists, try again with next number
+                        $nextNumber++;
+                        $attempt++;
+                        continue;
+                    }
+                } catch (\Exception $e) {
+                    $attempt++;
+                    if ($attempt >= $maxRetries) {
+                        throw new \Exception("Failed to generate unique no_urut after {$maxRetries} attempts: " . $e->getMessage());
+                    }
+                    // Wait a bit before retry
+                    usleep(100000); // 0.1 second
+                }
+            }
+
+            throw new \Exception("Failed to generate unique no_urut after maximum retries");
+        });
+    }
+
     /**
      * Cari produk pertama berdasarkan kategori dan subkategori (dan warehouse jika ada)
      */
@@ -637,6 +711,13 @@ class TransactionController extends Controller
             return response()->json(['message' => 'Akses ditolak.'], 403);
         }
         try {
+            // Pastikan no_urut tidak dikirim dari frontend (auto-generated only)
+            if ($request->has('no_urut')) {
+                return response()->json([
+                    'message' => 'Field no_urut tidak boleh dikirim dari frontend. Field ini akan di-generate otomatis.'
+                ], 422);
+            }
+
             // Validasi input
             $validated = $request->validate([
                 'warehouse_id' => 'required|integer|exists:warehouses,id',
@@ -702,8 +783,11 @@ class TransactionController extends Controller
                 ], 422);
             }
 
-            // Gunakan nomor invoice dari request jika ada, jika tidak baru generate random
-            $invoice = $request->invoice ?? ('TRX-' . Str::upper(Str::random(10)));
+            // Generate nomor invoice otomatis
+            $invoice = $this->generateInvoiceNumber();
+
+            // Generate nomor urut otomatis
+            $noUrut = $this->generateNoUrut();
 
             // Simpan transaksi
             $transaction = Transaction::create([
@@ -711,7 +795,8 @@ class TransactionController extends Controller
                 'customer_id' => $request->customer_id,
                 'warehouse_id' => $request->warehouse_id,
                 'invoice' => $invoice,
-                'no_urut' => $request->no_urut ?? null,
+                'transaction_number' => $invoice,
+                'no_urut' => $noUrut,
                 'cash' => $validated['cash'] ?? 0,
                 'change' => $request->add_change_to_deposit ? 0 : ($validated['change'] ?? 0),
                 'discount' => $validated['discount'] ?? 0,

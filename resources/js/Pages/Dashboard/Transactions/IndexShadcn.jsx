@@ -107,15 +107,18 @@ export default function IndexShadcn() {
         setTransactionNumber(generatedNumber);
     }, [transactionSequence]);
 
-    // Auto-select warehouse and toko
+    // Auto-select warehouse and toko to defaults (fixed)
     useEffect(() => {
-        if (warehouses.length === 1) {
+        // If no warehouse selected yet, pick the first available as default
+        if (warehouses && warehouses.length > 0 && !selectedWarehouse) {
             setSelectedWarehouse(warehouses[0].id);
         }
-        if (tokos.length === 1) {
+
+        // If no toko selected yet, pick the first available as default
+        if (tokos && tokos.length > 0 && !selectedToko) {
             setSelectedToko(tokos[0]);
         }
-    }, [warehouses, tokos]);
+    }, [warehouses, tokos, selectedWarehouse, selectedToko]);
 
     // Load saved data from localStorage
     useEffect(() => {

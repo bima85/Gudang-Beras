@@ -49,12 +49,12 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
             <Head title="Stok Toko" />
 
             <div className="py-4">
-                <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-                    <div className="bg-white overflow-hidden shadow-xl sm:rounded-lg">
+                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
+                    <div className="overflow-hidden bg-white shadow-xl sm:rounded-lg">
                         <div className="p-6 border-b border-gray-200">
-                            <div className="flex justify-between items-center mb-4">
+                            <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center">
-                                    <Building className="h-6 w-6 text-green-600 mr-2" />
+                                    <Building className="w-6 h-6 mr-2 text-green-600" />
                                     <h1 className="text-2xl font-bold text-gray-900">
                                         Stok Toko
                                     </h1>
@@ -62,10 +62,10 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
                             </div>
 
                             {/* Filters */}
-                            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                            <div className="flex flex-col gap-4 mb-6 sm:flex-row">
                                 <div className="flex-1">
                                     <div className="relative">
-                                        <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                        <Search className="absolute w-4 h-4 text-gray-400 left-3 top-3" />
                                         <Input
                                             type="text"
                                             placeholder="Cari produk..."
@@ -99,7 +99,7 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
                             </div>
 
                             {/* Summary */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div className="grid grid-cols-1 gap-4 mb-6 md:grid-cols-3">
                                 <Card className="p-4">
                                     <div className="text-center">
                                         <div className="text-2xl font-bold text-green-600">
@@ -123,11 +123,21 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
                                 <Card className="p-4">
                                     <div className="text-center">
                                         <div className="text-2xl font-bold text-purple-600">
-                                            {filteredStocks.reduce(
-                                                (sum, stock) =>
-                                                    sum + stock.qty_in_kg,
-                                                0
-                                            )}
+                                            {(() => {
+                                                const total =
+                                                    filteredStocks.reduce(
+                                                        (sum, stock) =>
+                                                            sum +
+                                                            parseFloat(
+                                                                stock.qty_in_kg ||
+                                                                    0
+                                                            ),
+                                                        0
+                                                    );
+                                                return total % 1 === 0
+                                                    ? parseInt(total)
+                                                    : total;
+                                            })()}
                                         </div>
                                         <div className="text-sm text-gray-600">
                                             Total Stok
@@ -139,8 +149,8 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
 
                         <div className="p-6">
                             {Object.keys(groupedStocks).length === 0 ? (
-                                <div className="text-center py-8">
-                                    <Package className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                                <div className="py-8 text-center">
+                                    <Package className="w-12 h-12 mx-auto mb-4 text-gray-400" />
                                     <p className="text-gray-500">
                                         Tidak ada stok ditemukan
                                     </p>
@@ -150,10 +160,10 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
                                     ([tokoName, stocks]) => (
                                         <Card key={tokoName} className="mb-6">
                                             <div className="p-4 border-b bg-gray-50">
-                                                <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-                                                    <Building className="h-5 w-5 mr-2" />
+                                                <h3 className="flex items-center text-lg font-semibold text-gray-900">
+                                                    <Building className="w-5 h-5 mr-2" />
                                                     {tokoName}
-                                                    <span className="ml-2 text-sm bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                                                    <span className="px-2 py-1 ml-2 text-sm text-green-800 bg-green-100 rounded-full">
                                                         {stocks.length} item
                                                     </span>
                                                 </h3>
@@ -163,16 +173,16 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
                                                     <table className="min-w-full divide-y divide-gray-200">
                                                         <thead className="bg-gray-50">
                                                             <tr>
-                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                                                                     Produk
                                                                 </th>
-                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                                                                     Kode
                                                                 </th>
-                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                                                                     Stok
                                                                 </th>
-                                                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                                <th className="px-6 py-3 text-xs font-medium tracking-wider text-left text-gray-500 uppercase">
                                                                     Terakhir
                                                                     Update
                                                                 </th>
@@ -212,12 +222,23 @@ const StoreStocks = ({ storeStocks = [], tokos = [] }) => {
                                                                                         : "bg-red-100 text-red-800"
                                                                                 }`}
                                                                             >
-                                                                                {
-                                                                                    stock.qty_in_kg
-                                                                                }
+                                                                                {parseFloat(
+                                                                                    stock.qty_in_kg ||
+                                                                                        0
+                                                                                ) %
+                                                                                    1 ===
+                                                                                0
+                                                                                    ? parseInt(
+                                                                                          stock.qty_in_kg ||
+                                                                                              0
+                                                                                      )
+                                                                                    : parseFloat(
+                                                                                          stock.qty_in_kg ||
+                                                                                              0
+                                                                                      )}
                                                                             </span>
                                                                         </td>
-                                                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                                        <td className="px-6 py-4 text-sm text-gray-500 whitespace-nowrap">
                                                                             {stock.updated_at
                                                                                 ? new Date(
                                                                                       stock.updated_at

@@ -326,75 +326,72 @@ export default function ProductForm({
                         </div>
                     )}
 
-                    {/* Warehouse Filter */}
+                    {/* Warehouse Filter (default, not editable) */}
                     <div className="space-y-2">
                         <Label className="text-sm font-medium">Gudang</Label>
                         <Select
                             value={selectedWarehouse?.toString() || "all"}
-                            onValueChange={(value) =>
-                                setSelectedWarehouse(
-                                    value && value !== "all"
-                                        ? parseInt(value)
-                                        : null
-                                )
-                            }
+                            onValueChange={() => {}}
+                            disabled
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="Pilih gudang" />
+                                <SelectValue placeholder="Gudang default" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">
-                                    Semua Gudang
-                                </SelectItem>
-                                {warehouses.map((warehouse) => (
-                                    <SelectItem
-                                        key={warehouse.id}
-                                        value={
-                                            warehouse.id?.toString() ||
-                                            `warehouse-${warehouse.id}`
-                                        }
-                                    >
-                                        {warehouse.name}
+                                {warehouses && warehouses.length > 0 ? (
+                                    warehouses.map((warehouse) => (
+                                        <SelectItem
+                                            key={warehouse.id}
+                                            value={warehouse.id?.toString()}
+                                        >
+                                            {warehouse.name}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <SelectItem value="none">
+                                        No Gudang
                                     </SelectItem>
-                                ))}
+                                )}
                             </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Gudang dipilih secara default dan tidak dapat diubah
+                            dari sini.
+                        </p>
                     </div>
 
-                    {/* Toko Filter */}
+                    {/* Toko Filter (default, not editable) */}
                     <div className="space-y-2">
                         <Label className="text-sm font-medium">Toko</Label>
                         <Select
                             value={selectedToko?.id?.toString() || "all"}
-                            onValueChange={(value) => {
-                                if (value === "all") {
-                                    setSelectedToko(null);
-                                } else {
-                                    const toko = tokos.find(
-                                        (t) => t.id.toString() === value
-                                    );
-                                    setSelectedToko(toko);
-                                }
-                            }}
+                            onValueChange={() => {}}
+                            disabled
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="Pilih toko" />
+                                <SelectValue placeholder="Toko default" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="all">Semua Toko</SelectItem>
-                                {tokos.map((toko) => (
-                                    <SelectItem
-                                        key={toko.id}
-                                        value={
-                                            toko.id?.toString() ||
-                                            `toko-${toko.id}`
-                                        }
-                                    >
-                                        {toko.name}
+                                {tokos && tokos.length > 0 ? (
+                                    tokos.map((toko) => (
+                                        <SelectItem
+                                            key={toko.id}
+                                            value={toko.id?.toString()}
+                                        >
+                                            {toko.name}
+                                        </SelectItem>
+                                    ))
+                                ) : (
+                                    <SelectItem value="none">
+                                        No Toko
                                     </SelectItem>
-                                ))}
+                                )}
                             </SelectContent>
                         </Select>
+                        <p className="text-xs text-muted-foreground">
+                            Toko dipilih secara default dan tidak dapat diubah
+                            dari sini.
+                        </p>
                     </div>
                 </div>
 
