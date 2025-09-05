@@ -1,92 +1,99 @@
-# Aplikasi Kasir (Point of Sales) 
-Aplikasi ini dapat digunakan untuk melakukan pencatatan transaksi jual beli pada sebuah warung atau toko. Secara template, aplikasi ini menggunakan resource dari https://github.com/Raf-Taufiqurrahman/RILT-Starter dengan beberapa modifikasi yang saya lakukan terhadap komponen-komponen untuk mendukung aplikasi kasir.
+# Toko88 - Sistem Manajemen Gudang Beras
+
+Aplikasi Point of Sales yang dikustomisasi khusus untuk manajemen gudang beras dengan sistem stok terpisah antara gudang dan toko.
 
 ## Tech Stack
 
 - Laravel 11.x
-- Inertia
+- Inertia.js
 - React
-- TailwindCSS
+- TailwindCSS + Shadcn UI
 - MySQL
+
 ## Authors
 
-- [Arya Dwi Putra](https://www.github.com/aryadwiputra)
-- [Rafi Taufiqurrahman](https://github.com/Raf-Taufiqurrahman)
+- [Bima85](https://github.com/bima85)
 
+## 📌 Fitur Utama
 
-## 📌 Fitur
+| No  | Nama | Status |
+|-----|------|--------|
+| 1   | Authentikasi Admin | ✅ Done |
+| 2   | Manajemen Pengguna | ✅ Done |
+| 3   | Manajemen Hak Akses | ✅ Done |
+| 4   | Manajemen Role | ✅ Done |
+| 5   | Manajemen Kategori | ✅ Done |
+| 6   | Manajemen Produk | ✅ Done |
+| 7   | Manajemen Pelanggan | ✅ Done |
+| 8   | Manajemen Supplier | ✅ Done |
+| 9   | Sistem Stok Terpisah (Gudang vs Toko) | ✅ Done |
+| 10  | Purchase Management | ✅ Done |
+| 11  | Sales Transactions | ✅ Done |
+| 12  | Print Invoice | ✅ Done |
+| 13  | Laporan Penjualan | 🔄 On progress |
+| 14  | Stock Movements Tracking | ✅ Done |
+| 15  | Modern UI dengan Shadcn | ✅ Done |
 
-| No  | Nama |  Status                                                     |
-|-----|------------------------------------------------------------|------|
-|  1  | Authentikasi Admin.                            |Done|
-|  2  | Manajemen Pengguna.                 |Done|
-|  3  | Manajemen Hak Akses Pengguna.                      | Done|
-|  4  | Manajemen Role Pengguna                          |Done|
-|  5  | Manajemen Kategori.               |Done|
-|  6  | Manajemen Produk.                                    |Done|
-|  7  | Manajemen Pelanggan.     |Done|
-|  8  | Print Invoice. |Done|
-|  9  | Laporan Penjualan. |On progress|
-|  10  | Laporan Keuntungan. |On progress|
-|  11  | Riwayat Order. |On progress|
-|  12  | Chart/Grafik Pendapatan. |On progress|
+## 🏗️ Arsitektur Sistem Stok
 
-------------
-## 💻 Panduan Instalasi Project
+### Pemisahan Stok
+- **Warehouse Stocks**: Stok di gudang utama
+- **Store Stocks**: Stok di toko/cabang
+- **Transaction Histories**: Tracking semua pergerakan stok
+
+### Database Schema
+```
+warehouse_stocks: product_id, warehouse_id, qty_in_kg
+store_stocks: product_id, toko_id, qty_in_kg  
+transaction_histories: toko_id, product_id, stock_before, stock_after
+```
+
+## 💻 Panduan Instalasi
 
 1. **Clone Repository**
 ```bash
-git clone https://github.com/aryadwiputra/point-of-sales 
+git clone https://github.com/bima85/Gudang-Beras.git
+cd Gudang-Beras
 ```
-2. **Buka terminal, lalu ketik**
-```
-cd point-of-sales
+
+2. **Install Dependencies**
+```bash
 composer install
 npm install
 cp .env.example .env
 php artisan key:generate
 ```
 
-3. **Buka ```.env``` lalu ubah baris berikut sesuaikan dengan databasemu yang ingin dipakai**
+3. **Konfigurasi Database**
+Edit file `.env`:
 ```
-DB_PORT=3306
-DB_DATABASE=laravel
+DB_DATABASE=gudang_beras
 DB_USERNAME=root
 DB_PASSWORD=
 ```
 
-3. **Jalankan bash**
+4. **Setup Database**
 ```bash
 php artisan config:cache
 php artisan storage:link
-php artisan route:clear
+php artisan migrate:fresh --seed
 ```
 
-4. **Jalankan migrations dan seeders**
-```
-php artisan migrate --seed
-```
-5. **Jalankan nodejs**
-```
-npm run dev
-```
-
-5. **Jalankan website**
+5. **Build Assets & Run**
 ```bash
+npm run build
 php artisan serve
 ```
 
-## Jika ada pertanyaan silahkan hubungi saya di email :
+## 🚀 Perubahan Terbaru
 
-```
-aryaadwptr@gmail.com
-```
+- ✅ Implementasi sistem stok terpisah gudang-toko
+- ✅ Upgrade UI ke Shadcn components
+- ✅ Perbaikan foreign key constraints
+- ✅ Cleanup 127+ file tidak terpakai
+- ✅ Format display stok yang lebih clean
+- ✅ Implementasi modern transaction system
 
-## Request Fitur Baru dan Pelaporan Bug
+## 📞 Kontak
 
-Anda dapat meminta fitur baru maupun melaporkan bug melalui menu **issues** yang sudah disediakan oleh GitHub (lihat menu di atas), posting issues baru dan kita akan berdiskusi disana.
-
-## Berkontribusi
-
-Siapapun dapat berkontribusi pada proyek ini mulai dari pemrograman, pembuakan buku manual, sampai dengan mengenalkan produk ini kepada masyarakat Indonesia agar mengurangi kesenjangan pendidikan teknologi dengan cara membuat postingan issue di repository ini.
-# Toko85
+Untuk pertanyaan atau kontribusi, silahkan hubungi melalui GitHub issues.
