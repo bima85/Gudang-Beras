@@ -7,6 +7,7 @@ use App\Models\DeliveryNote;
 use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\Toko;
+use App\Models\Unit;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
@@ -98,6 +99,106 @@ class DeliveryNoteController extends Controller
             'tokos' => $tokos,
             'statuses' => $statuses,
         ]);
+    }
+
+    /**
+     * Menampilkan form untuk membuat surat jalan manual
+     */
+    public function create(Request $request)
+    {
+        // Permission check - mengikuti pattern DeliveryController
+        $user = $request->user();
+        // Allow if session role is 'gudang' (user selected gudang location),
+        // or if user has deliveries-access permission, or has role super-admin/gudang
+        $sessionRole = strtolower($request->session()->get('role') ?? '');
+        if (!$user || (
+            $sessionRole !== 'gudang' &&
+            !$user->hasPermissionTo('deliveries-access') &&
+            !$user->hasRole('super-admin') &&
+            !$user->hasRole('gudang')
+        )) {
+            abort(403, 'Akses pembuatan surat jalan ditolak.');
+        }
+
+        // Data untuk form
+        $warehouses = Warehouse::select('id', 'name', 'address', 'phone')->orderBy('name')->get();
+        $tokos = Toko::select('id', 'name', 'address', 'phone')->orderBy('name')->get();
+        $products = Product::with('category')->select('id', 'name', 'barcode')->orderBy('name')->get();
+        $units = Unit::select('id', 'name', 'conversion_to_kg')->orderBy('name')->get();
+        
+        // Recent transactions for reference (optional)
+        $transactions = \App\Models\Transaction::with('customer:id,name')
+            ->select('id', 'invoice', 'customer_id', 'created_at')
+            ->latest()
+            ->limit(50)
+            ->get();
+
+        return Inertia::render('Dashboard/DeliveryNotes/Create', [
+            'warehouses' => $warehouses,
+            'tokos' => $tokos,
+            'products' => $products,
+            'units' => $units,
+            'transactions' => $transactions,
+        ]);
+    }
+
+    /**
+     * Menyimpan surat jalan manual yang baru dibuat
+     */
+    public function store(Request $request)
+    {
+        // Permission check - mengikuti pattern DeliveryController
+        $user = $request->user();
+        // Allow if session role is 'gudang' (user selected gudang location),
+        // or if user has deliveries-access permission, or has role super-admin/gudang
+        $sessionRole = strtolower($request->session()->get('role') ?? '');
+        if (!$user || (
+            $sessionRole !== 'gudang' &&
+            !$user->hasPermissionTo('deliveries-access') &&
+            !$user->hasRole('super-admin') &&
+            !$user->hasRole('gudang')
+        )) {
+            abort(403, 'Akses pembuatan surat jalan ditolak.');
+        }
+
+        $validated = $request->validate([
+            'delivery_number' => 'required|string|max:255|unique:delivery_notes',
+            'transaction_id' => 'nullable|exists:transactions,id',
+            'product_id' => 'required|exists:products,id',
+            'warehouse_id' => 'required|exists:warehouses,id',
+            'toko_id' => 'required|exists:tokos,id',
+            'qty_transferred' => 'required|numeric|min:0.01',
+            'unit' => 'required|string|max:50',
+            'qty_kg' => 'required|numeric|min:0.01',
+            'notes' => 'nullable|string|max:1000',
+        ]);
+
+        // Auto generate delivery number jika kosong atau sudah ada
+        if (empty($validated['delivery_number']) || DeliveryNote::where('delivery_number', $validated['delivery_number'])->exists()) {
+            $validated['delivery_number'] = DeliveryNote::generateDeliveryNumber();
+        }
+
+        // Tambahkan data tambahan
+        $validated['status'] = 'pending';
+        $validated['created_by'] = $user->id;
+
+        // Buat delivery note
+        $deliveryNote = DeliveryNote::create($validated);
+
+        // Log activity
+        \Illuminate\Support\Facades\Log::info('[DeliveryNoteController] Manual delivery note created', [
+            'delivery_note_id' => $deliveryNote->id,
+            'delivery_number' => $deliveryNote->delivery_number,
+            'created_by' => $user->id,
+            'warehouse_id' => $validated['warehouse_id'],
+            'toko_id' => $validated['toko_id'],
+            'product_id' => $validated['product_id'],
+            'qty_transferred' => $validated['qty_transferred'],
+            'unit' => $validated['unit'],
+        ]);
+
+        return redirect()->route('delivery-notes.show', $deliveryNote)
+            ->with('success', 'Surat jalan berhasil dibuat');
     }
 
     /**

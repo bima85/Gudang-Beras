@@ -169,6 +169,17 @@ export default function Index({ deliveryNotes, filters }) {
                             Kelola surat jalan transfer stok gudang ke toko
                         </p>
                     </div>
+                    <div className="flex gap-3">
+                        <Button
+                            asChild
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            <a href={route("delivery-notes.create")}>
+                                <FileText className="w-4 h-4 mr-2" />
+                                Buat Surat Jalan
+                            </a>
+                        </Button>
+                    </div>
                 </div>
 
                 {/* Filter Card */}
