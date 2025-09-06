@@ -124,7 +124,7 @@ class DeliveryNoteController extends Controller
             'sale.customer:id,name,no_telp',
             'sale.cashier:id,name',
             'product:id,name,barcode,sell_price',
-            'warehouse:id,name,address',
+            'warehouse:id,name,address,phone',
             'toko:id,name,address,phone',
             'user:id,name'
         ]);
@@ -158,16 +158,18 @@ class DeliveryNoteController extends Controller
             'sale.customer:id,name,no_telp',
             'sale.cashier:id,name',
             'product:id,name,barcode,sell_price',
-            'warehouse:id,name,address',
+            'warehouse:id,name,address,phone',
             'toko:id,name,address,phone',
             'user:id,name'
         ]);
 
-        // Company info (bisa diambil dari setting atau config)
+        // Company info diambil dari warehouse (gudang) yang terkait dengan delivery note
+        // Fallback ke config jika warehouse tidak ada
         $company = [
-            'name' => config('app.company_name', 'PD SUKA WARHA'),
-            'address' => config('app.company_address', 'Jl. Kembar No. 90'),
-            'city' => config('app.company_city', 'Bogor 16563'),
+            'name' => ($delivery_note->warehouse ? $delivery_note->warehouse->name : null) ?? config('app.company_name', 'PD SUKA WARHA'),
+            'address' => ($delivery_note->warehouse ? $delivery_note->warehouse->address : null) ?? config('app.company_address', 'Jl. Kembar No. 90'),
+            'city' => config('app.company_city', 'Bogor 16563'), // City biasanya sama untuk semua warehouse
+            'phone' => ($delivery_note->warehouse ? $delivery_note->warehouse->phone : null) ?? config('app.company_phone', ''),
         ];
 
         return Inertia::render('Dashboard/DeliveryNotes/Print', [

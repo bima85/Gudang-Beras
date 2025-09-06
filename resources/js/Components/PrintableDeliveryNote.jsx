@@ -16,11 +16,11 @@ const PrintableDeliveryNote = ({ deliveryNote, company = null }) => {
         });
     };
 
-    // Default company info if not provided
-    const companyInfo = company || {
-        name: "SUKA WARHA",
-        address: "Jl. Kembar No. 90",
-        city: "Bogor 16563",
+    // Use warehouse info as company info, fallback to default
+    const companyInfo = {
+        name: deliveryNote.warehouse?.name || company?.name || "SUKA WARHA",
+        address: deliveryNote.warehouse?.address || company?.address || "Jl. Kembar No. 90",
+        city: company?.city || "Bogor 16563", // City from config since warehouse might not have it
     };
 
     return (
@@ -74,6 +74,11 @@ const PrintableDeliveryNote = ({ deliveryNote, company = null }) => {
                         <div style={{ fontSize: "12px" }}>
                             {companyInfo.city}
                         </div>
+                        {deliveryNote.warehouse?.phone && (
+                            <div style={{ fontSize: "12px" }}>
+                                Telp: {deliveryNote.warehouse.phone}
+                            </div>
+                        )}
                     </div>
 
                     {/* Document Info */}
@@ -112,7 +117,7 @@ const PrintableDeliveryNote = ({ deliveryNote, company = null }) => {
                     SURAT JALAN
                 </div>
 
-                {/* Recipient Info */}
+                {/* Recipient Info - Using Toko instead of Customer */}
                 <div style={{ marginBottom: "20px" }}>
                     <div
                         style={{
@@ -121,20 +126,51 @@ const PrintableDeliveryNote = ({ deliveryNote, company = null }) => {
                             marginBottom: "5px",
                         }}
                     >
-                        Nama Pelanggan:{" "}
-                        {deliveryNote.transaction?.customer?.name || "UMUM"}
+                        Nama Toko:{" "}
+                        {deliveryNote.toko?.name || "Toko"}
                     </div>
                     <div style={{ fontSize: "12px" }}>
                         Alamat:{" "}
-                        {deliveryNote.toko?.address ||
-                            deliveryNote.toko?.name ||
-                            "Toko"}
+                        {deliveryNote.toko?.address || "Alamat Toko"}
                     </div>
+                    {deliveryNote.toko?.phone && (
+                        <div style={{ fontSize: "12px" }}>
+                            Telepon: {deliveryNote.toko.phone}
+                        </div>
+                    )}
                 </div>
 
                 {/* Transport Info */}
                 <div style={{ fontSize: "11px", marginBottom: "20px" }}>
                     Bersama ini kami kirimkan barang-barang sebagai berikut:
+                </div>
+
+                {/* Transfer Route Info */}
+                <div style={{ 
+                    marginBottom: "20px", 
+                    padding: "10px", 
+                    border: "1px solid #ddd",
+                    backgroundColor: "#f9f9f9",
+                    fontSize: "11px"
+                }}>
+                    <div style={{ fontWeight: "bold", marginBottom: "5px" }}>
+                        Rute Transfer:
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <div style={{ textAlign: "left" }}>
+                            <strong>Dari Gudang:</strong><br />
+                            {deliveryNote.warehouse?.name || "Gudang"}<br />
+                            <small>{deliveryNote.warehouse?.address || ""}</small>
+                        </div>
+                        <div style={{ padding: "0 20px", fontSize: "16px" }}>
+                            →
+                        </div>
+                        <div style={{ textAlign: "right" }}>
+                            <strong>Ke Toko:</strong><br />
+                            {deliveryNote.toko?.name || "Toko"}<br />
+                            <small>{deliveryNote.toko?.address || ""}</small>
+                        </div>
+                    </div>
                 </div>
             </div>
 
