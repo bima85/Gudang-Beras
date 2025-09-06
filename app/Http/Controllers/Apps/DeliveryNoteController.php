@@ -125,7 +125,7 @@ class DeliveryNoteController extends Controller
         $tokos = Toko::select('id', 'name', 'address', 'phone')->orderBy('name')->get();
         $products = Product::with('category')->select('id', 'name', 'barcode')->orderBy('name')->get();
         $units = Unit::select('id', 'name', 'conversion_to_kg')->orderBy('name')->get();
-        
+
         // Recent transactions for reference (optional)
         $transactions = \App\Models\Transaction::with('customer:id,name')
             ->select('id', 'invoice', 'customer_id', 'created_at')

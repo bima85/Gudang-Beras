@@ -26,23 +26,23 @@ import {
 } from "lucide-react";
 import { useState, useEffect } from "react";
 
-export default function Create({ 
-    warehouses = [], 
-    tokos = [], 
-    products = [], 
+export default function Create({
+    warehouses = [],
+    tokos = [],
+    products = [],
     units = [],
-    transactions = []
+    transactions = [],
 }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        delivery_number: '',
-        transaction_id: '',
-        product_id: '',
-        warehouse_id: '',
-        toko_id: '',
-        qty_transferred: '',
-        unit: '',
-        qty_kg: '',
-        notes: '',
+        delivery_number: "",
+        transaction_id: "",
+        product_id: "",
+        warehouse_id: "",
+        toko_id: "",
+        qty_transferred: "",
+        unit: "",
+        qty_kg: "",
+        notes: "",
     });
 
     const [selectedProduct, setSelectedProduct] = useState(null);
@@ -53,9 +53,11 @@ export default function Create({
     useEffect(() => {
         if (autoGenerateNumber) {
             const today = new Date();
-            const dateStr = today.toISOString().slice(0, 10).replace(/-/g, '');
-            const randomNum = Math.floor(Math.random() * 9999).toString().padStart(4, '0');
-            setData('delivery_number', `DN-${dateStr}-${randomNum}`);
+            const dateStr = today.toISOString().slice(0, 10).replace(/-/g, "");
+            const randomNum = Math.floor(Math.random() * 9999)
+                .toString()
+                .padStart(4, "0");
+            setData("delivery_number", `DN-${dateStr}-${randomNum}`);
         }
     }, [autoGenerateNumber]);
 
@@ -64,33 +66,41 @@ export default function Create({
         if (data.qty_transferred && selectedUnit) {
             const conversion = selectedUnit.conversion_to_kg || 1;
             const qtyKg = parseFloat(data.qty_transferred) * conversion;
-            setData('qty_kg', qtyKg.toFixed(2));
+            setData("qty_kg", qtyKg.toFixed(2));
         }
     }, [data.qty_transferred, selectedUnit]);
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        post(route('delivery-notes.store'), {
+        
+        // Prepare data, convert "none" transaction_id to empty string
+        const submitData = {
+            ...data,
+            transaction_id: data.transaction_id === "none" ? "" : data.transaction_id
+        };
+        
+        post(route("delivery-notes.store"), {
+            data: submitData,
             onSuccess: () => {
-                router.get(route('delivery-notes.index'));
+                router.get(route("delivery-notes.index"));
             },
         });
     };
 
     const handleBack = () => {
-        router.get(route('delivery-notes.index'));
+        router.get(route("delivery-notes.index"));
     };
 
     const handleProductChange = (productId) => {
-        const product = products.find(p => p.id.toString() === productId);
+        const product = products.find((p) => p.id.toString() === productId);
         setSelectedProduct(product);
-        setData('product_id', productId);
+        setData("product_id", productId);
     };
 
     const handleUnitChange = (unitName) => {
-        const unit = units.find(u => u.name === unitName);
+        const unit = units.find((u) => u.name === unitName);
         setSelectedUnit(unit);
-        setData('unit', unitName);
+        setData("unit", unitName);
     };
 
     return (
@@ -114,7 +124,8 @@ export default function Create({
                                 Buat Surat Jalan Manual
                             </h1>
                             <p className="text-gray-600 mt-1">
-                                Input data surat jalan untuk transfer produk manual
+                                Input data surat jalan untuk transfer produk
+                                manual
                             </p>
                         </div>
                     </div>
@@ -142,18 +153,31 @@ export default function Create({
                                             id="delivery_number"
                                             value={data.delivery_number}
                                             onChange={(e) =>
-                                                setData('delivery_number', e.target.value)
+                                                setData(
+                                                    "delivery_number",
+                                                    e.target.value
+                                                )
                                             }
                                             disabled={autoGenerateNumber}
                                             placeholder="DN-20240906-0001"
-                                            className={errors.delivery_number ? 'border-red-500' : ''}
+                                            className={
+                                                errors.delivery_number
+                                                    ? "border-red-500"
+                                                    : ""
+                                            }
                                         />
                                         <Button
                                             type="button"
                                             variant="outline"
-                                            onClick={() => setAutoGenerateNumber(!autoGenerateNumber)}
+                                            onClick={() =>
+                                                setAutoGenerateNumber(
+                                                    !autoGenerateNumber
+                                                )
+                                            }
                                         >
-                                            {autoGenerateNumber ? 'Manual' : 'Auto'}
+                                            {autoGenerateNumber
+                                                ? "Manual"
+                                                : "Auto"}
                                         </Button>
                                     </div>
                                     {errors.delivery_number && (
@@ -168,15 +192,23 @@ export default function Create({
                                     <Label htmlFor="transaction_id">
                                         Transaksi Referensi (Opsional)
                                     </Label>
-                                    <Select 
-                                        value={data.transaction_id} 
-                                        onValueChange={(value) => setData('transaction_id', value)}
+                                    <Select
+                                        value={data.transaction_id}
+                                        onValueChange={(value) =>
+                                            setData("transaction_id", value)
+                                        }
                                     >
-                                        <SelectTrigger className={errors.transaction_id ? 'border-red-500' : ''}>
+                                        <SelectTrigger
+                                            className={
+                                                errors.transaction_id
+                                                    ? "border-red-500"
+                                                    : ""
+                                            }
+                                        >
                                             <SelectValue placeholder="Pilih transaksi (opsional)" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">
+                                            <SelectItem value="none">
                                                 Tidak ada transaksi
                                             </SelectItem>
                                             {transactions.map((transaction) => (
@@ -184,7 +216,9 @@ export default function Create({
                                                     key={transaction.id}
                                                     value={transaction.id.toString()}
                                                 >
-                                                    {transaction.invoice} - {transaction.customer?.name || 'Customer'}
+                                                    {transaction.invoice} -{" "}
+                                                    {transaction.customer
+                                                        ?.name || "Customer"}
                                                 </SelectItem>
                                             ))}
                                         </SelectContent>
@@ -198,16 +232,18 @@ export default function Create({
 
                                 {/* Notes */}
                                 <div>
-                                    <Label htmlFor="notes">
-                                        Catatan
-                                    </Label>
+                                    <Label htmlFor="notes">Catatan</Label>
                                     <Textarea
                                         id="notes"
                                         value={data.notes}
-                                        onChange={(e) => setData('notes', e.target.value)}
+                                        onChange={(e) =>
+                                            setData("notes", e.target.value)
+                                        }
                                         placeholder="Catatan tambahan untuk surat jalan"
                                         rows={3}
-                                        className={errors.notes ? 'border-red-500' : ''}
+                                        className={
+                                            errors.notes ? "border-red-500" : ""
+                                        }
                                     />
                                     {errors.notes && (
                                         <p className="text-sm text-red-500 mt-1">
@@ -232,11 +268,19 @@ export default function Create({
                                     <Label htmlFor="warehouse_id">
                                         Gudang Asal *
                                     </Label>
-                                    <Select 
-                                        value={data.warehouse_id} 
-                                        onValueChange={(value) => setData('warehouse_id', value)}
+                                    <Select
+                                        value={data.warehouse_id}
+                                        onValueChange={(value) =>
+                                            setData("warehouse_id", value)
+                                        }
                                     >
-                                        <SelectTrigger className={errors.warehouse_id ? 'border-red-500' : ''}>
+                                        <SelectTrigger
+                                            className={
+                                                errors.warehouse_id
+                                                    ? "border-red-500"
+                                                    : ""
+                                            }
+                                        >
                                             <SelectValue placeholder="Pilih gudang asal" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -248,9 +292,13 @@ export default function Create({
                                                     <div className="flex items-center gap-2">
                                                         <Building className="w-4 h-4" />
                                                         <div>
-                                                            <div className="font-medium">{warehouse.name}</div>
+                                                            <div className="font-medium">
+                                                                {warehouse.name}
+                                                            </div>
                                                             <div className="text-sm text-gray-500">
-                                                                {warehouse.address}
+                                                                {
+                                                                    warehouse.address
+                                                                }
                                                             </div>
                                                         </div>
                                                     </div>
@@ -270,11 +318,19 @@ export default function Create({
                                     <Label htmlFor="toko_id">
                                         Toko Tujuan *
                                     </Label>
-                                    <Select 
-                                        value={data.toko_id} 
-                                        onValueChange={(value) => setData('toko_id', value)}
+                                    <Select
+                                        value={data.toko_id}
+                                        onValueChange={(value) =>
+                                            setData("toko_id", value)
+                                        }
                                     >
-                                        <SelectTrigger className={errors.toko_id ? 'border-red-500' : ''}>
+                                        <SelectTrigger
+                                            className={
+                                                errors.toko_id
+                                                    ? "border-red-500"
+                                                    : ""
+                                            }
+                                        >
                                             <SelectValue placeholder="Pilih toko tujuan" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -286,7 +342,9 @@ export default function Create({
                                                     <div className="flex items-center gap-2">
                                                         <Store className="w-4 h-4" />
                                                         <div>
-                                                            <div className="font-medium">{toko.name}</div>
+                                                            <div className="font-medium">
+                                                                {toko.name}
+                                                            </div>
                                                             <div className="text-sm text-gray-500">
                                                                 {toko.address}
                                                             </div>
@@ -308,13 +366,25 @@ export default function Create({
                                     <Alert>
                                         <AlertCircle className="h-4 w-4" />
                                         <AlertDescription>
-                                            Transfer dari{' '}
+                                            Transfer dari{" "}
                                             <strong>
-                                                {warehouses.find(w => w.id.toString() === data.warehouse_id)?.name}
-                                            </strong>{' '}
-                                            ke{' '}
+                                                {
+                                                    warehouses.find(
+                                                        (w) =>
+                                                            w.id.toString() ===
+                                                            data.warehouse_id
+                                                    )?.name
+                                                }
+                                            </strong>{" "}
+                                            ke{" "}
                                             <strong>
-                                                {tokos.find(t => t.id.toString() === data.toko_id)?.name}
+                                                {
+                                                    tokos.find(
+                                                        (t) =>
+                                                            t.id.toString() ===
+                                                            data.toko_id
+                                                    )?.name
+                                                }
                                             </strong>
                                         </AlertDescription>
                                     </Alert>
@@ -337,11 +407,17 @@ export default function Create({
                                         <Label htmlFor="product_id">
                                             Produk *
                                         </Label>
-                                        <Select 
-                                            value={data.product_id} 
+                                        <Select
+                                            value={data.product_id}
                                             onValueChange={handleProductChange}
                                         >
-                                            <SelectTrigger className={errors.product_id ? 'border-red-500' : ''}>
+                                            <SelectTrigger
+                                                className={
+                                                    errors.product_id
+                                                        ? "border-red-500"
+                                                        : ""
+                                                }
+                                            >
                                                 <SelectValue placeholder="Pilih produk" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -351,9 +427,13 @@ export default function Create({
                                                         value={product.id.toString()}
                                                     >
                                                         <div>
-                                                            <div className="font-medium">{product.name}</div>
+                                                            <div className="font-medium">
+                                                                {product.name}
+                                                            </div>
                                                             <div className="text-sm text-gray-500">
-                                                                {product.barcode}
+                                                                {
+                                                                    product.barcode
+                                                                }
                                                             </div>
                                                         </div>
                                                     </SelectItem>
@@ -378,10 +458,17 @@ export default function Create({
                                             step="0.01"
                                             value={data.qty_transferred}
                                             onChange={(e) =>
-                                                setData('qty_transferred', e.target.value)
+                                                setData(
+                                                    "qty_transferred",
+                                                    e.target.value
+                                                )
                                             }
                                             placeholder="0"
-                                            className={errors.qty_transferred ? 'border-red-500' : ''}
+                                            className={
+                                                errors.qty_transferred
+                                                    ? "border-red-500"
+                                                    : ""
+                                            }
                                         />
                                         {errors.qty_transferred && (
                                             <p className="text-sm text-red-500 mt-1">
@@ -392,14 +479,18 @@ export default function Create({
 
                                     {/* Unit */}
                                     <div>
-                                        <Label htmlFor="unit">
-                                            Satuan *
-                                        </Label>
-                                        <Select 
-                                            value={data.unit} 
+                                        <Label htmlFor="unit">Satuan *</Label>
+                                        <Select
+                                            value={data.unit}
                                             onValueChange={handleUnitChange}
                                         >
-                                            <SelectTrigger className={errors.unit ? 'border-red-500' : ''}>
+                                            <SelectTrigger
+                                                className={
+                                                    errors.unit
+                                                        ? "border-red-500"
+                                                        : ""
+                                                }
+                                            >
                                                 <SelectValue placeholder="Pilih satuan" />
                                             </SelectTrigger>
                                             <SelectContent>
@@ -409,9 +500,14 @@ export default function Create({
                                                         value={unit.name}
                                                     >
                                                         <div>
-                                                            <div className="font-medium">{unit.name}</div>
+                                                            <div className="font-medium">
+                                                                {unit.name}
+                                                            </div>
                                                             <div className="text-sm text-gray-500">
-                                                                1 {unit.name} = {unit.conversion_to_kg || 1} kg
+                                                                1 {unit.name} ={" "}
+                                                                {unit.conversion_to_kg ||
+                                                                    1}{" "}
+                                                                kg
                                                             </div>
                                                         </div>
                                                     </SelectItem>
@@ -440,7 +536,8 @@ export default function Create({
                                             className="bg-gray-50"
                                         />
                                         <p className="text-xs text-gray-500 mt-1">
-                                            Otomatis dihitung dari konversi satuan
+                                            Otomatis dihitung dari konversi
+                                            satuan
                                         </p>
                                     </div>
                                 </div>
@@ -450,10 +547,14 @@ export default function Create({
                                     <Alert className="mt-4">
                                         <Package className="h-4 w-4" />
                                         <AlertDescription>
-                                            <strong>Produk dipilih:</strong> {selectedProduct.name} 
-                                            {selectedProduct.barcode && ` (${selectedProduct.barcode})`}
+                                            <strong>Produk dipilih:</strong>{" "}
+                                            {selectedProduct.name}
+                                            {selectedProduct.barcode &&
+                                                ` (${selectedProduct.barcode})`}
                                             <br />
-                                            <strong>Kategori:</strong> {selectedProduct.category?.name || 'Tidak ada'}
+                                            <strong>Kategori:</strong>{" "}
+                                            {selectedProduct.category?.name ||
+                                                "Tidak ada"}
                                         </AlertDescription>
                                     </Alert>
                                 )}
@@ -477,7 +578,7 @@ export default function Create({
                             className="bg-blue-600 hover:bg-blue-700"
                         >
                             <Save className="w-4 h-4 mr-2" />
-                            {processing ? 'Menyimpan...' : 'Simpan Surat Jalan'}
+                            {processing ? "Menyimpan..." : "Simpan Surat Jalan"}
                         </Button>
                     </div>
                 </form>
