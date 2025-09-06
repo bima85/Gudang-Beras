@@ -6,15 +6,9 @@ import { Input } from "@/Components/ui/input";
 import { Textarea } from "@/Components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Label } from "@/Components/ui/label";
+import PhoneInput from "@/Components/ui/phone-input";
 import { toast } from "react-toastify";
-import {
-    Save,
-    ArrowLeft,
-    Building,
-    MapPin,
-    Phone,
-    FileText,
-} from "lucide-react";
+import { Save, ArrowLeft, Building, MapPin, FileText } from "lucide-react";
 
 export default function Create() {
     const { data, setData, post, processing, errors } = useForm({
@@ -118,27 +112,16 @@ export default function Create() {
                                     )}
                                 </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="phone">Telepon</Label>
-                                    <div className="relative">
-                                        <Phone className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                        <Input
-                                            id="phone"
-                                            type="tel"
-                                            className="pl-10"
-                                            placeholder="Masukkan nomor telepon"
-                                            value={data.phone}
-                                            onChange={(e) =>
-                                                setData("phone", e.target.value)
-                                            }
-                                        />
-                                    </div>
-                                    {errors.phone && (
-                                        <p className="text-sm text-destructive">
-                                            {errors.phone}
-                                        </p>
-                                    )}
-                                </div>
+                                <PhoneInput
+                                    id="phone"
+                                    label="Telepon"
+                                    value={data.phone}
+                                    onChange={(value) =>
+                                        setData("phone", value)
+                                    }
+                                    error={errors.phone}
+                                    placeholder="Masukkan nomor telepon (hanya angka)"
+                                />
 
                                 <div className="space-y-2">
                                     <Label htmlFor="description">

@@ -22,6 +22,20 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Company Information
+    |--------------------------------------------------------------------------
+    |
+    | Company details for printing delivery notes and other documents.
+    |
+    */
+
+    'company_name' => env('COMPANY_NAME', 'PD SUKA WARHA'),
+    'company_address' => env('COMPANY_ADDRESS', 'Jl. Kembar No. 90'),
+    'company_city' => env('COMPANY_CITY', 'Bogor 16563'),
+    'company_phone' => env('COMPANY_PHONE', ''),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Environment
     |--------------------------------------------------------------------------
     |

@@ -1,91 +1,305 @@
 import React, { useState } from "react";
-import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, router, usePage } from "@inertiajs/react";
-import Input from '@/Components/Dashboard/Input';
-import Button from '@/Components/Dashboard/Button';
-import { ExcelIcon } from '@/Components/Dashboard/ExportIcons';
+import { Head, router } from "@inertiajs/react";
+import DashboardLayout from "@/Layouts/DashboardLayout";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/Components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Label } from "@/Components/ui/label";
+import { toast } from "react-toastify";
+import {
+    Download,
+    Filter,
+    RotateCcw,
+    Warehouse,
+    BarChart3,
+} from "lucide-react";
 
-export default function WarehouseRecap({ warehouses, totalWarehouse = 0, start_date = '', end_date = '' }) {
-  const { errors } = usePage().props;
-  const [start, setStart] = useState(start_date || "");
-  const [end, setEnd] = useState(end_date || "");
+export default function WarehouseRecap({
+    warehouses,
+    totalWarehouse = 0,
+    start_date = "",
+    end_date = "",
+}) {
+    const [start, setStart] = useState(start_date || "");
+    const [end, setEnd] = useState(end_date || "");
 
-  const handleFilter = (e) => {
-    e.preventDefault();
-    router.get(route('dashboard.warehouses.recap'), { start_date: start, end_date: end });
-  };
+    const handleFilter = (e) => {
+        e.preventDefault();
+        router.get(
+            route("dashboard.warehouses.recap"),
+            { start_date: start, end_date: end },
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    };
 
-  const handleExport = () => {
-    let csv = 'Nama,Lokasi,Deskripsi,Dibuat Pada\n';
-    warehouses.data.forEach(w => {
-      csv += `${w.name},${w.location || ''},${w.description || ''},${w.created_at}\n`;
-    });
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `rekap-warehouse.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
-  };
+    const resetFilter = () => {
+        setStart("");
+        setEnd("");
+        router.get(
+            route("dashboard.warehouses.recap"),
+            {},
+            {
+                preserveState: true,
+                replace: true,
+            }
+        );
+    };
 
-  return (
-    <>
-      <Head title="Rekap Warehouse" />
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-        <h1 className="text-2xl font-bold text-blue-700">Rekap Data Warehouse</h1>
-        <form onSubmit={handleFilter} className="flex gap-2 items-center bg-white p-2 rounded shadow">
-          <Input type="date" label="Dari" value={start} onChange={e => setStart(e.target.value)} className="min-w-[150px]" />
-          <span className="mx-1">s/d</span>
-          <Input type="date" label="Sampai" value={end} onChange={e => setEnd(e.target.value)} className="min-w-[150px]" />
-          <Button type="submit" label="Filter" className="bg-blue-600 hover:bg-blue-700 text-white shadow transition-all px-6 py-2 rounded-lg font-semibold flex items-center gap-2" />
-        </form>
-      </div>
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-        <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-300 rounded shadow text-center">
-          <div className="text-gray-500 text-sm">Total Warehouse</div>
-          <div className="text-2xl font-bold text-blue-900">{totalWarehouse}</div>
-        </div>
-      </div>
-      <div className="flex justify-end mt-6 gap-2 flex-wrap">
-        <Button type="button" label="Export CSV" icon={<ExcelIcon className="w-5 h-5" />} onClick={handleExport} className="bg-green-600 hover:bg-green-700 text-white px-5 py-3 rounded-full shadow w-full sm:w-auto" />
-      </div>
-      <div className="mt-8 bg-white rounded shadow p-4 overflow-x-auto">
-        <table className="min-w-[600px] text-sm w-full">
-          <thead>
-            <tr className="bg-gray-100 text-black">
-              <th className="p-2">No</th>
-              <th className="p-2">Nama</th>
-              <th className="p-2">Lokasi</th>
-              <th className="p-2">Deskripsi</th>
-              <th className="p-2">Dibuat Pada</th>
-            </tr>
-          </thead>
-          <tbody>
-            {warehouses.data.length === 0 ? (
-              <tr><td colSpan={5} className="text-center py-4 text-gray-400">Tidak ada data warehouse</td></tr>
-            ) : (
-              warehouses.data.map((w, i) => (
-                <tr key={w.id} className="border-b hover:bg-blue-50 text-black">
-                  <td className="p-2 text-center">{i + 1 + ((warehouses.current_page-1) * warehouses.per_page)}</td>
-                  <td className="p-2 font-semibold">{w.name}</td>
-                  <td className="p-2">{w.location}</td>
-                  <td className="p-2">{w.description}</td>
-                  <td className="p-2">{w.created_at?.slice(0,10)}</td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-        {/* Pagination */}
-        <div className="mt-4 flex justify-end gap-2 flex-wrap">
-          {warehouses.links && warehouses.links.map((link, i) => (
-            <Button key={i} label={link.label.replace(/&laquo;|&raquo;|&lsaquo;|&rsaquo;/g, '')} onClick={() => link.url && router.get(link.url)} disabled={!link.url} className={link.active ? 'bg-blue-500 text-white' : ''} />
-          ))}
-        </div>
-      </div>
-    </>
-  );
+    const handleExport = () => {
+        let csv = "Kode,Nama,Lokasi,Telepon,Deskripsi,Dibuat Pada\n";
+        warehouses.data.forEach((w) => {
+            csv += `${w.code || ""},${w.name},${w.address || ""},${
+                w.phone || ""
+            },${w.description || ""},${w.created_at}\n`;
+        });
+        const blob = new Blob([csv], { type: "text/csv" });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `rekap-gudang-${new Date()
+            .toISOString()
+            .slice(0, 10)}.csv`;
+        a.click();
+        window.URL.revokeObjectURL(url);
+        toast.success("Data berhasil diekspor");
+    };
+
+    return (
+        <DashboardLayout>
+            <Head title="Rekap Gudang" />
+
+            <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-3xl font-bold tracking-tight">
+                            Rekap Data Gudang
+                        </h1>
+                        <p className="text-muted-foreground">
+                            Laporan dan ringkasan data gudang
+                        </p>
+                    </div>
+                </div>
+
+                {/* Stats Card */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <Card>
+                        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                            <CardTitle className="text-sm font-medium">
+                                Total Gudang
+                            </CardTitle>
+                            <Warehouse className="h-4 w-4 text-muted-foreground" />
+                        </CardHeader>
+                        <CardContent>
+                            <div className="text-2xl font-bold text-primary">
+                                {totalWarehouse}
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Gudang terdaftar dalam sistem
+                            </p>
+                        </CardContent>
+                    </Card>
+                </div>
+
+                {/* Filter Card */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Filter className="h-5 w-5" />
+                            Filter Data
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <form onSubmit={handleFilter} className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="start_date">
+                                        Tanggal Mulai
+                                    </Label>
+                                    <Input
+                                        id="start_date"
+                                        type="date"
+                                        value={start}
+                                        onChange={(e) =>
+                                            setStart(e.target.value)
+                                        }
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="end_date">
+                                        Tanggal Akhir
+                                    </Label>
+                                    <Input
+                                        id="end_date"
+                                        type="date"
+                                        value={end}
+                                        onChange={(e) => setEnd(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex gap-4">
+                                <Button
+                                    type="submit"
+                                    className="flex items-center gap-2"
+                                >
+                                    <BarChart3 className="h-4 w-4" />
+                                    Filter
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={resetFilter}
+                                    className="flex items-center gap-2"
+                                >
+                                    <RotateCcw className="h-4 w-4" />
+                                    Reset
+                                </Button>
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    onClick={handleExport}
+                                    className="flex items-center gap-2"
+                                >
+                                    <Download className="h-4 w-4" />
+                                    Export CSV
+                                </Button>
+                            </div>
+                        </form>
+                    </CardContent>
+                </Card>
+
+                {/* Data Table */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>
+                            Data Gudang
+                            {warehouses?.total && (
+                                <span className="text-sm font-normal text-muted-foreground ml-2">
+                                    ({warehouses.total} gudang)
+                                </span>
+                            )}
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {warehouses?.data?.length > 0 ? (
+                            <div className="space-y-4">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-16">
+                                                No
+                                            </TableHead>
+                                            <TableHead>Kode</TableHead>
+                                            <TableHead>Nama</TableHead>
+                                            <TableHead>Alamat</TableHead>
+                                            <TableHead>Telepon</TableHead>
+                                            <TableHead>Deskripsi</TableHead>
+                                            <TableHead>Dibuat</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {warehouses.data.map((warehouse, i) => (
+                                            <TableRow key={warehouse.id}>
+                                                <TableCell className="text-center font-medium">
+                                                    {i +
+                                                        1 +
+                                                        (warehouses.current_page -
+                                                            1) *
+                                                            warehouses.per_page}
+                                                </TableCell>
+                                                <TableCell className="font-mono">
+                                                    {warehouse.code}
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    {warehouse.name}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {warehouse.address || "-"}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {warehouse.phone || "-"}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <span className="truncate max-w-[150px] block">
+                                                        {warehouse.description ||
+                                                            "-"}
+                                                    </span>
+                                                </TableCell>
+                                                <TableCell>
+                                                    {warehouse.created_at
+                                                        ? new Date(
+                                                              warehouse.created_at
+                                                          ).toLocaleDateString(
+                                                              "id-ID"
+                                                          )
+                                                        : "-"}
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+
+                                {/* Pagination */}
+                                {warehouses.links &&
+                                    warehouses.links.length > 3 && (
+                                        <div className="flex items-center justify-between">
+                                            <div className="text-sm text-muted-foreground">
+                                                Menampilkan {warehouses.from}-
+                                                {warehouses.to} dari{" "}
+                                                {warehouses.total} data
+                                            </div>
+                                            <div className="flex gap-2">
+                                                {warehouses.links.map(
+                                                    (link, index) => {
+                                                        if (link.url === null)
+                                                            return null;
+
+                                                        return (
+                                                            <Button
+                                                                key={index}
+                                                                variant={
+                                                                    link.active
+                                                                        ? "default"
+                                                                        : "outline"
+                                                                }
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    router.get(
+                                                                        link.url
+                                                                    )
+                                                                }
+                                                                dangerouslySetInnerHTML={{
+                                                                    __html: link.label,
+                                                                }}
+                                                            />
+                                                        );
+                                                    }
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
+                            </div>
+                        ) : (
+                            <div className="text-center py-12">
+                                <div className="text-muted-foreground mb-4">
+                                    <Warehouse className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                                    Tidak ada data gudang yang ditemukan
+                                </div>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+        </DashboardLayout>
+    );
 }
-
-WarehouseRecap.layout = page => <DashboardLayout children={page} />;

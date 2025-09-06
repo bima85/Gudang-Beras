@@ -90,7 +90,10 @@ class AuthenticatedSessionController extends Controller
             Log::info('AuthenticatedSessionController: role saved to session', ['role' => $selectedRole]);
         }
 
-        return redirect()->intended(route('dashboard', absolute: false));
+        $redirectUrl = route('dashboard', absolute: false);
+        Log::info('AuthenticatedSessionController: redirecting to', ['url' => $redirectUrl]);
+
+        return redirect()->intended($redirectUrl);
     }
 
     /**

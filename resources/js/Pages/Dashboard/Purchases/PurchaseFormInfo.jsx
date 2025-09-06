@@ -254,6 +254,114 @@ export default function PurchaseFormInfo({
                 </CardContent>
             </Card>
 
+            {/* Warehouse Information Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Informasi Gudang</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="text-sm font-medium text-gray-700">
+                                    Pilih Gudang
+                                </label>
+                                {data.warehouse_id && (
+                                    <button
+                                        type="button"
+                                        onClick={() =>
+                                            setData("warehouse_id", null)
+                                        }
+                                        className="text-xs text-red-600 hover:text-red-800"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                            <Select
+                                key={`warehouse-select-${warehouses.length}`}
+                                value={
+                                    data.warehouse_id?.toString() || undefined
+                                }
+                                onValueChange={(value) => {
+                                    const warehouseId = value
+                                        ? parseInt(value)
+                                        : null;
+                                    const selectedWarehouse = warehouses.find(
+                                        (w) => w.id.toString() === value
+                                    );
+                                    setData((prev) => ({
+                                        ...prev,
+                                        warehouse_id: warehouseId,
+                                    }));
+                                    if (selectedWarehouse) {
+                                        console.log(
+                                            "Selected warehouse:",
+                                            selectedWarehouse
+                                        );
+                                    }
+                                }}
+                            >
+                                <SelectTrigger className="text-base">
+                                    <SelectValue placeholder="Pilih Gudang" />
+                                </SelectTrigger>
+                                <SelectContent
+                                    className="max-h-60 overflow-y-auto"
+                                    sideOffset={5}
+                                >
+                                    {warehouses.map((warehouse) => (
+                                        <SelectItem
+                                            key={warehouse.id}
+                                            value={warehouse.id.toString()}
+                                        >
+                                            {warehouse.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        {/* Informasi Warehouse yang dipilih */}
+                        {data.warehouse_id &&
+                            (() => {
+                                const selectedWarehouse = warehouses.find(
+                                    (w) =>
+                                        w.id.toString() ===
+                                        data.warehouse_id?.toString()
+                                );
+                                return selectedWarehouse ? (
+                                    <div className="md:col-span-1">
+                                        <div className="p-3 text-sm border rounded bg-gray-50">
+                                            <div>
+                                                <span className="font-semibold">
+                                                    Nama:
+                                                </span>{" "}
+                                                {selectedWarehouse.name}
+                                            </div>
+                                            {selectedWarehouse.address && (
+                                                <div>
+                                                    <span className="font-semibold">
+                                                        Alamat:
+                                                    </span>{" "}
+                                                    {selectedWarehouse.address}
+                                                </div>
+                                            )}
+                                            {selectedWarehouse.phone && (
+                                                <div>
+                                                    <span className="font-semibold">
+                                                        Telepon:
+                                                    </span>{" "}
+                                                    {selectedWarehouse.phone}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : null;
+                            })()}
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Modals */}
             <TokoManualModal
                 show={showTokoModal}

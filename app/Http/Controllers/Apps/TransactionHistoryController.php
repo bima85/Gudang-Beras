@@ -24,13 +24,16 @@ class TransactionHistoryController extends Controller
 
         $from = $request->query('from');
         $to = $request->query('to');
+        $locationId = $request->query('location_id');
+        $locationType = $request->query('location_type');
 
         $query = TransactionHistory::with([
             'product.category',
             'product.subcategory',
             'warehouse',
             'toko',
-            'creator'
+            'creator',
+            'transaction'
         ])->orderBy('transaction_date', 'desc');
         if ($from) {
             $query->whereDate('transaction_date', '>=', $from);
@@ -38,16 +41,26 @@ class TransactionHistoryController extends Controller
         if ($to) {
             $query->whereDate('transaction_date', '<=', $to);
         }
+        if ($locationId && $locationType) {
+            if ($locationType === 'warehouse') {
+                $query->where('warehouse_id', $locationId);
+            } elseif ($locationType === 'toko') {
+                $query->where('toko_id', $locationId);
+            }
+        }
 
-        $transactions = $query->paginate(15)->appends($request->only(['from', 'to']));
+        $transactions = $query->paginate(15)->appends($request->only(['from', 'to', 'location_id', 'location_type']));
 
         return inertia('Dashboard/TransactionHistories/Index', [
             'transactions' => $transactions,
             'filters' => [
                 'from' => $from,
-                'to' => $to
+                'to' => $to,
+                'location_id' => $locationId,
+                'location_type' => $locationType
             ],
-            'tokos' => \App\Models\Toko::select('id', 'name')->get()
+            'tokos' => \App\Models\Toko::select('id', 'name')->get(),
+            'warehouses' => \App\Models\Warehouse::select('id', 'name')->get()
         ]);
     }
 
@@ -64,7 +77,8 @@ class TransactionHistoryController extends Controller
             'product.subcategory',
             'warehouse',
             'toko',
-            'creator'
+            'creator',
+            'transaction'
         ])->findOrFail($id);
 
         return inertia('Dashboard/TransactionHistories/Show', [

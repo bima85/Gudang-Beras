@@ -85,12 +85,60 @@ export default function IndexShadcn() {
     // Transaction number states
     const [transactionNumber, setTransactionNumber] = useState("");
     const [transactionSequence, setTransactionSequence] = useState("001");
+    const [isLoadingSequence, setIsLoadingSequence] = useState(false);
 
     // Customer modal states
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [newCustomerName, setNewCustomerName] = useState("");
     const [newCustomerPhone, setNewCustomerPhone] = useState("");
     const [newCustomerAddress, setNewCustomerAddress] = useState("");
+
+    // Function to get next available sequence number
+    const getNextAvailableSequence = async () => {
+        setIsLoadingSequence(true);
+        try {
+            const today = new Date();
+            const day = today.getDate().toString().padStart(2, "0");
+            const month = (today.getMonth() + 1).toString().padStart(2, "0");
+            const year = today.getFullYear();
+            const datePattern = `${day}/${month}/${year}`;
+
+            // Try to get from API, fallback to local logic if route doesn't exist
+            try {
+                const response = await axios.get(
+                    route("transactions.getNextSequence"),
+                    {
+                        params: { date_pattern: datePattern },
+                    }
+                );
+
+                if (response.data && response.data.next_sequence) {
+                    const nextSeq = response.data.next_sequence
+                        .toString()
+                        .padStart(3, "0");
+                    setTransactionSequence(nextSeq);
+                    return nextSeq;
+                }
+            } catch (routeError) {
+                console.warn("API route not found, using local fallback logic");
+            }
+
+            // Fallback: increment current sequence
+            const currentNum = parseInt(transactionSequence) || 0;
+            const nextNum = (currentNum + 1).toString().padStart(3, "0");
+            setTransactionSequence(nextNum);
+            return nextNum;
+        } catch (error) {
+            console.error("Error getting next sequence:", error);
+            // Final fallback
+            const currentNum = parseInt(transactionSequence) || 0;
+            const nextNum = (currentNum + 1).toString().padStart(3, "0");
+            setTransactionSequence(nextNum);
+            return nextNum;
+        } finally {
+            setIsLoadingSequence(false);
+        }
+    };
 
     // Generate transaction number function
     const generateTransactionNumber = (sequence = "001") => {
@@ -107,14 +155,19 @@ export default function IndexShadcn() {
         setTransactionNumber(generatedNumber);
     }, [transactionSequence]);
 
-    // Auto-select warehouse and toko to defaults (fixed)
+    // Auto-load next available sequence number on component mount
     useEffect(() => {
-        // If no warehouse selected yet, pick the first available as default
+        const initializeSequence = async () => {
+            await getNextAvailableSequence();
+        };
+        initializeSequence();
+    }, []);
+
+    // Auto-select warehouse and toko (always select first available)
+    useEffect(() => {
         if (warehouses && warehouses.length > 0 && !selectedWarehouse) {
             setSelectedWarehouse(warehouses[0].id);
         }
-
-        // If no toko selected yet, pick the first available as default
         if (tokos && tokos.length > 0 && !selectedToko) {
             setSelectedToko(tokos[0]);
         }
@@ -439,10 +492,7 @@ export default function IndexShadcn() {
                 localStorage.removeItem("discount");
 
                 // Generate new transaction number for next transaction
-                const newSequence = (parseInt(transactionSequence) + 1)
-                    .toString()
-                    .padStart(3, "0");
-                setTransactionSequence(newSequence);
+                await getNextAvailableSequence();
 
                 // Reload only cart data to clear it
                 router.reload({ only: ["carts", "carts_total"] });
@@ -597,50 +647,59 @@ export default function IndexShadcn() {
                                     <label className="block mb-2 text-sm font-medium text-foreground">
                                         No. Urut
                                     </label>
-                                    <input
-                                        type="number"
-                                        min="1"
-                                        max="999"
-                                        value={
-                                            parseInt(transactionSequence) || ""
-                                        }
-                                        onChange={(e) => {
-                                            const value = e.target.value;
-                                            if (value === "") {
-                                                setTransactionSequence("");
-                                            } else {
-                                                const numValue =
-                                                    parseInt(value);
-                                                if (
-                                                    numValue >= 1 &&
-                                                    numValue <= 999
-                                                ) {
-                                                    setTransactionSequence(
-                                                        numValue
-                                                            .toString()
-                                                            .padStart(3, "0")
-                                                    );
-                                                }
+                                    <div className="relative">
+                                        <input
+                                            type="text"
+                                            value={
+                                                isLoadingSequence
+                                                    ? "Loading..."
+                                                    : transactionSequence
                                             }
-                                        }}
-                                        className="w-full px-3 py-2 text-sm border rounded-md border-input bg-background"
-                                        placeholder="Masukkan nomor urut (1-999)"
-                                    />
+                                            readOnly
+                                            disabled={isLoadingSequence}
+                                            className="w-full px-3 py-2 pr-10 text-sm border rounded-md border-input bg-muted"
+                                            placeholder="Otomatis diatur sistem"
+                                        />
+                                        <Button
+                                            type="button"
+                                            onClick={getNextAvailableSequence}
+                                            disabled={isLoadingSequence}
+                                            size="sm"
+                                            variant="ghost"
+                                            className="absolute inset-y-0 right-0 flex items-center px-2 text-gray-500 hover:text-gray-700"
+                                            title="Refresh nomor urut"
+                                        >
+                                            {isLoadingSequence ? (
+                                                <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                                            ) : (
+                                                <svg
+                                                    className="w-4 h-4"
+                                                    fill="none"
+                                                    stroke="currentColor"
+                                                    viewBox="0 0 24 24"
+                                                >
+                                                    <path
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                        strokeWidth={2}
+                                                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                                    />
+                                                </svg>
+                                            )}
+                                        </Button>
+                                    </div>
                                     <p className="mt-1 text-xs text-muted-foreground">
-                                        Format akan menjadi:{" "}
-                                        {transactionSequence}
+                                        {isLoadingSequence
+                                            ? "Mencari nomor urut tersedia..."
+                                            : `Otomatis: ${transactionSequence} (Next available)`}
                                     </p>
                                 </div>
                             </div>
 
                             {/* Original TransactionInfo Component */}
                             <TransactionInfo
-                                selectedWarehouse={selectedWarehouse}
-                                warehouses={warehouses}
                                 location={page.props.location}
                                 auth={auth}
-                                transactionNumber={transactionNumber}
-                                transactionSequence={transactionSequence}
                             />
                         </div>
                     </CardContent>

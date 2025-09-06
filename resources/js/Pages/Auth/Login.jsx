@@ -18,11 +18,76 @@ export default function Login({ status, canResetPassword }) {
         };
     }, []);
 
-    const submit = async (e) => {
+    const submit = (e) => {
         e.preventDefault();
-        // Ensure form data contains the selected role and submit
+
+        // Set role in form data before submitting
         setData("role", role);
-        post(route("login"));
+
+        // Simple post with current data
+        const response = post(route("login"), {
+            onSuccess: (page) => {
+                console.log("✅ Login onSuccess triggered:", page);
+                console.log("  - Component:", page?.component || "unknown");
+                console.log("  - Props:", page?.props || {});
+                console.log("  - URL:", page?.url || "unknown");
+
+                // Refresh CSRF token after successful login
+                setTimeout(() => {
+                    const metaToken = document.querySelector(
+                        'meta[name="csrf-token"]'
+                    );
+                    if (metaToken) {
+                        // Get fresh token from current page
+                        fetch(window.location.href, {
+                            method: "GET",
+                            credentials: "include",
+                        })
+                            .then((response) => response.text())
+                            .then((html) => {
+                                const parser = new DOMParser();
+                                const doc = parser.parseFromString(
+                                    html,
+                                    "text/html"
+                                );
+                                const newToken = doc.querySelector(
+                                    'meta[name="csrf-token"]'
+                                );
+                                if (
+                                    newToken &&
+                                    newToken.content !== metaToken.content
+                                ) {
+                                    metaToken.content = newToken.content;
+                                    console.log(
+                                        "🔄 CSRF token refreshed after login"
+                                    );
+                                }
+                            })
+                            .catch((error) => {
+                                console.warn(
+                                    "Failed to refresh CSRF token:",
+                                    error
+                                );
+                            });
+                    }
+                }, 1000);
+            },
+            onError: (errors) => {
+                console.log("❌ Login onError triggered:", errors);
+                console.log("  - Error keys:", Object.keys(errors));
+                console.log("  - Error values:", errors);
+            },
+            onFinish: () => {
+                console.log("🏁 Login onFinish triggered");
+                console.log("  - Processing state:", processing);
+                console.log("  - Has errors:", Object.keys(errors).length > 0);
+            },
+            onProgress: (progress) => {
+                console.log("📊 Login onProgress triggered:", progress);
+            },
+        });
+
+        console.log("🚀 Login form submission initiated:", response);
     };
 
     return (

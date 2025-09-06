@@ -5,17 +5,7 @@ import { Button } from "@/Components/ui/button";
 import { cn } from "@/lib/utils";
 import { Info, MapPin, User, Calendar, Clock, Receipt } from "lucide-react";
 
-export default function TransactionInfo({
-    selectedWarehouse,
-    warehouses,
-    location,
-    auth,
-    className,
-}) {
-    const currentWarehouse = selectedWarehouse
-        ? warehouses.find((w) => w.id === selectedWarehouse)
-        : null;
-
+export default function TransactionInfo({ location, auth, className }) {
     const currentDate = new Date();
     const formattedDate = currentDate.toLocaleDateString("id-ID", {
         weekday: "long",
@@ -92,25 +82,24 @@ export default function TransactionInfo({
                     </div>
                 </div>
 
-                {/* Warehouse Info */}
-                {currentWarehouse && (
-                    <div className="space-y-2">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <Receipt className="w-4 h-4" />
-                            <span className="font-medium">Gudang Aktif</span>
-                        </div>
-                        <div className="p-3 bg-muted/30 rounded-lg border">
-                            <p className="text-sm font-semibold">
-                                {currentWarehouse.name}
-                            </p>
-                            {currentWarehouse.address && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                    {currentWarehouse.address}
-                                </p>
-                            )}
-                        </div>
+                {/* System Status Info */}
+                <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Receipt className="w-4 h-4" />
+                        <span className="font-medium">Status Sistem</span>
                     </div>
-                )}
+                    <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                        <div className="flex items-center gap-2">
+                            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                            <p className="text-sm font-semibold text-green-700 dark:text-green-400">
+                                Sistem Siap
+                            </p>
+                        </div>
+                        <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                            Transaksi dapat diproses dengan normal
+                        </p>
+                    </div>
+                </div>
 
                 {/* Quick Actions */}
                 <div className="pt-4 border-t">

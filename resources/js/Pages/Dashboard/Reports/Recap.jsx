@@ -1,18 +1,39 @@
 import React, { useState } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router, usePage } from "@inertiajs/react";
-import Input from "@/Components/Dashboard/Input";
-import Table from "@/Components/Dashboard/Table";
-import Button from "@/Components/Dashboard/Button";
-import FilterIcon from "@/Components/Dashboard/FilterIcon";
-import { ExcelIcon } from "@/Components/Dashboard/ExportIcons";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import { Badge } from "@/Components/ui/badge";
+import { Alert, AlertDescription } from "@/Components/ui/alert";
+import {
+    CalendarIcon,
+    TrendingUpIcon,
+    TrendingDownIcon,
+    DollarSignIcon,
+    CreditCardIcon,
+    ClockIcon,
+    PiggyBankIcon,
+    ShoppingCartIcon,
+    ShoppingBagIcon,
+    BarChart3Icon,
+    FileDownIcon,
+    FilterIcon,
+    CheckCircleIcon,
+    AlertCircleIcon,
+} from "lucide-react";
 
 export default function Recap({
     transactions,
+    purchases = [],
     totalCash = 0,
     totalTempo = 0,
     totalDeposit = 0,
     totalPenjualan = 0,
+    totalPembelian = 0,
+    labaKotor = 0,
+    persentaseLaba = 0,
     balancing = false,
     start_date = "",
     end_date = "",
@@ -23,6 +44,7 @@ export default function Recap({
     const [end, setEnd] = useState(end_date || "");
 
     const formatPrice = (num) => "Rp " + (num || 0).toLocaleString("id-ID");
+    const formatPercent = (num) => (num || 0).toFixed(2) + "%";
 
     const handleFilter = (e) => {
         e.preventDefault();
@@ -50,236 +72,496 @@ export default function Recap({
 
     return (
         <>
-            <Head title="Rekapan Transaksi & Neraca" />
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 gap-4">
-                <h1 className="text-2xl font-bold text-blue-700">
-                    Rekapan Transaksi & Neraca
-                </h1>
-                <form
-                    onSubmit={handleFilter}
-                    className="flex gap-2 items-center bg-white p-2 rounded shadow"
-                >
-                    <Input
-                        type="date"
-                        label="Dari"
-                        value={start}
-                        onChange={(e) => setStart(e.target.value)}
-                        className="min-w-[150px]"
-                    />
-                    <span className="mx-1">s/d</span>
-                    <Input
-                        type="date"
-                        label="Sampai"
-                        value={end}
-                        onChange={(e) => setEnd(e.target.value)}
-                        className="min-w-[150px]"
-                    />
-                    <Button
-                        type="submit"
-                        label="Filter"
-                        icon={<FilterIcon className="w-4 h-4" />}
-                        className="bg-blue-600 hover:bg-blue-700 text-white shadow transition-all px-6 py-2 rounded-lg font-semibold flex items-center gap-2"
-                    />
-                </form>
+            <Head title="Laporan Laba Rugi & Rekapitulasi" />
+
+            {/* Header */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
+                <div>
+                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
+                        Laporan Laba Rugi & Rekapitulasi
+                    </h1>
+                    <p className="text-gray-600">
+                        Analisis performa keuangan dan transaksi bisnis
+                    </p>
+                </div>
+
+                {/* Filter Form */}
+                <Card className="lg:w-auto w-full">
+                    <CardContent className="p-4">
+                        <form
+                            onSubmit={handleFilter}
+                            className="flex flex-col sm:flex-row gap-3 items-end"
+                        >
+                            <div className="space-y-2">
+                                <Label htmlFor="start-date">
+                                    Tanggal Mulai
+                                </Label>
+                                <div className="relative">
+                                    <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="start-date"
+                                        type="date"
+                                        value={start}
+                                        onChange={(e) =>
+                                            setStart(e.target.value)
+                                        }
+                                        className="pl-10"
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="end-date">Tanggal Akhir</Label>
+                                <div className="relative">
+                                    <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                                    <Input
+                                        id="end-date"
+                                        type="date"
+                                        value={end}
+                                        onChange={(e) => setEnd(e.target.value)}
+                                        className="pl-10"
+                                    />
+                                </div>
+                            </div>
+                            <Button type="submit" className="w-full sm:w-auto">
+                                <FilterIcon className="w-4 h-4 mr-2" />
+                                Filter
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-4">
-                <div className="p-4 bg-gradient-to-br from-blue-100 to-blue-300 rounded shadow text-center">
-                    <div className="text-gray-500 text-sm">Total Transaksi</div>
-                    <div className="text-2xl font-bold text-blue-900">
-                        {transactions.total}
-                    </div>
-                </div>
-                <div className="p-4 bg-gradient-to-br from-green-100 to-green-300 rounded shadow text-center">
-                    <div className="text-gray-500 text-sm">Total Penjualan</div>
-                    <div className="text-2xl font-bold text-green-900">
-                        {formatPrice(totalPenjualan)}
-                    </div>
-                </div>
-                <div className="p-4 bg-gradient-to-br from-yellow-100 to-yellow-300 rounded shadow text-center">
-                    <div className="text-gray-500 text-sm">Cash</div>
-                    <div className="text-2xl font-bold text-yellow-900">
-                        {formatPrice(totalCash)}
-                    </div>
-                </div>
-                <div className="p-4 bg-gradient-to-br from-pink-100 to-pink-300 rounded shadow text-center">
-                    <div className="text-gray-500 text-sm">Tempo</div>
-                    <div className="text-2xl font-bold text-pink-900">
-                        {formatPrice(totalTempo)}
-                    </div>
-                </div>
-                <div className="p-4 bg-gradient-to-br from-purple-100 to-purple-300 rounded shadow text-center">
-                    <div className="text-gray-500 text-sm">Deposit</div>
-                    <div className="text-2xl font-bold text-purple-900">
-                        {formatPrice(totalDeposit)}
-                    </div>
-                </div>
+
+            {/* Laba Rugi Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                {/* Pendapatan */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Total Penjualan
+                        </CardTitle>
+                        <TrendingUpIcon className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-green-600">
+                            {formatPrice(totalPenjualan)}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                            Pendapatan kotor dari penjualan
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* Pengeluaran */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Total Pembelian
+                        </CardTitle>
+                        <TrendingDownIcon className="h-4 w-4 text-red-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-2xl font-bold text-red-600">
+                            {formatPrice(totalPembelian)}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                            Harga pokok penjualan (HPP)
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* Laba Rugi */}
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Laba Kotor
+                        </CardTitle>
+                        <BarChart3Icon
+                            className={`h-4 w-4 ${
+                                labaKotor >= 0
+                                    ? "text-green-600"
+                                    : "text-red-600"
+                            }`}
+                        />
+                    </CardHeader>
+                    <CardContent>
+                        <div
+                            className={`text-2xl font-bold ${
+                                labaKotor >= 0
+                                    ? "text-green-600"
+                                    : "text-red-600"
+                            }`}
+                        >
+                            {formatPrice(labaKotor)}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                            Margin: {formatPercent(persentaseLaba)}
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
-            <div className="p-4 bg-blue-50 rounded shadow mt-4 text-center">
-                <div className="text-lg font-semibold mb-2">
-                    Neraca Balancing
-                </div>
-                <div
-                    className={
-                        balancing
-                            ? "text-green-600 font-bold"
-                            : "text-red-600 font-bold"
-                    }
-                >
-                    {balancing ? "NERACA SEIMBANG" : "NERACA TIDAK SEIMBANG"}
-                </div>
-                <div className="text-sm mt-2">
-                    <span className="font-mono block">
-                        Cash + Deposit + Tempo = Total Penjualan
-                    </span>
-                    <span className="font-mono block">
-                        {formatPrice(totalCash)} + {formatPrice(totalDeposit)} +{" "}
-                        {formatPrice(totalTempo)} ={" "}
-                        {formatPrice(totalPenjualan)}
-                    </span>
-                </div>
+
+            {/* Breakdown Penjualan */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Penjualan Cash
+                        </CardTitle>
+                        <DollarSignIcon className="h-4 w-4 text-green-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-xl font-bold">
+                            {formatPrice(totalCash)}
+                        </div>
+                        <Badge variant="secondary" className="mt-2">
+                            {totalPenjualan > 0
+                                ? ((totalCash / totalPenjualan) * 100).toFixed(
+                                      1
+                                  )
+                                : 0}
+                            %
+                        </Badge>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Penjualan Tempo
+                        </CardTitle>
+                        <ClockIcon className="h-4 w-4 text-orange-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-xl font-bold">
+                            {formatPrice(totalTempo)}
+                        </div>
+                        <Badge variant="secondary" className="mt-2">
+                            {totalPenjualan > 0
+                                ? ((totalTempo / totalPenjualan) * 100).toFixed(
+                                      1
+                                  )
+                                : 0}
+                            %
+                        </Badge>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Total Deposit
+                        </CardTitle>
+                        <PiggyBankIcon className="h-4 w-4 text-blue-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-xl font-bold">
+                            {formatPrice(totalDeposit)}
+                        </div>
+                        <Badge variant="secondary" className="mt-2">
+                            {totalPenjualan > 0
+                                ? (
+                                      (totalDeposit / totalPenjualan) *
+                                      100
+                                  ).toFixed(1)
+                                : 0}
+                            %
+                        </Badge>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                        <CardTitle className="text-sm font-medium">
+                            Total Transaksi
+                        </CardTitle>
+                        <ShoppingCartIcon className="h-4 w-4 text-purple-600" />
+                    </CardHeader>
+                    <CardContent>
+                        <div className="text-xl font-bold">
+                            {transactions.total}
+                        </div>
+                        <p className="text-xs text-gray-600 mt-1">
+                            Jumlah transaksi
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
-            <div className="flex justify-end mt-6 gap-2 flex-wrap">
-                <Button
-                    type="button"
-                    label="Export CSV"
-                    icon={<ExcelIcon className="w-5 h-5" />}
-                    onClick={handleExport}
-                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded shadow w-full sm:w-auto"
-                />
+
+            {/* Neraca Balancing Alert */}
+            <Alert
+                className={`mb-8 ${
+                    balancing
+                        ? "border-green-200 bg-green-50"
+                        : "border-red-200 bg-red-50"
+                }`}
+            >
+                <div className="flex items-center">
+                    {balancing ? (
+                        <CheckCircleIcon className="h-4 w-4 text-green-600 mr-2" />
+                    ) : (
+                        <AlertCircleIcon className="h-4 w-4 text-red-600 mr-2" />
+                    )}
+                    <AlertDescription
+                        className={
+                            balancing ? "text-green-800" : "text-red-800"
+                        }
+                    >
+                        <div className="font-semibold mb-2">
+                            {balancing
+                                ? "NERACA SEIMBANG ✓"
+                                : "NERACA TIDAK SEIMBANG ⚠️"}
+                        </div>
+                        <div className="text-sm font-mono">
+                            Cash + Deposit + Tempo = Total Penjualan
+                        </div>
+                        <div className="text-sm font-mono mt-1">
+                            {formatPrice(totalCash)} +{" "}
+                            {formatPrice(totalDeposit)} +{" "}
+                            {formatPrice(totalTempo)} ={" "}
+                            {formatPrice(totalPenjualan)}
+                        </div>
+                    </AlertDescription>
+                </div>
+            </Alert>
+
+            {/* Export Button */}
+            <div className="flex justify-end mb-6">
+                <Button onClick={handleExport} variant="outline">
+                    <FileDownIcon className="w-4 h-4 mr-2" />
+                    Export CSV
+                </Button>
             </div>
-            <div className="mt-8 bg-white rounded shadow p-4 overflow-x-auto">
-                <div className="flex items-center justify-between w-full flex-wrap mb-2">
-                    <span className="font-bold text-lg">Rekap Transaksi</span>
-                </div>
-                <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-3 py-2">No</th>
-                            <th className="px-3 py-2">Tanggal</th>
-                            <th className="px-3 py-2">Invoice</th>
-                            <th className="px-3 py-2">Kasir</th>
-                            <th className="px-3 py-2">Pelanggan</th>
-                            <th className="px-3 py-2 text-right">Total</th>
-                            <th className="px-3 py-2">Metode</th>
-                            <th className="px-3 py-2 text-right">Deposit</th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
-                        {transactions.data.length === 0 ? (
-                            <tr>
-                                <td
-                                    colSpan={8}
-                                    className="text-center py-4 text-gray-400"
-                                >
-                                    Tidak ada transaksi ditemukan
-                                </td>
-                            </tr>
-                        ) : (
-                            transactions.data.map((t, i) => (
-                                <tr
-                                    key={t.id}
-                                    className="hover:bg-gray-50 dark:hover:bg-gray-900 transition"
-                                >
-                                    <td className="px-3 py-2">
-                                        {(transactions.current_page - 1) *
-                                            transactions.per_page +
-                                            i +
-                                            1}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {t.created_at?.slice(0, 10)}
-                                    </td>
-                                    <td className="px-3 py-2 font-mono text-xs">
-                                        {t.invoice}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {t.cashier?.name || "-"}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {t.customer?.name || "-"}
-                                    </td>
-                                    <td className="px-3 py-2 text-right font-semibold">
-                                        {formatPrice(t.grand_total)}
-                                    </td>
-                                    <td className="px-3 py-2">
-                                        {t.payment_method === "cash"
-                                            ? "Cash"
-                                            : t.payment_method === "tempo"
-                                            ? "Tempo"
-                                            : t.payment_method === "deposit"
-                                            ? "Deposit"
-                                            : "-"}
-                                    </td>
-                                    <td className="px-3 py-2 text-right">
-                                        {t.is_deposit
-                                            ? formatPrice(t.deposit_amount ?? 0)
-                                            : "-"}
-                                    </td>
-                                </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
-                {/* Pagination */}
-                <div className="mt-4 flex justify-end gap-2 flex-wrap">
-                    {transactions.links &&
-                        transactions.links.map((link, i) => (
-                            <Button
-                                key={i}
-                                label={link.label.replace(
-                                    /&laquo;|&raquo;|&lsaquo;|&rsaquo;/g,
-                                    ""
-                                )}
-                                onClick={() => link.url && router.get(link.url)}
-                                disabled={!link.url}
-                                className={
-                                    link.active ? "bg-blue-500 text-white" : ""
-                                }
-                            />
-                        ))}
-                </div>
-            </div>
-            <div className="bg-white rounded shadow p-4 mb-6 mt-6">
-                <div className="font-semibold mb-2">
-                    Rekap Kategori Produk Transaksi (Realtime)
-                </div>
-                <div className="overflow-x-auto">
-                    <table className="min-w-[300px] text-sm">
-                        <thead>
-                            <tr className="bg-gray-100">
-                                <th className="p-2">Kategori</th>
-                                <th className="p-2">Qty Terjual</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {Object.keys(kategoriProduk).length === 0 ? (
+            {/* Tabel Transaksi */}
+            <Card className="mb-8">
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <ShoppingCartIcon className="h-5 w-5" />
+                        Detail Transaksi Penjualan
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 border-b">
                                 <tr>
-                                    <td
-                                        colSpan={2}
-                                        className="text-center py-4 text-gray-400"
-                                    >
-                                        Tidak ada data
-                                    </td>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        No
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Tanggal
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Invoice
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Kasir
+                                    </th>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Pelanggan
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Total
+                                    </th>
+                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Metode
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Deposit
+                                    </th>
                                 </tr>
-                            ) : (
-                                Object.entries(kategoriProduk).map(
-                                    ([cat, qty], i) => (
-                                        <tr
-                                            key={i}
-                                            className="border-b hover:bg-blue-50"
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {transactions.data.length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan={8}
+                                            className="px-4 py-8 text-center text-gray-500"
                                         >
-                                            <td className="p-2">{cat}</td>
-                                            <td className="p-2 text-right">
-                                                {qty}
+                                            Tidak ada transaksi ditemukan untuk
+                                            periode ini
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    transactions.data.map((t, i) => (
+                                        <tr
+                                            key={t.id}
+                                            className="hover:bg-gray-50 transition-colors"
+                                        >
+                                            <td className="px-4 py-3 text-sm text-gray-900">
+                                                {(transactions.current_page -
+                                                    1) *
+                                                    transactions.per_page +
+                                                    i +
+                                                    1}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-900">
+                                                {new Date(
+                                                    t.created_at
+                                                ).toLocaleDateString("id-ID")}
+                                            </td>
+                                            <td className="px-4 py-3">
+                                                <Badge
+                                                    variant="outline"
+                                                    className="font-mono text-xs"
+                                                >
+                                                    {t.invoice}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-900">
+                                                {t.cashier?.name || "-"}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-gray-900">
+                                                {t.customer?.name ||
+                                                    "Walk-in Customer"}
+                                            </td>
+                                            <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900">
+                                                {formatPrice(t.grand_total)}
+                                            </td>
+                                            <td className="px-4 py-3 text-center">
+                                                <Badge
+                                                    variant={
+                                                        t.payment_method ===
+                                                        "cash"
+                                                            ? "default"
+                                                            : t.payment_method ===
+                                                              "tempo"
+                                                            ? "secondary"
+                                                            : t.payment_method ===
+                                                              "deposit"
+                                                            ? "outline"
+                                                            : "secondary"
+                                                    }
+                                                    className="text-xs"
+                                                >
+                                                    {t.payment_method === "cash"
+                                                        ? "Cash"
+                                                        : t.payment_method ===
+                                                          "tempo"
+                                                        ? "Tempo"
+                                                        : t.payment_method ===
+                                                          "deposit"
+                                                        ? "Deposit"
+                                                        : "-"}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-4 py-3 text-sm text-right text-gray-900">
+                                                {t.is_deposit
+                                                    ? formatPrice(
+                                                          t.deposit_amount ?? 0
+                                                      )
+                                                    : "-"}
                                             </td>
                                         </tr>
-                                    )
-                                )
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {transactions.links && (
+                        <div className="px-4 py-3 border-t bg-gray-50">
+                            <div className="flex justify-center gap-1">
+                                {transactions.links.map((link, i) => (
+                                    <Button
+                                        key={i}
+                                        variant={
+                                            link.active ? "default" : "outline"
+                                        }
+                                        size="sm"
+                                        onClick={() =>
+                                            link.url && router.get(link.url)
+                                        }
+                                        disabled={!link.url}
+                                        className="min-w-[40px]"
+                                    >
+                                        {link.label.replace(
+                                            /&laquo;|&raquo;|&lsaquo;|&rsaquo;/g,
+                                            ""
+                                        )}
+                                    </Button>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* Rekap Kategori Produk */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <BarChart3Icon className="h-5 w-5" />
+                        Rekap Kategori Produk Terjual
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-gray-50 border-b">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Kategori Produk
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Quantity Terjual
+                                    </th>
+                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        Persentase
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {Object.keys(kategoriProduk).length === 0 ? (
+                                    <tr>
+                                        <td
+                                            colSpan={3}
+                                            className="px-4 py-8 text-center text-gray-500"
+                                        >
+                                            Tidak ada data kategori produk
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    (() => {
+                                        const totalQty = Object.values(
+                                            kategoriProduk
+                                        ).reduce((a, b) => a + b, 0);
+                                        return Object.entries(kategoriProduk)
+                                            .sort(([, a], [, b]) => b - a) // Sort by quantity descending
+                                            .map(([cat, qty], i) => (
+                                                <tr
+                                                    key={i}
+                                                    className="hover:bg-gray-50 transition-colors"
+                                                >
+                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                                                        {cat}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm text-right text-gray-900">
+                                                        {qty.toLocaleString(
+                                                            "id-ID"
+                                                        )}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right">
+                                                        <Badge variant="secondary">
+                                                            {totalQty > 0
+                                                                ? (
+                                                                      (qty /
+                                                                          totalQty) *
+                                                                      100
+                                                                  ).toFixed(1)
+                                                                : 0}
+                                                            %
+                                                        </Badge>
+                                                    </td>
+                                                </tr>
+                                            ));
+                                    })()
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
         </>
     );
 }

@@ -25,7 +25,10 @@ class DatabaseSeeder extends Seeder
             RoleSeeder::class,
             UserSeeder::class,
             UnitSeeder::class,
-
+            // Ensure delivery permission exists and is assigned to gudang/super-admin
+            \Database\Seeders\EnsureDeliveryPermissionSeeder::class,
+            // Ensure core roles and permissions exist and are assigned
+            \Database\Seeders\EnsureRolesPermissionsSeeder::class,
         ]);
     }
 }

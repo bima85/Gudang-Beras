@@ -240,33 +240,31 @@ class TransactionController extends Controller
             $product->units = $units;
             $product->selectedUnit = $units->first();
 
-            $warehouseStock = 0;
+            // Get warehouse stock
+            $warehouseStockKg = 0;
             if ($request->has('warehouse_id') && $request->warehouse_id) {
-                $warehouseStock = WarehouseStock::getStock($product->id, $request->warehouse_id);
+                $warehouseStockKg = WarehouseStock::getStock($product->id, $request->warehouse_id);
             }
-            $product->stock = $warehouseStock;
 
-            // Jika stok gudang habis, ambil stok toko
-            $stokTokoQty = null;
-            if ($product->stock <= 0) {
-                $storeStock = StoreStock::where('product_id', $product->id)
-                    ->orderByDesc('id')
-                    ->first();
-                $stokTokoQty = $storeStock ? $storeStock->qty_in_kg : 0;
-            }
+            // Set warehouse stock in kg for frontend
+            $product->warehouse_stock_kg = $warehouseStockKg;
+            $product->stock = $warehouseStockKg; // Keep backward compatibility
 
             try {
                 // Compute aggregated store stock across all tokos by summing qty_in_kg
                 $tokoIdParam = $request->toko_id ?? null;
 
                 if ($tokoIdParam) {
-                    $totalKg = StoreStock::where('product_id', $product->id)
+                    $totalStoreStockKg = StoreStock::where('product_id', $product->id)
                         ->where('toko_id', $tokoIdParam)
                         ->sum('qty_in_kg');
                 } else {
-                    $totalKg = StoreStock::where('product_id', $product->id)
+                    $totalStoreStockKg = StoreStock::where('product_id', $product->id)
                         ->sum('qty_in_kg');
                 }
+
+                // Set store stock in kg for frontend
+                $product->store_stock_kg = $totalStoreStockKg;
 
                 // Convert totalKg back to the product selected unit if available (so frontend sees stock in that unit)
                 $selectedUnitConv = null;
@@ -274,23 +272,25 @@ class TransactionController extends Controller
                     $selectedUnitConv = (float) $product->selectedUnit->conversion_to_kg;
                 }
                 if ($selectedUnitConv && $selectedUnitConv > 0) {
-                    $stokTokoQty = $totalKg / $selectedUnitConv;
+                    $stokTokoQty = $totalStoreStockKg / $selectedUnitConv;
                 } else {
                     // fallback: return total in kg
-                    $stokTokoQty = $totalKg;
+                    $stokTokoQty = $totalStoreStockKg;
                 }
 
                 Log::info('searchProduct result', [
                     'product_id' => $product->id ?? null,
+                    'warehouse_stock_kg' => $warehouseStockKg,
+                    'store_stock_kg' => $totalStoreStockKg,
                     'stok_toko' => $stokTokoQty,
-                    'total_kg' => $totalKg,
                 ]);
             } catch (\Throwable $e) {
                 try {
                     Log::info('[searchProduct] failed to compute aggregated stok_toko', ['error' => $e->getMessage()]);
                 } catch (\Throwable $_) {
                 }
-                $stokTokoQty = $stokTokoQty ?? 0;
+                $stokTokoQty = 0;
+                $product->store_stock_kg = 0;
             }
 
             return response()->json([
@@ -339,6 +339,15 @@ class TransactionController extends Controller
     {
         $user = $request->user();
         if (! $user || (! $user->hasPermissionTo('transactions.sell') && ! $user->hasRole('super-admin'))) {
+            $uid = null;
+            if ($user) {
+                if (property_exists($user, 'id')) {
+                    $uid = $user->id;
+                } elseif (method_exists($user, 'getAuthIdentifier')) {
+                    $uid = $user->getAuthIdentifier();
+                }
+            }
+            Log::warning('[addToCart] access denied', ['user_id' => $uid, 'email' => $user?->email ?? null]);
             return response()->json(['success' => false, 'message' => 'Akses ditolak.'], 403);
         }
         $product = Product::find($request->product_id);
@@ -1063,14 +1072,17 @@ class TransactionController extends Controller
                         // use client-provided normalized trxTime if available, otherwise server now in Asia/Jakarta
                         'transaction_time' => $trxTime ? $trxTime : \Carbon\Carbon::now('Asia/Jakarta')->format('H:i:s'),
                         'related_party' => $customer ? $customer->name : null,
-                        'warehouse_id' => $transaction->warehouse_id,
+                        // warehouse_id column was removed from schema; store toko_id if applicable
+                        'toko_id' => null,
                         'product_id' => $detail->product_id,
                         'quantity' => $detail->qty,
                         'unit' => $unitName,
                         'price' => $detail->price,
                         'subtotal' => $detail->subtotal ?? ($detail->qty * $detail->price),
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $stockAfter,
+                        'discount' => $transaction->discount ?? 0,
+                        'deposit_amount' => $transaction->deposit_amount ?? 0,
+                        'stock_before' => $stockBefore ?? 0,
+                        'stock_after' => $stockAfter ?? 0,
                         // Ensure payment_status matches allowed enum values for transaction_histories
                         // Map payment_method -> payment_status: 'tempo' => 'unpaid', 'cash'|'deposit' => 'paid'
                         'payment_status' => (

@@ -1,15 +1,18 @@
 import React, { useState } from "react";
 import { Head, usePage, useForm } from "@inertiajs/react";
-import Card from "@/Components/Dashboard/Card";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import {
     IconUsersPlus,
     IconPencilPlus,
     IconUserShield,
+    IconArrowLeft,
 } from "@tabler/icons-react";
-import Input from "@/Components/Dashboard/Input";
-import Button from "@/Components/Dashboard/Button";
-import Checkbox from "@/Components/Dashboard/Checkbox";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import { Checkbox } from "@/Components/ui/checkbox";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Alert, AlertDescription } from "@/Components/ui/alert";
 import toast from "react-hot-toast";
 export default function Create() {
     // destruct props roles from use page
@@ -69,122 +72,241 @@ export default function Create() {
     };
 
     return (
-        <>
-            <Head title={"Tambah Data Pengguna"} />
-            <Card
-                title={"Tambah Data Pengguna"}
-                icon={<IconUsersPlus size={20} strokeWidth={1.5} />}
-            >
-                <form onSubmit={saveUser}>
-                    <div className="mb-4 flex flex-col md:flex-row justify-between gap-4">
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"text"}
-                                label={"Nama Pengguna"}
-                                value={data.name}
-                                onChange={(e) =>
-                                    setData("name", e.target.value)
-                                }
-                                errors={errors.name}
-                            />
-                        </div>
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"email"}
-                                label={"Email Pengguna"}
-                                value={data.email}
-                                onChange={(e) =>
-                                    setData("email", e.target.value)
-                                }
-                                errors={errors.email}
-                            />
+        <DashboardLayout>
+            <Head title="Tambah Data Pengguna" />
+
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={route("users.index")}>
+                                <IconArrowLeft className="w-4 h-4 mr-2" />
+                                Kembali
+                            </a>
+                        </Button>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                Tambah Data Pengguna
+                            </h1>
+                            <p className="text-gray-600 mt-1">
+                                Buat pengguna baru dengan hak akses yang sesuai
+                            </p>
                         </div>
                     </div>
-                    <div className="mb-4 flex flex-col md:flex-row gap-4">
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"password"}
-                                label={"Kata Sandi"}
-                                value={data.password}
-                                onChange={(e) =>
-                                    setData("password", e.target.value)
-                                }
-                                errors={errors.password}
-                            />
-                        </div>
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"password"}
-                                label={"Konfirmasi Kata Sandi"}
-                                value={data.password_confirmation}
-                                onChange={(e) =>
-                                    setData(
-                                        "password_confirmation",
-                                        e.target.value
-                                    )
-                                }
-                            />
-                        </div>
-                    </div>
-                    <div
-                        className={`p-4 rounded-t-lg border bg-white dark:bg-gray-950 dark:border-gray-900`}
-                    >
-                        <div className="flex items-center gap-2 font-semibold text-sm text-gray-700 dark:text-gray-400">
-                            Akses Group
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-b-lg border border-t-0 bg-gray-100 dark:bg-gray-900 dark:border-gray-900">
-                        <div className="flex flex-row flex-wrap gap-4">
-                            {roles.map((role, i) => (
-                                <Checkbox
-                                    label={role.name}
-                                    value={role.name}
-                                    onChange={setSelectedRoles}
-                                    key={i}
-                                />
-                            ))}
-                            {/* Tambahan akses permission purchases-access dan transactions-access */}
-                            <Checkbox
-                                label={"purchases-access"}
-                                value={"purchases-access"}
-                                checked={purchasesAccess}
-                                onChange={(e) =>
-                                    setPurchasesAccess(e.target.checked)
-                                }
-                                key={"purchases-access"}
-                            />
-                            <Checkbox
-                                label={"transactions-access"}
-                                value={"transactions-access"}
-                                checked={transactionsAccess}
-                                onChange={(e) =>
-                                    setTransactionsAccess(e.target.checked)
-                                }
-                                key={"transactions-access"}
-                            />
-                        </div>
-                        {errors.selectedRoles && (
-                            <div className="text-xs text-red-500 mt-4">
-                                {errors.selectedRoles}
+                </div>
+
+                {/* Form */}
+                <form onSubmit={saveUser} className="space-y-6">
+                    {/* Basic Information */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <IconUsersPlus className="w-5 h-5" />
+                                Informasi Pengguna
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Nama Pengguna</Label>
+                                    <Input
+                                        id="name"
+                                        type="text"
+                                        placeholder="Masukkan nama pengguna"
+                                        value={data.name}
+                                        onChange={(e) =>
+                                            setData("name", e.target.value)
+                                        }
+                                        className={
+                                            errors.name ? "border-red-500" : ""
+                                        }
+                                    />
+                                    {errors.name && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.name}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">
+                                        Email Pengguna
+                                    </Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="Masukkan email pengguna"
+                                        value={data.email}
+                                        onChange={(e) =>
+                                            setData("email", e.target.value)
+                                        }
+                                        className={
+                                            errors.email ? "border-red-500" : ""
+                                        }
+                                    />
+                                    {errors.email && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.email}
+                                        </p>
+                                    )}
+                                </div>
                             </div>
-                        )}
-                    </div>
-                    <div className="px-4 py-2 rounded-b-lg border bg-white dark:bg-gray-950 dark:border-gray-900 ">
-                        <Button
-                            type={"submit"}
-                            label={"Simpan"}
-                            icon={
-                                <IconPencilPlus size={20} strokeWidth={1.5} />
-                            }
-                            className={
-                                "border bg-white text-gray-700 hover:bg-gray-100 dark:bg-gray-950 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"
-                            }
-                        />
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">Kata Sandi</Label>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        placeholder="Masukkan kata sandi"
+                                        value={data.password}
+                                        onChange={(e) =>
+                                            setData("password", e.target.value)
+                                        }
+                                        className={
+                                            errors.password
+                                                ? "border-red-500"
+                                                : ""
+                                        }
+                                    />
+                                    {errors.password && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.password}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="password_confirmation">
+                                        Konfirmasi Kata Sandi
+                                    </Label>
+                                    <Input
+                                        id="password_confirmation"
+                                        type="password"
+                                        placeholder="Konfirmasi kata sandi"
+                                        value={data.password_confirmation}
+                                        onChange={(e) =>
+                                            setData(
+                                                "password_confirmation",
+                                                e.target.value
+                                            )
+                                        }
+                                    />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Permissions */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <IconUserShield className="w-5 h-5" />
+                                Akses Group & Permissions
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* Roles */}
+                            <div className="space-y-3">
+                                <Label className="text-base font-medium">
+                                    Grup Akses (Roles)
+                                </Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {roles.map((role, i) => (
+                                        <div
+                                            key={i}
+                                            className="flex items-center space-x-2"
+                                        >
+                                            <Checkbox
+                                                id={`role-${role.name}`}
+                                                value={role.name}
+                                                checked={data.selectedRoles.includes(
+                                                    role.name
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    const e = {
+                                                        target: {
+                                                            value: role.name,
+                                                            checked: checked,
+                                                        },
+                                                    };
+                                                    setSelectedRoles(e);
+                                                }}
+                                            />
+                                            <Label
+                                                htmlFor={`role-${role.name}`}
+                                                className="text-sm font-normal capitalize cursor-pointer"
+                                            >
+                                                {role.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Additional Permissions */}
+                            <div className="space-y-3 pt-4 border-t">
+                                <Label className="text-base font-medium">
+                                    Permission Tambahan
+                                </Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="purchases-access"
+                                            checked={purchasesAccess}
+                                            onCheckedChange={setPurchasesAccess}
+                                        />
+                                        <Label
+                                            htmlFor="purchases-access"
+                                            className="text-sm font-normal cursor-pointer"
+                                        >
+                                            Akses Pembelian (purchases-access)
+                                        </Label>
+                                    </div>
+
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="transactions-access"
+                                            checked={transactionsAccess}
+                                            onCheckedChange={
+                                                setTransactionsAccess
+                                            }
+                                        />
+                                        <Label
+                                            htmlFor="transactions-access"
+                                            className="text-sm font-normal cursor-pointer"
+                                        >
+                                            Akses Transaksi
+                                            (transactions-access)
+                                        </Label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {errors.selectedRoles && (
+                                <Alert variant="destructive">
+                                    <AlertDescription>
+                                        {errors.selectedRoles}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Submit Button */}
+                    <div className="flex justify-end gap-4">
+                        <Button type="button" variant="outline" asChild>
+                            <a href={route("users.index")}>Batal</a>
+                        </Button>
+
+                        <Button type="submit">
+                            <IconPencilPlus className="w-4 h-4 mr-2" />
+                            Simpan Pengguna
+                        </Button>
                     </div>
                 </form>
-            </Card>
-        </>
+            </div>
+        </DashboardLayout>
     );
 }
-
-Create.layout = (page) => <DashboardLayout children={page} />;

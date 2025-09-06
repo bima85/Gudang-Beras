@@ -188,9 +188,6 @@ class PurchaseController extends Controller
                 'toko_address' => 'nullable|string|max:255',
                 'toko_phone' => 'nullable|string|max:50',
                 'warehouse_id' => 'nullable|exists:warehouses,id',
-                'warehouse_name' => 'nullable|string|max:255',
-                'warehouse_address' => 'nullable|string|max:255',
-                'warehouse_phone' => 'nullable|string|max:50',
                 'purchase_date' => 'required|date',
                 'phone' => 'nullable|string|max:50',
                 'address' => 'nullable|string|max:255',
@@ -274,33 +271,10 @@ class PurchaseController extends Controller
                 }
             }
 
-            // Gudang logic
+            // Gudang logic - Readonly, hanya menggunakan warehouse yang sudah ada
             $warehouse = null;
             if (!empty($validated['warehouse_id'])) {
                 $warehouse = Warehouse::find($validated['warehouse_id']);
-            } elseif (!empty($validated['warehouse_name'])) {
-                $warehouse = Warehouse::where('name', $validated['warehouse_name'])->first();
-                if (!$warehouse) {
-                    $warehouse = Warehouse::create([
-                        'name' => $validated['warehouse_name'],
-                        'code' => 'TOKO-' . strtoupper(Str::slug($validated['warehouse_name'])),
-                        'phone' => $validated['warehouse_phone'] ?? null,
-                        'address' => $validated['warehouse_address'] ?? null,
-                        'description' => 'Auto created for toko',
-                        'type' => 'toko',
-                    ]);
-                }
-            } elseif (!empty($validated['supplier_name'])) {
-                $warehouse = Warehouse::where('name', $validated['supplier_name'])->first();
-                if (!$warehouse) {
-                    $warehouse = Warehouse::create([
-                        'name' => $validated['supplier_name'],
-                        'code' => 'SUP-' . strtoupper(Str::slug($validated['supplier_name'])),
-                        'phone' => $validated['phone'] ?? null,
-                        'address' => $validated['address'] ?? null,
-                        'description' => 'Auto created for supplier',
-                    ]);
-                }
             }
 
             $totalPembelian = 0;
@@ -526,14 +500,17 @@ class PurchaseController extends Controller
                         // record the actual time the purchase was saved in WIB
                         'transaction_time' => \Carbon\Carbon::now('Asia/Jakarta')->format('H:i:s'),
                         'related_party' => $purchase->supplier ? $purchase->supplier->name : ($purchase->toko ? $purchase->toko->name : null),
-                        'warehouse_id' => $purchase->warehouse_id,
+                        'toko_id' => $purchase->toko_id,
+                        // warehouse_id column removed from schema; omit it
                         'product_id' => $pItem->product_id,
                         'quantity' => $qty,
                         'unit' => $unitName,
-                        'price' => $pItem->harga_pembelian ?? null,
+                        'price' => $pItem->harga_pembelian ?? 0,
                         'subtotal' => $subtotal,
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $product ? ($product->stock ?? null) : null,
+                        'kuli_fee' => $pItem->kuli_fee ?? 0,
+                        'timbangan' => $pItem->timbangan ?? null,
+                        'stock_before' => $stockBefore ?? 0,
+                        'stock_after' => $product ? ($product->stock ?? 0) : 0,
                         'payment_status' => null,
                         'notes' => 'Auto-recorded from Purchase #' . $purchase->id,
                         'created_by' => Auth::id(),

@@ -1,20 +1,36 @@
-import React from "react";
+import React, { useState } from "react";
 import { Head, usePage, useForm } from "@inertiajs/react";
-import Card from "@/Components/Dashboard/Card";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import {
     IconUsersPlus,
     IconPencilPlus,
     IconUserShield,
+    IconArrowLeft,
+    IconEdit,
 } from "@tabler/icons-react";
-import Input from "@/Components/Dashboard/Input";
-import Button from "@/Components/Dashboard/Button";
-import Checkbox from "@/Components/Dashboard/Checkbox";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import { Checkbox } from "@/Components/ui/checkbox";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Alert, AlertDescription } from "@/Components/ui/alert";
 import toast from "react-hot-toast";
 
 export default function Edit() {
-    // destruct props roles from use page
+    // destruct props roles and user from use page
     const { roles, user } = usePage().props;
+
+    // Initialize permissions state based on user's existing permissions
+    const [purchasesAccess, setPurchasesAccess] = useState(
+        user.permissions?.some(
+            (permission) => permission.name === "purchases-access"
+        ) || false
+    );
+    const [transactionsAccess, setTransactionsAccess] = useState(
+        user.permissions?.some(
+            (permission) => permission.name === "transactions-access"
+        ) || false
+    );
 
     const { data, setData, post, errors } = useForm({
         name: user.name,
@@ -43,7 +59,14 @@ export default function Edit() {
     const updateUser = async (e) => {
         e.preventDefault();
 
+        const payload = {
+            ...data,
+            purchasesAccess: purchasesAccess,
+            transactionsAccess: transactionsAccess,
+        };
+
         post(route("users.update", user.id), {
+            data: payload,
             onSuccess: () => {
                 toast("Data berhasil disimpan", {
                     icon: "👏",
@@ -73,112 +96,257 @@ export default function Edit() {
     };
 
     return (
-        <>
-            <Head title={"Ubah Data Pengguna"} />
-            <form onSubmit={updateUser}>
-                <Card
-                    title={"Ubah Data Pengguna"}
-                    icon={<IconUsersPlus size={20} strokeWidth={1.5} />}
-                    footer={
-                        <Button
-                            type={"submit"}
-                            label={"Simpan"}
-                            icon={
-                                <IconPencilPlus size={20} strokeWidth={1.5} />
-                            }
-                            className={
-                                "border bg-white text-gray-700 hover:bg-gray-100 dark:bg-gray-950 dark:border-gray-800 dark:text-gray-200 dark:hover:bg-gray-900"
-                            }
-                        />
-                    }
-                >
-                    <div className="mb-4 flex flex-col md:flex-row justify-between gap-4">
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"text"}
-                                label={"Nama Pengguna"}
-                                value={data.name}
-                                onChange={(e) =>
-                                    setData("name", e.target.value)
-                                }
-                                errors={errors.name}
-                            />
-                        </div>
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"email"}
-                                label={"Email Pengguna"}
-                                value={data.email}
-                                onChange={(e) =>
-                                    setData("email", e.target.value)
-                                }
-                                errors={errors.email}
-                                disabled
-                            />
+        <DashboardLayout>
+            <Head title="Ubah Data Pengguna" />
+
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                        <Button variant="outline" size="sm" asChild>
+                            <a href={route("users.index")}>
+                                <IconArrowLeft className="w-4 h-4 mr-2" />
+                                Kembali
+                            </a>
+                        </Button>
+                        <div>
+                            <h1 className="text-2xl font-bold text-gray-900">
+                                Ubah Data Pengguna
+                            </h1>
+                            <p className="text-gray-600 mt-1">
+                                Perbarui informasi pengguna dan hak akses
+                            </p>
                         </div>
                     </div>
-                    <div className="mb-4 flex flex-col md:flex-row gap-4">
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"password"}
-                                label={"Kata Sandi"}
-                                value={data.password}
-                                onChange={(e) =>
-                                    setData("password", e.target.value)
-                                }
-                                errors={errors.password}
-                            />
-                        </div>
-                        <div className="w-full md:w-1/2">
-                            <Input
-                                type={"password"}
-                                label={"Konfirmasi Kata Sandi"}
-                                value={data.password_confirmation}
-                                onChange={(e) =>
-                                    setData(
-                                        "password_confirmation",
-                                        e.target.value
-                                    )
-                                }
-                                errors={errors.password_confirmation}
-                            />
-                        </div>
-                    </div>
-                    <div
-                        className={`p-4 rounded-t-lg border bg-white dark:bg-gray-950 dark:border-gray-900`}
-                    >
-                        <div className="flex items-center gap-2 font-semibold text-sm text-gray-700 dark:text-gray-400">
-                            Akses Group
-                        </div>
-                    </div>
-                    <div className="p-4 rounded-b-lg border border-t-0 bg-gray-100 dark:bg-gray-900 dark:border-gray-900">
-                        <div className="flex flex-row flex-wrap gap-4">
-                            {roles.map((role, i) => (
-                                <Checkbox
-                                    key={i}
-                                    label={role.name}
-                                    value={role.name}
-                                    onChange={setSelectedRoles}
-                                    defaultChecked={
-                                        role && role.name
-                                            ? data.selectedRoles.some(
-                                                  (name) => name === role.name
-                                              )
-                                            : true
-                                    }
-                                />
-                            ))}
-                        </div>
-                        {errors.selectedRoles && (
-                            <div className="text-xs text-red-500 mt-4">
-                                {errors.selectedRoles}
+                </div>
+
+                {/* Form */}
+                <form onSubmit={updateUser} className="space-y-6">
+                    {/* Basic Information */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <IconEdit className="w-5 h-5" />
+                                Informasi Pengguna
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="name">Nama Pengguna</Label>
+                                    <Input
+                                        id="name"
+                                        type="text"
+                                        placeholder="Masukkan nama pengguna"
+                                        value={data.name}
+                                        onChange={(e) =>
+                                            setData("name", e.target.value)
+                                        }
+                                        className={
+                                            errors.name ? "border-red-500" : ""
+                                        }
+                                    />
+                                    {errors.name && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.name}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="email">
+                                        Email Pengguna
+                                    </Label>
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="Email pengguna"
+                                        value={data.email}
+                                        onChange={(e) =>
+                                            setData("email", e.target.value)
+                                        }
+                                        className={
+                                            errors.email ? "border-red-500" : ""
+                                        }
+                                        disabled
+                                    />
+                                    {errors.email && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.email}
+                                        </p>
+                                    )}
+                                    <p className="text-xs text-gray-500">
+                                        Email tidak dapat diubah
+                                    </p>
+                                </div>
                             </div>
-                        )}
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label htmlFor="password">
+                                        Kata Sandi Baru (Opsional)
+                                    </Label>
+                                    <Input
+                                        id="password"
+                                        type="password"
+                                        placeholder="Kosongkan jika tidak ingin mengubah"
+                                        value={data.password}
+                                        onChange={(e) =>
+                                            setData("password", e.target.value)
+                                        }
+                                        className={
+                                            errors.password
+                                                ? "border-red-500"
+                                                : ""
+                                        }
+                                    />
+                                    {errors.password && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.password}
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label htmlFor="password_confirmation">
+                                        Konfirmasi Kata Sandi Baru
+                                    </Label>
+                                    <Input
+                                        id="password_confirmation"
+                                        type="password"
+                                        placeholder="Konfirmasi kata sandi baru"
+                                        value={data.password_confirmation}
+                                        onChange={(e) =>
+                                            setData(
+                                                "password_confirmation",
+                                                e.target.value
+                                            )
+                                        }
+                                        className={
+                                            errors.password_confirmation
+                                                ? "border-red-500"
+                                                : ""
+                                        }
+                                    />
+                                    {errors.password_confirmation && (
+                                        <p className="text-sm text-red-500">
+                                            {errors.password_confirmation}
+                                        </p>
+                                    )}
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Permissions */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle className="flex items-center gap-2">
+                                <IconUserShield className="w-5 h-5" />
+                                Akses Group & Permissions
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            {/* Roles */}
+                            <div className="space-y-3">
+                                <Label className="text-base font-medium">
+                                    Grup Akses (Roles)
+                                </Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {roles.map((role, i) => (
+                                        <div
+                                            key={i}
+                                            className="flex items-center space-x-2"
+                                        >
+                                            <Checkbox
+                                                id={`role-${role.name}`}
+                                                value={role.name}
+                                                checked={data.selectedRoles.includes(
+                                                    role.name
+                                                )}
+                                                onCheckedChange={(checked) => {
+                                                    const e = {
+                                                        target: {
+                                                            value: role.name,
+                                                            checked: checked,
+                                                        },
+                                                    };
+                                                    setSelectedRoles(e);
+                                                }}
+                                            />
+                                            <Label
+                                                htmlFor={`role-${role.name}`}
+                                                className="text-sm font-normal capitalize cursor-pointer"
+                                            >
+                                                {role.name}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Additional Permissions */}
+                            <div className="space-y-3 pt-4 border-t">
+                                <Label className="text-base font-medium">
+                                    Permission Tambahan
+                                </Label>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="purchases-access"
+                                            checked={purchasesAccess}
+                                            onCheckedChange={setPurchasesAccess}
+                                        />
+                                        <Label
+                                            htmlFor="purchases-access"
+                                            className="text-sm font-normal cursor-pointer"
+                                        >
+                                            Akses Pembelian (purchases-access)
+                                        </Label>
+                                    </div>
+
+                                    <div className="flex items-center space-x-2">
+                                        <Checkbox
+                                            id="transactions-access"
+                                            checked={transactionsAccess}
+                                            onCheckedChange={
+                                                setTransactionsAccess
+                                            }
+                                        />
+                                        <Label
+                                            htmlFor="transactions-access"
+                                            className="text-sm font-normal cursor-pointer"
+                                        >
+                                            Akses Transaksi
+                                            (transactions-access)
+                                        </Label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {errors.selectedRoles && (
+                                <Alert variant="destructive">
+                                    <AlertDescription>
+                                        {errors.selectedRoles}
+                                    </AlertDescription>
+                                </Alert>
+                            )}
+                        </CardContent>
+                    </Card>
+
+                    {/* Submit Button */}
+                    <div className="flex justify-end gap-4">
+                        <Button type="button" variant="outline" asChild>
+                            <a href={route("users.index")}>Batal</a>
+                        </Button>
+
+                        <Button type="submit">
+                            <IconPencilPlus className="w-4 h-4 mr-2" />
+                            Perbarui Pengguna
+                        </Button>
                     </div>
-                </Card>
-            </form>
-        </>
+                </form>
+            </div>
+        </DashboardLayout>
     );
 }
-
-Edit.layout = (page) => <DashboardLayout children={page} />;

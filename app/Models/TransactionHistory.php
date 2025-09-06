@@ -22,6 +22,10 @@ class TransactionHistory extends Model
         'unit',
         'price',
         'subtotal',
+        'kuli_fee',
+        'timbangan',
+        'discount',
+        'deposit_amount',
         'stock_before',
         'stock_after',
         'payment_status',
@@ -47,5 +51,10 @@ class TransactionHistory extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function transaction()
+    {
+        return $this->belongsTo(Transaction::class, 'transaction_number', 'transaction_number');
     }
 }

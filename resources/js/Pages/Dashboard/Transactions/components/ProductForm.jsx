@@ -194,11 +194,46 @@ export default function ProductForm({
                         >
                             <Search className="w-4 h-4" />
                         </Button>
+                        <Button
+                            onClick={() => {
+                                setBarcode("");
+                                // Show all products
+                                if (searchProduct) {
+                                    searchProduct("", selectedWarehouse, null);
+                                }
+                            }}
+                            disabled={isLoadingProduct}
+                            variant="outline"
+                            size="sm"
+                            className="px-3"
+                            title="Tampilkan semua produk"
+                        >
+                            <Package className="w-4 h-4" />
+                        </Button>
                     </div>
+
+                    {/* Status Gudang & Toko */}
+                    {(selectedWarehouse || selectedToko) && (
+                        <div className="flex flex-wrap gap-2 mt-2">
+                            {selectedWarehouse && (
+                                <Badge variant="secondary" className="text-xs">
+                                    📦 Gudang:{" "}
+                                    {warehouses.find(
+                                        (w) => w.id === selectedWarehouse
+                                    )?.name || "Default"}
+                                </Badge>
+                            )}
+                            {selectedToko && (
+                                <Badge variant="secondary" className="text-xs">
+                                    🏪 Toko: {selectedToko.name || "Default"}
+                                </Badge>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 {/* Filters Row */}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     {/* Category Filter */}
                     <div className="space-y-2">
                         <Label className="text-sm font-medium">Kategori</Label>
@@ -326,72 +361,75 @@ export default function ProductForm({
                         </div>
                     )}
 
-                    {/* Warehouse Filter (default, not editable) */}
-                    <div className="space-y-2">
+                    {/* Warehouse Filter - Hidden but functional */}
+                    <div className="hidden">
                         <Label className="text-sm font-medium">Gudang</Label>
                         <Select
                             value={selectedWarehouse?.toString() || "all"}
-                            onValueChange={() => {}}
-                            disabled
+                            onValueChange={(value) =>
+                                setSelectedWarehouse(
+                                    value && value !== "all"
+                                        ? parseInt(value)
+                                        : null
+                                )
+                            }
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="Gudang default" />
+                                <SelectValue placeholder="Pilih gudang" />
                             </SelectTrigger>
                             <SelectContent>
-                                {warehouses && warehouses.length > 0 ? (
-                                    warehouses.map((warehouse) => (
-                                        <SelectItem
-                                            key={warehouse.id}
-                                            value={warehouse.id?.toString()}
-                                        >
-                                            {warehouse.name}
-                                        </SelectItem>
-                                    ))
-                                ) : (
-                                    <SelectItem value="none">
-                                        No Gudang
+                                <SelectItem value="all">
+                                    Semua Gudang
+                                </SelectItem>
+                                {warehouses.map((warehouse) => (
+                                    <SelectItem
+                                        key={warehouse.id}
+                                        value={
+                                            warehouse.id?.toString() ||
+                                            `warehouse-${warehouse.id}`
+                                        }
+                                    >
+                                        {warehouse.name}
                                     </SelectItem>
-                                )}
+                                ))}
                             </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                            Gudang dipilih secara default dan tidak dapat diubah
-                            dari sini.
-                        </p>
                     </div>
 
-                    {/* Toko Filter (default, not editable) */}
-                    <div className="space-y-2">
+                    {/* Toko Filter - Hidden but functional */}
+                    <div className="hidden">
                         <Label className="text-sm font-medium">Toko</Label>
                         <Select
                             value={selectedToko?.id?.toString() || "all"}
-                            onValueChange={() => {}}
-                            disabled
+                            onValueChange={(value) => {
+                                if (value === "all") {
+                                    setSelectedToko(null);
+                                } else {
+                                    const toko = tokos.find(
+                                        (t) => t.id.toString() === value
+                                    );
+                                    setSelectedToko(toko);
+                                }
+                            }}
                         >
                             <SelectTrigger>
-                                <SelectValue placeholder="Toko default" />
+                                <SelectValue placeholder="Pilih toko" />
                             </SelectTrigger>
                             <SelectContent>
-                                {tokos && tokos.length > 0 ? (
-                                    tokos.map((toko) => (
-                                        <SelectItem
-                                            key={toko.id}
-                                            value={toko.id?.toString()}
-                                        >
-                                            {toko.name}
-                                        </SelectItem>
-                                    ))
-                                ) : (
-                                    <SelectItem value="none">
-                                        No Toko
+                                <SelectItem value="all">Semua Toko</SelectItem>
+                                {tokos.map((toko) => (
+                                    <SelectItem
+                                        key={toko.id}
+                                        value={
+                                            toko.id?.toString() ||
+                                            `toko-${toko.id}`
+                                        }
+                                    >
+                                        {toko.name}
                                     </SelectItem>
-                                )}
+                                ))}
                             </SelectContent>
                         </Select>
-                        <p className="text-xs text-muted-foreground">
-                            Toko dipilih secara default dan tidak dapat diubah
-                            dari sini.
-                        </p>
                     </div>
                 </div>
 

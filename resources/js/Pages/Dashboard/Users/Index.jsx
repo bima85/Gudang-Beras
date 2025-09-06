@@ -1,20 +1,32 @@
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import React, { useEffect, useState } from "react";
 import { Head, useForm, usePage } from "@inertiajs/react";
-import Button from "@/Components/Dashboard/Button";
+import { Button } from "@/Components/ui/button";
+import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
+import { Badge } from "@/Components/ui/badge";
+import { Input } from "@/Components/ui/input";
+import {
+    Table,
+    TableBody,
+    TableCell,
+    TableHead,
+    TableHeader,
+    TableRow,
+} from "@/Components/ui/table";
+import { Checkbox } from "@/Components/ui/checkbox";
 import {
     IconDatabaseOff,
     IconCirclePlus,
     IconTrash,
     IconPencilCog,
+    IconUsers,
+    IconSearch,
 } from "@tabler/icons-react";
-import Search from "@/Components/Dashboard/Search";
-import * as Table from "@/Components/Dashboard/Table";
-import Checkbox from "@/Components/Dashboard/Checkbox";
 import Swal from "sweetalert2";
 export default function Index() {
     // destruct users from props
     const { users } = usePage().props;
+    const [search, setSearch] = useState("");
 
     const {
         data,
@@ -26,14 +38,28 @@ export default function Index() {
     });
 
     // method selected user
-    const setSelectedUser = (e) => {
-        let items = data.selectedUser;
+    const setSelectedUser = (userId, checked) => {
+        let items = [...data.selectedUser];
 
-        if (items.some((id) => id === e.target.value))
-            items = items.filter((id) => id !== e.target.value);
-        else items.push(e.target.value);
+        if (checked) {
+            if (!items.includes(userId)) {
+                items.push(userId);
+            }
+        } else {
+            items = items.filter((id) => id !== userId);
+        }
 
         setData("selectedUser", items);
+    };
+
+    // method select all users
+    const setSelectAllUsers = (checked) => {
+        if (checked) {
+            const allUserIds = users.data.map((user) => user.id.toString());
+            setData("selectedUser", allUserIds);
+        } else {
+            setData("selectedUser", []);
+        }
     };
 
     // method bulk delete
@@ -64,177 +90,244 @@ export default function Index() {
         });
     };
 
+    // Handle search
+    const handleSearch = () => {
+        window.location.href = route("users.index", { search });
+    };
+
+    const handleKeyPress = (e) => {
+        if (e.key === "Enter") {
+            handleSearch();
+        }
+    };
+
     return (
-        <>
+        <DashboardLayout>
             <Head title="Pengguna" />
-            <div className="mb-2">
-                <div className="flex justify-between items-center gap-2">
-                    <div className="flex flex-row gap-2 items-center">
-                        <Button
-                            type={"link"}
-                            href={route("users.create")}
-                            icon={
-                                <IconCirclePlus size={20} strokeWidth={1.5} />
-                            }
-                            className={
-                                "bg-white text-gray-700 dark:bg-gray-950 dark:border-gray-800 dark:text-gray-200"
-                            }
-                            label={"Tambah Data Pengguna"}
-                            onClick={() => setData("isOpen", true)}
-                            added={true}
-                        />
-                        {data.selectedUser.length > 0 && (
-                            <Button
-                                type={"bulk"}
-                                icon={<IconTrash size={20} strokeWidth={1.5} />}
-                                className={
-                                    "border bg-rose-100 border-rose-300 text-rose-500 hover:bg-rose-200 dark:bg-rose-950  dark:border-gray-800 dark:hover:bg-rose-900"
-                                }
-                                label={`Hapus ${data.selectedUser.length} data yang dipilih`}
-                                added={true}
-                                onClick={() => deleteData(data.selectedUser)}
-                            />
-                        )}
-                    </div>
-                    <div className="w-full md:w-4/12">
-                        <Search
-                            url={route("users.index")}
-                            placeholder={
-                                "Cari data berdasarkan nama pengguna atau email"
-                            }
-                        />
+
+            <div className="space-y-6">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold text-gray-900">
+                            Data Pengguna
+                        </h1>
+                        <p className="mt-1 text-gray-600">
+                            Kelola pengguna dan hak akses sistem
+                        </p>
                     </div>
                 </div>
-            </div>
-            <Table.Card title={"Data Pengguna"}>
-                <Table.Table>
-                    <Table.Thead>
-                        <tr>
-                            <Table.Th className={"w-10"}>
-                                <Checkbox
-                                    onChange={(e) => {
-                                        const allUserIds = users.data.map(
-                                            (user) => user.id.toString()
-                                        );
-                                        setData(
-                                            "selectedUser",
-                                            e.target.checked ? allUserIds : []
-                                        );
-                                    }}
-                                    checked={
-                                        data.selectedUser.length ===
-                                        users.data.length
-                                    }
-                                />
-                            </Table.Th>
-                            <Table.Th className={"w-10"}>No</Table.Th>
-                            <Table.Th>Nama Pengguna</Table.Th>
-                            <Table.Th>Email</Table.Th>
-                            <Table.Th>Group Akses</Table.Th>
-                            <Table.Th></Table.Th>
-                        </tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                        {users.data.length ? (
-                            users.data.map((user, i) => (
-                                <tr
-                                    className="hover:bg-gray-100 dark:hover:bg-gray-900"
-                                    key={i}
-                                >
-                                    <Table.Td>
-                                        <Checkbox
-                                            key={i}
-                                            value={user.id}
-                                            onChange={setSelectedUser}
-                                            checked={data.selectedUser.includes(
-                                                user.id.toString()
-                                            )}
-                                        />
-                                    </Table.Td>
-                                    <Table.Td className={"text-center"}>
-                                        {++i +
-                                            (users.current_page - 1) *
-                                                users.per_page}
-                                    </Table.Td>
-                                    <Table.Td>{user.name}</Table.Td>
-                                    <Table.Td>{user.email}</Table.Td>
-                                    <Table.Td>
-                                        <div className="flex flex-wrap gap-2">
-                                            {user.roles.map((role, index) => (
-                                                <span
-                                                    className="rounded-full px-2.5 py-0.5 text-xs tracking-tight font-medium transition-colors focus:outline-none flex items-center gap-1 capitalize border border-teal-500/40 bg-teal-500/10 text-teal-500 hover:bg-teal-500/20"
-                                                    key={index}
-                                                >
-                                                    {role.name}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </Table.Td>
-                                    <Table.Td>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                type={"edit"}
-                                                icon={
-                                                    <IconPencilCog
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className={
-                                                    "border bg-orange-100 border-orange-300 text-orange-500 hover:bg-orange-200 dark:bg-orange-950 dark:border-orange-800 dark:text-gray-300  dark:hover:bg-orange-900"
-                                                }
-                                                href={route(
-                                                    "users.edit",
-                                                    user.id
-                                                )}
-                                            />
-                                            <Button
-                                                type={"delete"}
-                                                icon={
-                                                    <IconTrash
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className={
-                                                    "border bg-rose-100 border-rose-300 text-rose-500 hover:bg-rose-200 dark:bg-rose-950 dark:border-rose-800 dark:text-gray-300  dark:hover:bg-rose-900"
-                                                }
-                                                url={route(
-                                                    "users.destroy",
-                                                    user.id
-                                                )}
-                                            />
-                                        </div>
-                                    </Table.Td>
-                                </tr>
-                            ))
-                        ) : (
-                            <Table.Empty
-                                colSpan={6}
-                                message={
-                                    <>
-                                        <div className="flex justify-center items-center text-center mb-2">
-                                            <IconDatabaseOff
-                                                size={24}
-                                                strokeWidth={1.5}
-                                                className="text-gray-500 dark:text-white"
-                                            />
-                                        </div>
-                                        <span className="text-gray-500">
-                                            Data pengguna
-                                        </span>{" "}
-                                        <span className="text-rose-500 underline underline-offset-2">
-                                            tidak ditemukan.
-                                        </span>
-                                    </>
-                                }
-                            />
+
+                {/* Actions & Search */}
+                <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+                    <div className="flex gap-2">
+                        <Button asChild>
+                            <a href={route("users.create")}>
+                                <IconCirclePlus className="w-4 h-4 mr-2" />
+                                Tambah Pengguna
+                            </a>
+                        </Button>
+
+                        {data.selectedUser.length > 0 && (
+                            <Button
+                                variant="destructive"
+                                onClick={() => deleteData(data.selectedUser)}
+                            >
+                                <IconTrash className="w-4 h-4 mr-2" />
+                                Hapus {data.selectedUser.length} data
+                            </Button>
                         )}
-                    </Table.Tbody>
-                </Table.Table>
-            </Table.Card>
-        </>
+                    </div>
+
+                    {/* Search */}
+                    <div className="relative w-full sm:w-80">
+                        <IconSearch className="absolute w-4 h-4 text-gray-400 transform -translate-y-1/2 left-3 top-1/2" />
+                        <Input
+                            placeholder="Cari berdasarkan nama atau email..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            onKeyPress={handleKeyPress}
+                            className="pl-10"
+                        />
+                        <Button
+                            size="sm"
+                            onClick={handleSearch}
+                            className="absolute transform -translate-y-1/2 right-1 top-1/2"
+                        >
+                            Cari
+                        </Button>
+                    </div>
+                </div>
+
+                {/* Data Table */}
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <IconUsers className="w-5 h-5" />
+                            Daftar Pengguna ({users.data?.length || 0})
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        {users.data?.length > 0 ? (
+                            <div className="overflow-x-auto">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead className="w-10">
+                                                <Checkbox
+                                                    checked={
+                                                        users.data.length > 0 &&
+                                                        data.selectedUser
+                                                            .length ===
+                                                            users.data.length
+                                                    }
+                                                    onCheckedChange={
+                                                        setSelectAllUsers
+                                                    }
+                                                />
+                                            </TableHead>
+                                            <TableHead className="w-16">
+                                                No
+                                            </TableHead>
+                                            <TableHead>Nama Pengguna</TableHead>
+                                            <TableHead>Email</TableHead>
+                                            <TableHead>Grup Akses</TableHead>
+                                            <TableHead className="w-24">
+                                                Aksi
+                                            </TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {users.data.map((user, index) => (
+                                            <TableRow key={user.id}>
+                                                <TableCell>
+                                                    <Checkbox
+                                                        checked={data.selectedUser.includes(
+                                                            user.id.toString()
+                                                        )}
+                                                        onCheckedChange={(
+                                                            checked
+                                                        ) =>
+                                                            setSelectedUser(
+                                                                user.id.toString(),
+                                                                checked
+                                                            )
+                                                        }
+                                                    />
+                                                </TableCell>
+                                                <TableCell className="text-center">
+                                                    {index +
+                                                        1 +
+                                                        (users.current_page -
+                                                            1) *
+                                                            users.per_page}
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                    {user.name}
+                                                </TableCell>
+                                                <TableCell>
+                                                    {user.email}
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex flex-wrap gap-1">
+                                                        {user.roles?.map(
+                                                            (
+                                                                role,
+                                                                roleIndex
+                                                            ) => (
+                                                                <Badge
+                                                                    key={
+                                                                        roleIndex
+                                                                    }
+                                                                    variant="secondary"
+                                                                    className="text-xs"
+                                                                >
+                                                                    {role.name}
+                                                                </Badge>
+                                                            )
+                                                        )}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex gap-2">
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            asChild
+                                                        >
+                                                            <a
+                                                                href={route(
+                                                                    "users.edit",
+                                                                    user.id
+                                                                )}
+                                                            >
+                                                                <IconPencilCog className="w-4 h-4" />
+                                                            </a>
+                                                        </Button>
+
+                                                        <Button
+                                                            size="sm"
+                                                            variant="destructive"
+                                                            onClick={() =>
+                                                                deleteData(
+                                                                    user.id
+                                                                )
+                                                            }
+                                                        >
+                                                            <IconTrash className="w-4 h-4" />
+                                                        </Button>
+                                                    </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        ) : (
+                            <div className="py-12 text-center">
+                                <IconDatabaseOff className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                                <h3 className="mb-2 text-lg font-medium text-gray-900">
+                                    Belum Ada Data Pengguna
+                                </h3>
+                                <p className="mb-4 text-gray-500">
+                                    Mulai dengan menambahkan pengguna pertama
+                                </p>
+                                <Button asChild>
+                                    <a href={route("users.create")}>
+                                        <IconCirclePlus className="w-4 h-4 mr-2" />
+                                        Tambah Pengguna
+                                    </a>
+                                </Button>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Pagination */}
+                {users.links && (
+                    <div className="flex justify-center">
+                        <div className="flex gap-2">
+                            {users.links.map((link, index) => (
+                                <Button
+                                    key={index}
+                                    variant={
+                                        link.active ? "default" : "outline"
+                                    }
+                                    size="sm"
+                                    onClick={() =>
+                                        link.url &&
+                                        (window.location.href = link.url)
+                                    }
+                                    disabled={!link.url}
+                                    dangerouslySetInnerHTML={{
+                                        __html: link.label,
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </div>
+        </DashboardLayout>
     );
 }
-
-Index.layout = (page) => <DashboardLayout children={page} />;

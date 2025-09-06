@@ -59,13 +59,13 @@ export default function Dashboard({
             <Head title={pageTitle ?? "Dashboard"} />
             <div className="mb-6">
                 <Card>
-                    <CardHeader className="bg-gradient-to-r from-blue-500 to-violet-500 text-white p-6">
+                    <CardHeader className="p-6 text-white bg-gradient-to-r from-blue-500 to-violet-500">
                         <div>
-                            <CardTitle className="text-2xl md:text-3xl font-extrabold">
+                            <CardTitle className="text-2xl font-extrabold md:text-3xl">
                                 {pageTitle ?? "Dashboard"}, {auth.user.name}{" "}
                                 <span className="ml-2">🎉</span>
                             </CardTitle>
-                            <div className="text-sm md:text-base mt-1 opacity-90">
+                            <div className="mt-1 text-sm md:text-base opacity-90">
                                 Lokasi kamu saat ini:{" "}
                                 <span className="font-semibold">
                                     {locationText}
@@ -76,7 +76,7 @@ export default function Dashboard({
                 </Card>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-6">
+            <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
                 <Card>
                     <CardContent className="flex items-center justify-between">
                         <div>
@@ -131,8 +131,8 @@ export default function Dashboard({
                 </Card>
             </div>
 
-            <div className="bg-white rounded shadow p-4 mb-6 overflow-x-auto">
-                <div className="font-bold text-blue-800 mb-2 text-lg">
+            <div className="p-4 mb-6 overflow-x-auto bg-white rounded shadow">
+                <div className="mb-2 text-lg font-bold text-blue-800">
                     Grafik Omzet 7 Hari Terakhir
                 </div>
                 <div className="w-full min-w-[300px]">
@@ -140,14 +140,14 @@ export default function Dashboard({
                 </div>
             </div>
 
-            <div className="bg-white rounded shadow p-4 overflow-x-auto">
-                <div className="font-bold text-blue-800 mb-2 text-lg">
+            <div className="p-4 overflow-x-auto bg-white rounded shadow">
+                <div className="mb-2 text-lg font-bold text-blue-800">
                     10 Transaksi Terakhir
                 </div>
                 <div className="w-full min-w-[300px]">
                     <table className="min-w-[300px] w-full text-sm font-inter text-gray-700">
                         <thead>
-                            <tr className="bg-blue-50 text-blue-800 font-semibold text-base">
+                            <tr className="text-base font-semibold text-blue-800 bg-blue-50">
                                 <th className="p-2">Tanggal</th>
                                 <th className="p-2">Invoice</th>
                                 <th className="p-2">Kasir</th>
@@ -160,7 +160,7 @@ export default function Dashboard({
                                 <tr>
                                     <td
                                         colSpan={5}
-                                        className="text-center py-4 text-gray-400 font-normal"
+                                        className="py-4 font-normal text-center text-gray-400"
                                     >
                                         Tidak ada data
                                     </td>
@@ -169,7 +169,7 @@ export default function Dashboard({
                                 transaksiTerakhir.map((t, i) => (
                                     <tr
                                         key={i}
-                                        className="border-b hover:bg-blue-50 text-base font-medium"
+                                        className="text-base font-medium border-b hover:bg-blue-50"
                                     >
                                         <td className="p-2 whitespace-nowrap">
                                             {t.created_at?.slice(0, 10)}
@@ -194,14 +194,14 @@ export default function Dashboard({
                 </div>
             </div>
 
-            <div className="bg-white rounded shadow p-4 mb-6 mt-6 overflow-x-auto">
-                <div className="font-bold text-blue-800 mb-2 text-lg">
+            <div className="p-4 mt-6 mb-6 overflow-x-auto bg-white rounded shadow">
+                <div className="mb-2 text-lg font-bold text-blue-800">
                     Rekap Kategori Produk Transaksi Hari Ini (Realtime)
                 </div>
                 <div className="w-full min-w-[200px]">
                     <table className="min-w-[200px] w-full text-sm font-inter text-gray-700">
                         <thead>
-                            <tr className="bg-blue-50 text-blue-800 font-semibold text-base">
+                            <tr className="text-base font-semibold text-blue-800 bg-blue-50">
                                 <th className="p-2">Kategori</th>
                                 <th className="p-2">Qty Terjual</th>
                             </tr>
@@ -211,7 +211,7 @@ export default function Dashboard({
                                 <tr>
                                     <td
                                         colSpan={2}
-                                        className="text-center py-4 text-gray-400 font-normal"
+                                        className="py-4 font-normal text-center text-gray-400"
                                     >
                                         Tidak ada data
                                     </td>
@@ -221,7 +221,7 @@ export default function Dashboard({
                                     ([cat, qty], i) => (
                                         <tr
                                             key={i}
-                                            className="border-b hover:bg-blue-50 text-base font-medium"
+                                            className="text-base font-medium border-b hover:bg-blue-50"
                                         >
                                             <td className="p-2">{cat}</td>
                                             <td className="p-2 text-right">

@@ -42,8 +42,11 @@ class TokoController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:50',
+            'phone' => 'nullable|numeric|digits_between:8,15',
             'description' => 'nullable|string|max:255',
+        ], [
+            'phone.numeric' => 'Nomor telepon hanya boleh berisi angka.',
+            'phone.digits_between' => 'Nomor telepon harus terdiri dari 8 hingga 15 digit.',
         ]);
 
         $toko = Toko::create($validated);
@@ -66,8 +69,11 @@ class TokoController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'address' => 'nullable|string|max:255',
-            'phone' => 'nullable|string|max:50',
+            'phone' => 'nullable|numeric|digits_between:8,15',
             'description' => 'nullable|string|max:255',
+        ], [
+            'phone.numeric' => 'Nomor telepon hanya boleh berisi angka.',
+            'phone.digits_between' => 'Nomor telepon harus terdiri dari 8 hingga 15 digit.',
         ]);
 
         $toko->update($validated);

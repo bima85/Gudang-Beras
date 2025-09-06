@@ -6,6 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
+import PrintableDeliveryNote from "@/Components/PrintableDeliveryNote";
+import usePrint from "@/Hooks/usePrint";
+import { createRoot } from "react-dom/client";
 import {
     Select,
     SelectContent,
@@ -32,6 +35,7 @@ import {
     MapPin,
     User,
     FileText,
+    Printer,
 } from "lucide-react";
 
 const statusConfig = {
@@ -64,6 +68,8 @@ export default function Index({ deliveryNotes, filters }) {
     );
     const [dateFrom, setDateFrom] = useState(filters?.date_from || "");
     const [dateTo, setDateTo] = useState(filters?.date_to || "");
+
+    const { isPrinting, printElement } = usePrint();
 
     const handleSearch = () => {
         router.get(
@@ -108,6 +114,32 @@ export default function Index({ deliveryNotes, filters }) {
                 }
             );
         }
+    };
+
+    const handlePrint = (deliveryNote) => {
+        // Create a temporary container for the printable component
+        const printContainer = document.createElement("div");
+        printContainer.id = `print-delivery-note-${deliveryNote.id}`;
+        printContainer.style.position = "absolute";
+        printContainer.style.left = "-9999px";
+        document.body.appendChild(printContainer);
+
+        // Render the printable component
+        const root = createRoot(printContainer);
+        root.render(<PrintableDeliveryNote deliveryNote={deliveryNote} />);
+
+        // Wait a bit for rendering then print
+        setTimeout(() => {
+            printElement(
+                `print-delivery-note-${deliveryNote.id}`,
+                `Surat Jalan - ${deliveryNote.delivery_number}`
+            );
+
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(printContainer);
+            }, 1000);
+        }, 100);
     };
 
     const StatusBadge = ({ status }) => {
@@ -433,6 +465,42 @@ export default function Index({ deliveryNotes, filters }) {
                                                                     Sampai
                                                                 </Button>
                                                             )}
+
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={() =>
+                                                                    handlePrint(
+                                                                        deliveryNote
+                                                                    )
+                                                                }
+                                                                disabled={
+                                                                    isPrinting
+                                                                }
+                                                                className="text-gray-600 border-gray-200 hover:bg-gray-50"
+                                                            >
+                                                                <Printer className="w-3 h-3 mr-1" />
+                                                                Cetak
+                                                            </Button>
+
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                asChild
+                                                                className="text-gray-600 border-gray-200 hover:bg-gray-50"
+                                                            >
+                                                                <a
+                                                                    href={route(
+                                                                        "delivery-notes.print",
+                                                                        deliveryNote.id
+                                                                    )}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                >
+                                                                    <Printer className="w-3 h-3 mr-1" />
+                                                                    Print
+                                                                </a>
+                                                            </Button>
 
                                                             <Button
                                                                 size="sm"

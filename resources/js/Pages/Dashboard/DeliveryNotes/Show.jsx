@@ -3,6 +3,9 @@ import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
+import PrintableDeliveryNote from "@/Components/PrintableDeliveryNote";
+import usePrint from "@/Hooks/usePrint";
+import { createRoot } from "react-dom/client";
 import {
     ArrowLeft,
     Package,
@@ -17,6 +20,7 @@ import {
     Hash,
     Building,
     Store,
+    Printer,
 } from "lucide-react";
 
 const statusConfig = {
@@ -43,6 +47,8 @@ const statusConfig = {
 };
 
 export default function Show({ deliveryNote }) {
+    const { isPrinting, printElement } = usePrint();
+
     const handleStatusUpdate = (newStatus) => {
         router.patch(
             route("delivery-notes.updateStatus", deliveryNote.id),
@@ -69,6 +75,32 @@ export default function Show({ deliveryNote }) {
 
     const handleBack = () => {
         router.get(route("delivery-notes.index"));
+    };
+
+    const handlePrint = () => {
+        // Create a temporary container for the printable component
+        const printContainer = document.createElement("div");
+        printContainer.id = "print-delivery-note";
+        printContainer.style.position = "absolute";
+        printContainer.style.left = "-9999px";
+        document.body.appendChild(printContainer);
+
+        // Render the printable component
+        const root = createRoot(printContainer);
+        root.render(<PrintableDeliveryNote deliveryNote={deliveryNote} />);
+
+        // Wait a bit for rendering then print
+        setTimeout(() => {
+            printElement(
+                "print-delivery-note",
+                `Surat Jalan - ${deliveryNote.delivery_number}`
+            );
+
+            // Cleanup
+            setTimeout(() => {
+                document.body.removeChild(printContainer);
+            }, 1000);
+        }, 100);
     };
 
     const StatusBadge = ({ status }) => {
@@ -124,6 +156,36 @@ export default function Show({ deliveryNote }) {
 
                     <div className="flex items-center gap-3">
                         <StatusBadge status={deliveryNote.status} />
+
+                        {/* Print Button */}
+                        <Button
+                            onClick={handlePrint}
+                            disabled={isPrinting}
+                            variant="outline"
+                            className="bg-white hover:bg-gray-50"
+                        >
+                            <Printer className="w-4 h-4 mr-2" />
+                            {isPrinting ? "Mencetak..." : "Cetak Surat Jalan"}
+                        </Button>
+
+                        {/* Alternative: Print in new window */}
+                        <Button
+                            asChild
+                            variant="outline"
+                            className="bg-white hover:bg-gray-50"
+                        >
+                            <a
+                                href={route(
+                                    "delivery-notes.print",
+                                    deliveryNote.id
+                                )}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <Printer className="w-4 h-4 mr-2" />
+                                Print (New Window)
+                            </a>
+                        </Button>
 
                         {/* Action Buttons */}
                         {deliveryNote.status === "pending" && (

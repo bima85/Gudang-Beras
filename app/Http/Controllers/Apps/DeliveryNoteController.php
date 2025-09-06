@@ -23,7 +23,15 @@ class DeliveryNoteController extends Controller
     {
         // Permission check - mengikuti pattern DeliveryController
         $user = $request->user();
-        if (!$user || (!$user->hasPermissionTo('deliveries-access') && !$user->hasRole('super-admin') && !$user->hasAnyRole(['toko', 'gudang']))) {
+        // Allow if session role is 'gudang' (user selected gudang location),
+        // or if user has deliveries-access permission, or has role super-admin/gudang
+        $sessionRole = strtolower($request->session()->get('role') ?? '');
+        if (!$user || (
+            $sessionRole !== 'gudang' &&
+            !$user->hasPermissionTo('deliveries-access') &&
+            !$user->hasRole('super-admin') &&
+            !$user->hasRole('gudang')
+        )) {
             abort(403, 'Akses surat jalan otomatis ditolak.');
         }
 
@@ -99,7 +107,15 @@ class DeliveryNoteController extends Controller
     {
         // Permission check - mengikuti pattern DeliveryController
         $user = $request->user();
-        if (!$user || (!$user->hasPermissionTo('deliveries-access') && !$user->hasRole('super-admin') && !$user->hasAnyRole(['toko', 'gudang']))) {
+        // Allow if session role is 'gudang' (user selected gudang location),
+        // or if user has deliveries-access permission, or has role super-admin/gudang
+        $sessionRole = strtolower($request->session()->get('role') ?? '');
+        if (!$user || (
+            $sessionRole !== 'gudang' &&
+            !$user->hasPermissionTo('deliveries-access') &&
+            !$user->hasRole('super-admin') &&
+            !$user->hasRole('gudang')
+        )) {
             abort(403, 'Akses surat jalan otomatis ditolak.');
         }
 
@@ -119,13 +135,63 @@ class DeliveryNoteController extends Controller
     }
 
     /**
+     * Tampilkan halaman print surat jalan
+     */
+    public function print(Request $request, DeliveryNote $delivery_note)
+    {
+        // Permission check - mengikuti pattern DeliveryController
+        $user = $request->user();
+        // Allow if session role is 'gudang' (user selected gudang location),
+        // or if user has deliveries-access permission, or has role super-admin/gudang
+        $sessionRole = strtolower($request->session()->get('role') ?? '');
+        if (!$user || (
+            $sessionRole !== 'gudang' &&
+            !$user->hasPermissionTo('deliveries-access') &&
+            !$user->hasRole('super-admin') &&
+            !$user->hasRole('gudang')
+        )) {
+            abort(403, 'Akses surat jalan otomatis ditolak.');
+        }
+
+        $delivery_note->load([
+            'sale:id,invoice,created_at,cashier_id,customer_id,grand_total',
+            'sale.customer:id,name,no_telp',
+            'sale.cashier:id,name',
+            'product:id,name,barcode,sell_price',
+            'warehouse:id,name,address',
+            'toko:id,name,address,phone',
+            'user:id,name'
+        ]);
+
+        // Company info (bisa diambil dari setting atau config)
+        $company = [
+            'name' => config('app.company_name', 'PD SUKA WARHA'),
+            'address' => config('app.company_address', 'Jl. Kembar No. 90'),
+            'city' => config('app.company_city', 'Bogor 16563'),
+        ];
+
+        return Inertia::render('Dashboard/DeliveryNotes/Print', [
+            'deliveryNote' => $delivery_note,
+            'company' => $company,
+        ]);
+    }
+
+    /**
      * Update status surat jalan
      */
     public function updateStatus(Request $request, DeliveryNote $deliveryNote)
     {
         // Permission check - mengikuti pattern DeliveryController
         $user = $request->user();
-        if (!$user || (!$user->hasPermissionTo('deliveries-access') && !$user->hasRole('super-admin') && !$user->hasAnyRole(['toko', 'gudang']))) {
+        // Allow if session role is 'gudang' (user selected gudang location),
+        // or if user has deliveries-access permission, or has role super-admin/gudang
+        $sessionRole = strtolower($request->session()->get('role') ?? '');
+        if (!$user || (
+            $sessionRole !== 'gudang' &&
+            !$user->hasPermissionTo('deliveries-access') &&
+            !$user->hasRole('super-admin') &&
+            !$user->hasRole('gudang')
+        )) {
             abort(403, 'Akses surat jalan otomatis ditolak.');
         }
 
@@ -160,7 +226,8 @@ class DeliveryNoteController extends Controller
     {
         // Permission check - mengikuti pattern DeliveryController
         $user = $request->user();
-        if (!$user || (!$user->hasPermissionTo('deliveries-access') && !$user->hasRole('super-admin') && !$user->hasAnyRole(['toko', 'gudang']))) {
+        // Only allow users with deliveries-access permission, super-admin role, or role 'gudang'
+        if (!$user || (!$user->hasPermissionTo('deliveries-access') && !$user->hasRole('super-admin') && !$user->hasRole('gudang'))) {
             abort(403, 'Akses surat jalan otomatis ditolak.');
         }
 

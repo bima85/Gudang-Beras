@@ -28,6 +28,7 @@ use App\Http\Controllers\Dashboard\DashboardController;
 use App\Http\Controllers\Apps\TokoController;
 use App\Http\Controllers\Apps\DeliveryNoteController;
 use App\Http\Controllers\StockCardController;
+use App\Http\Controllers\Api\RealtimeDashboardController;
 use App\Http\Middleware\RoleMiddleware;
 use App\Http\Controllers\DeliveryController;
 
@@ -45,12 +46,31 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
+// CSRF token refresh route
+Route::get('/csrf-token', function () {
+    return response()->json([
+        'csrf_token' => csrf_token()
+    ]);
+})->name('csrf.token');
+
+// Debug route for testing CSRF and session
+Route::get('/debug-csrf', function () {
+    return response()->json([
+        'csrf_token' => csrf_token(),
+        'session_id' => session()->getId(),
+        'session_driver' => config('session.driver'),
+        'session_lifetime' => config('session.lifetime'),
+        'session_domain' => config('session.domain'),
+        'app_url' => config('app.url'),
+    ]);
+});
+
 // Test route for CSRF debugging
 Route::get('/test-csrf', function () {
     return view('test-csrf');
 })->middleware(['auth', 'verified']);
 
-// Test route for debugging addToCart permissions  
+// Test route for debugging addToCart permissions
 Route::post('/test-addtocart-permission', function (\Illuminate\Http\Request $request) {
     $user = $request->user();
     return response()->json([
@@ -267,6 +287,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], fu
     // Update status delivery note
     Route::patch('delivery-notes/{deliveryNote}/status', [DeliveryNoteController::class, 'updateStatus'])->name('delivery-notes.updateStatus');
     Route::patch('delivery-notes/{deliveryNote}/delivered', [DeliveryNoteController::class, 'markAsDelivered'])->name('delivery-notes.markAsDelivered');
+    Route::get('delivery-notes/{delivery_note}/print', [DeliveryNoteController::class, 'print'])->name('delivery-notes.print');
 
     // Manajemen pergerakan stok (Stock Movements)
     Route::resource('stock-movements', \App\Http\Controllers\Apps\StockMovementController::class)
@@ -339,6 +360,17 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], fu
     // Admin utilities: reset permission cache, sync role permissions
     Route::post('/permissions/reset-cache', [\App\Http\Controllers\PermissionAdminController::class, 'resetCache'])->name('permissions.resetCache');
     Route::post('/permissions/sync-role', [\App\Http\Controllers\PermissionAdminController::class, 'syncRolePermissions'])->name('permissions.syncRole');
+
+    // Simple admin UI for assigning role permissions
+    Route::get('/admin/roles-permissions', [\App\Http\Controllers\Admin\AdminRolesController::class, 'index'])
+        ->middleware('role:super-admin')
+        ->name('admin.roles.permissions');
+    Route::post('/admin/roles-permissions/assign', [\App\Http\Controllers\Admin\AdminRolesController::class, 'assignPermission'])
+        ->middleware('role:super-admin')
+        ->name('admin.roles.permissions.assign');
+    Route::post('/admin/roles-permissions/revoke', [\App\Http\Controllers\Admin\AdminRolesController::class, 'revokePermission'])
+        ->middleware('role:super-admin')
+        ->name('admin.roles.permissions.revoke');
 
     // Manajemen pemasok
     Route::resource('suppliers', SupplierController::class)
@@ -415,6 +447,14 @@ Route::middleware(['auth', 'verified', RoleMiddleware::class])->group(function (
             'data' => 'Data khusus untuk Gudang',
         ]);
     })->name('dashboard.gudang');
+});
+
+// API Routes for Realtime Dashboard
+Route::middleware(['auth'])->prefix('api')->group(function () {
+    Route::get('/dashboard/barang-masuk-hari-ini', [RealtimeDashboardController::class, 'getBarangMasukHariIni'])
+        ->name('api.dashboard.barang-masuk-hari-ini');
+    Route::get('/dashboard/stats', [RealtimeDashboardController::class, 'getDashboardStats'])
+        ->name('api.dashboard.stats');
 });
 
 // Top-level profile routes expected by the test-suite (use same controller)

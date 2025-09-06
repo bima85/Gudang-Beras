@@ -319,6 +319,7 @@ class ProductController extends Controller
 
         $product = \App\Models\Product::with(['unit', 'category', 'subcategory'])
             ->where('barcode', $barcode)
+            ->orWhere('name', 'like', "%$barcode%")
             ->first();
         if (!$product) {
             return response()->json([
@@ -421,6 +422,8 @@ class ProductController extends Controller
             'stok_toko' => 0, // deprecated
             'combined_available' => $finalStock,
             'total_kg' => $totalStokKg, // total dalam kg
+            'warehouse_stock_kg' => $warehouseStockKg, // untuk compatibility dengan frontend
+            'store_stock_kg' => $storeStockKg, // untuk compatibility dengan frontend
         ]);
     }
 }

@@ -2,35 +2,93 @@ import React, { useState } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router } from "@inertiajs/react";
 import InputSelect from "@/Components/Dashboard/InputSelect";
-import Button from "@/Components/Dashboard/Button";
 import { ExcelIcon, PdfIcon } from "@/Components/Dashboard/ExportIcons";
-import { Plus } from "lucide-react";
+import {
+    Plus,
+    ShoppingCart,
+    Package,
+    TrendingUp,
+    TrendingDown,
+    Calendar,
+    MapPin,
+    Search,
+    Filter,
+    Download,
+    Clock,
+    User,
+    DollarSign,
+    Building,
+    Eye,
+} from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
+import { Badge } from "@/Components/ui/badge";
+import { Separator } from "@/Components/ui/separator";
+import { Button } from "@/Components/ui/button";
 
 export default function Index({
     transactions,
     sidebarOpen,
     filters = {},
     tokos = [],
+    warehouses = [],
 }) {
     // State untuk filter
     const [dateFrom, setDateFrom] = useState(filters.from || "");
     const [dateTo, setDateTo] = useState(filters.to || "");
-    const [tokoId, setTokoId] = useState(filters.toko_id || "");
-    const [expanded, setExpanded] = useState({});
+    const [locationId, setLocationId] = useState(filters.location_id || "");
+    const [locationType, setLocationType] = useState(
+        filters.location_type || ""
+    );
     const [loading, setLoading] = useState(false);
+    const [activeTab, setActiveTab] = useState("all");
+
+    // Gabungkan warehouse dan toko menjadi satu array lokasi
+    const locations = [
+        ...warehouses.map((w) => ({
+            ...w,
+            type: "warehouse",
+            label: `🏢 ${w.name}`,
+        })),
+        ...tokos.map((t) => ({ ...t, type: "toko", label: `🏪 ${t.name}` })),
+    ];
+
+    // Pisahkan data berdasarkan jenis transaksi
+    const purchaseTransactions =
+        transactions.data?.filter((t) => t.transaction_type === "purchase") ||
+        [];
+    const saleTransactions =
+        transactions.data?.filter((t) => t.transaction_type === "sale") || [];
+    const allTransactions = transactions.data || [];
 
     const formatPrice = (value) => {
         if (!value) return "-";
         return `Rp ${Number(value).toLocaleString("id-ID")}`;
     };
 
-    // Alternative simple price formatter without currency symbol
     const formatNumber = (value) => {
         if (!value) return "-";
         return Number(value).toLocaleString("id-ID");
-    }; // Fungsi untuk toggle expand/collapse
-    const toggleExpand = (product) => {
-        setExpanded((prev) => ({ ...prev, [product]: !prev[product] }));
+    };
+
+    const formatQuantity = (qty) => {
+        if (qty === null || qty === undefined) return "-";
+        const number = Number(qty);
+        if (isNaN(number)) return "-";
+        if (number % 1 === 0) {
+            return number.toString();
+        }
+        return parseFloat(number.toFixed(2)).toString();
+    };
+
+    const formatDateTime = (date, time) => {
+        if (!date) return "-";
+        const formattedDate = new Date(date).toLocaleDateString("id-ID", {
+            day: "2-digit",
+            month: "short",
+            year: "numeric",
+        });
+        return time ? `${formattedDate} ${time}` : formattedDate;
     };
 
     // Validasi tanggal
@@ -39,328 +97,389 @@ export default function Index({
         return new Date(dateFrom) <= new Date(dateTo);
     };
 
-    // Helper function to format quantity
-    const formatQuantity = (qty) => {
-        if (qty === null || qty === undefined) return "-";
-        const number = Number(qty);
-        if (isNaN(number)) return "-";
-
-        if (number % 1 === 0) {
-            return number.toString();
-        }
-
-        return parseFloat(number.toFixed(2)).toString();
-    };
-
-    // Logika pengelompokan berdasarkan produk
-    const renderProductGroupedTable = () => {
-        if (!transactions.data || transactions.data.length === 0) {
+    // Komponen untuk tabel pembelian
+    const PurchaseTable = ({ data }) => {
+        if (!data || data.length === 0) {
             return (
-                <div className="py-8 text-center text-gray-500 dark:text-gray-400">
-                    <svg
-                        className="w-12 h-12 mx-auto text-gray-400 dark:text-gray-500"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                        xmlns="http://www.w3.org/2000/svg"
-                    >
-                        <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                    </svg>
-                    <p className="mt-2 text-sm">
-                        Tidak ada data transaksi yang ditemukan.
-                    </p>
-                </div>
+                <Card>
+                    <CardContent className="py-8">
+                        <div className="text-center text-muted-foreground">
+                            <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>Tidak ada data pembelian yang ditemukan.</p>
+                        </div>
+                    </CardContent>
+                </Card>
             );
         }
 
-        const grouped = {};
-        transactions.data.forEach((trx) => {
-            const productName = trx.product?.name || "-";
-            if (!grouped[productName]) grouped[productName] = [];
-            grouped[productName].push(trx);
-        });
-
-        const products = Object.keys(grouped);
-
         return (
-            <table className="min-w-full bg-white border dark:bg-gray-800 rounded-xl dark:border-gray-700">
-                <thead>
-                    <tr className="text-gray-800 bg-gray-100 dark:bg-gray-700 dark:text-gray-200">
-                        <th className="px-4 py-3 text-sm font-semibold text-left">
-                            Produk
-                        </th>
-                        <th className="px-4 py-3 text-sm font-semibold text-left">
-                            Jumlah Transaksi
-                        </th>
-                        <th className="px-4 py-3 text-sm font-semibold text-left">
-                            Total Qty
-                        </th>
-                        <th className="px-4 py-3 text-sm font-semibold text-left">
-                            Total Nominal
-                        </th>
-                        <th className="px-4 py-3 text-sm font-semibold text-center">
-                            Aksi
-                        </th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {products.map((product) => {
-                        const trxs = grouped[product];
-                        const totalQty = trxs.reduce(
-                            (sum, t) => sum + Number(t.quantity || 0),
-                            0
-                        );
-                        const totalNominal = trxs.reduce(
-                            (sum, t) => sum + Number(t.subtotal || 0),
-                            0
-                        );
-                        return (
-                            <React.Fragment key={product}>
-                                <tr className="border-b border-gray-200 dark:border-gray-700">
-                                    <td className="px-4 py-3 font-semibold text-gray-800 dark:text-gray-100">
-                                        <button
-                                            className="mr-2 text-blue-600 hover:underline"
-                                            onClick={() =>
-                                                toggleExpand(product)
-                                            }
-                                            type="button"
-                                        >
-                                            {expanded[product] ? "▼" : "►"}
-                                        </button>
-                                        {product}
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-800 dark:text-gray-100">
-                                        {trxs.length}
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-800 dark:text-gray-100">
-                                        {formatQuantity(totalQty)}
-                                    </td>
-                                    <td className="px-4 py-3 text-gray-800 dark:text-gray-100">
-                                        {formatPrice(totalNominal)}
-                                    </td>
-                                    <td className="px-4 py-3 text-center">
-                                        {/* Tambahkan aksi jika diperlukan */}
-                                    </td>
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <Package className="w-5 h-5 text-blue-600" />
+                        Data Pembelian ({data.length})
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-muted/50">
+                                <tr className="border-b">
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        Tanggal & Waktu
+                                    </th>
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        No. Transaksi
+                                    </th>
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        Produk
+                                    </th>
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        Supplier
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Qty
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Harga
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Subtotal
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Fee Kuli
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Timbangan
+                                    </th>
+                                    <th className="px-4 py-3 text-center font-medium text-sm">
+                                        Status
+                                    </th>
+                                    <th className="px-4 py-3 text-center font-medium text-sm">
+                                        Aksi
+                                    </th>
                                 </tr>
-                                {expanded[product] && (
-                                    <tr>
-                                        <td colSpan={5} className="p-0">
-                                            <div className="p-2 overflow-x-auto">
-                                                <table className="w-full min-w-full text-xs text-left border border-gray-200 dark:border-gray-700">
-                                                    <thead className="bg-gray-50 dark:bg-gray-700">
-                                                        <tr>
-                                                            <th className="px-2 py-1 border">
-                                                                Tanggal
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Jenis
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Qty
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Satuan
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Harga
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Subtotal
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Kategori
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Subkategori
-                                                            </th>
-                                                            <th className="px-2 py-1 border">
-                                                                Lokasi
-                                                            </th>
-                                                            <th className="px-2 py-1 text-center border">
-                                                                Aksi
-                                                            </th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        {trxs.map((trx) => (
-                                                            <tr
-                                                                key={trx.id}
-                                                                className="border-b"
-                                                            >
-                                                                <td className="px-2 py-1 border">
-                                                                    {trx.transaction_date
-                                                                        ? new Date(
-                                                                              trx.transaction_date
-                                                                          ).toLocaleDateString(
-                                                                              "id-ID",
-                                                                              {
-                                                                                  day: "2-digit",
-                                                                                  month: "long",
-                                                                                  year: "numeric",
-                                                                              }
-                                                                          )
-                                                                        : "-"}
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-blue-800 bg-blue-100 rounded-full dark:bg-blue-900 dark:text-blue-200">
-                                                                        {
-                                                                            trx.transaction_type
-                                                                        }
-                                                                    </span>
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    {formatQuantity(
-                                                                        trx.quantity
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    {trx.unit ||
-                                                                        "-"}
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    {trx.price
-                                                                        ? formatPrice(
-                                                                              trx.price
-                                                                          )
-                                                                        : "-"}
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    {trx.subtotal
-                                                                        ? formatPrice(
-                                                                              trx.subtotal
-                                                                          )
-                                                                        : "-"}
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    {trx.product
-                                                                        ?.category
-                                                                        ?.name ||
-                                                                        "-"}
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    {trx.product
-                                                                        ?.subcategory
-                                                                        ?.name ||
-                                                                        "-"}
-                                                                </td>
-                                                                <td className="px-2 py-1 border">
-                                                                    {trx.toko ? (
-                                                                        <span className="inline-flex items-center px-2 py-1 text-xs font-medium text-green-800 bg-green-100 rounded-full dark:bg-green-900 dark:text-green-200">
-                                                                            🏪{" "}
-                                                                            {
-                                                                                trx
-                                                                                    .toko
-                                                                                    .name
-                                                                            }
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="text-gray-400">
-                                                                            -
-                                                                        </span>
-                                                                    )}
-                                                                </td>
-                                                                <td className="px-2 py-1 text-center border">
-                                                                    <div className="flex justify-center gap-1">
-                                                                        <Button
-                                                                            type="button"
-                                                                            label={
-                                                                                <span className="text-blue-600">
-                                                                                    Lihat
-                                                                                </span>
-                                                                            }
-                                                                            className="px-2 py-1 text-xs text-blue-600 bg-transparent rounded hover:bg-blue-100 dark:hover:bg-blue-900"
-                                                                            onClick={() => {
-                                                                                router.get(
-                                                                                    route(
-                                                                                        "transaction-histories.show",
-                                                                                        trx.id
-                                                                                    )
-                                                                                );
-                                                                            }}
-                                                                        />
-                                                                        <Button
-                                                                            type="button"
-                                                                            label={
-                                                                                <span className="text-red-600">
-                                                                                    Hapus
-                                                                                </span>
-                                                                            }
-                                                                            className="px-2 py-1 text-xs text-red-600 bg-transparent rounded hover:bg-red-100 dark:hover:bg-red-900"
-                                                                            onClick={() => {
-                                                                                if (
-                                                                                    confirm(
-                                                                                        "Yakin ingin menghapus transaksi ini?"
-                                                                                    )
-                                                                                ) {
-                                                                                    router.delete(
-                                                                                        route(
-                                                                                            "transaction-histories.destroy",
-                                                                                            trx.id
-                                                                                        ),
-                                                                                        {
-                                                                                            preserveScroll: true,
-                                                                                        }
-                                                                                    );
-                                                                                }
-                                                                            }}
-                                                                        />
-                                                                    </div>
-                                                                </td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                </table>
+                            </thead>
+                            <tbody>
+                                {data.map((trx) => (
+                                    <tr
+                                        key={trx.id}
+                                        className="border-b hover:bg-muted/30 transition-colors"
+                                    >
+                                        <td className="px-4 py-3 text-sm">
+                                            {formatDateTime(
+                                                trx.transaction_date,
+                                                trx.transaction_time
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge
+                                                variant="outline"
+                                                className="font-mono text-xs"
+                                            >
+                                                {trx.transaction_number}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div>
+                                                <p className="font-medium">
+                                                    {trx.product?.name || "-"}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {
+                                                        trx.product?.category
+                                                            ?.name
+                                                    }
+                                                    {trx.product?.subcategory &&
+                                                        ` / ${trx.product.subcategory.name}`}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <Package className="w-4 h-4 text-orange-600" />
+                                                {trx.related_party || "-"}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div>
+                                                <span className="font-medium">
+                                                    {formatQuantity(
+                                                        trx.quantity
+                                                    )}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground ml-1">
+                                                    {trx.unit}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {formatPrice(trx.price)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-medium">
+                                            {formatPrice(trx.subtotal)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {formatPrice(trx.kuli_fee) || "-"}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {trx.timbangan
+                                                ? `${formatQuantity(
+                                                      trx.timbangan
+                                                  )} kg`
+                                                : "-"}
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <Badge
+                                                variant={
+                                                    trx.payment_status ===
+                                                    "paid"
+                                                        ? "default"
+                                                        : trx.payment_status ===
+                                                          "unpaid"
+                                                        ? "destructive"
+                                                        : "secondary"
+                                                }
+                                                className="text-xs"
+                                            >
+                                                {trx.payment_status === "paid"
+                                                    ? "Lunas"
+                                                    : trx.payment_status ===
+                                                      "unpaid"
+                                                    ? "Belum Lunas"
+                                                    : trx.payment_status ===
+                                                      "partial"
+                                                    ? "Sebagian"
+                                                    : "-"}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex gap-1 justify-center">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0"
+                                                    onClick={() =>
+                                                        router.get(
+                                                            route(
+                                                                "transaction-histories.show",
+                                                                trx.id
+                                                            )
+                                                        )
+                                                    }
+                                                >
+                                                    <span className="text-blue-600">
+                                                        👁
+                                                    </span>
+                                                </Button>
                                             </div>
                                         </td>
                                     </tr>
-                                )}
-                            </React.Fragment>
-                        );
-                    })}
-                </tbody>
-                <tfoot>
-                    <tr className="bg-green-100 border-t-2 border-green-300 dark:bg-green-900 dark:border-green-700">
-                        <td
-                            colSpan="2"
-                            className="px-4 py-3 text-lg font-bold text-left text-green-800 dark:text-green-200"
-                        >
-                            Total Keseluruhan
-                        </td>
-                        <td
-                            colSpan="1"
-                            className="px-4 py-3 text-lg font-bold text-left text-green-800 dark:text-green-200"
-                        >
-                            {formatQuantity(
-                                transactions.data.reduce(
-                                    (sum, trx) =>
-                                        sum + Number(trx.quantity || 0),
-                                    0
-                                )
-                            )}
-                        </td>
-                        <td
-                            colSpan="2"
-                            className="px-4 py-3 text-lg font-bold text-right text-green-800 dark:text-green-200"
-                        >
-                            {formatPrice(
-                                transactions.data.reduce(
-                                    (sum, trx) =>
-                                        sum + Number(trx.subtotal || 0),
-                                    0
-                                )
-                            )}
-                        </td>
-                    </tr>
-                </tfoot>
-            </table>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
         );
     };
 
+    // Komponen untuk tabel penjualan
+    const SalesTable = ({ data }) => {
+        if (!data || data.length === 0) {
+            return (
+                <Card>
+                    <CardContent className="py-8">
+                        <div className="text-center text-muted-foreground">
+                            <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                            <p>Tidak ada data penjualan yang ditemukan.</p>
+                        </div>
+                    </CardContent>
+                </Card>
+            );
+        }
+
+        return (
+            <Card>
+                <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                        <ShoppingCart className="w-5 h-5 text-green-600" />
+                        Data Penjualan ({data.length})
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                        <table className="w-full">
+                            <thead className="bg-muted/50">
+                                <tr className="border-b">
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        Tanggal & Waktu
+                                    </th>
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        No. Transaksi
+                                    </th>
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        Produk
+                                    </th>
+                                    <th className="px-4 py-3 text-left font-medium text-sm">
+                                        Customer
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Qty
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Harga
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Subtotal
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Discount
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Deposit
+                                    </th>
+                                    <th className="px-4 py-3 text-right font-medium text-sm">
+                                        Kembalian
+                                    </th>
+                                    <th className="px-4 py-3 text-center font-medium text-sm">
+                                        Status
+                                    </th>
+                                    <th className="px-4 py-3 text-center font-medium text-sm">
+                                        Aksi
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {data.map((trx) => (
+                                    <tr
+                                        key={trx.id}
+                                        className="border-b hover:bg-muted/30 transition-colors"
+                                    >
+                                        <td className="px-4 py-3 text-sm">
+                                            {formatDateTime(
+                                                trx.transaction_date,
+                                                trx.transaction_time
+                                            )}
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <Badge
+                                                variant="outline"
+                                                className="font-mono text-xs"
+                                            >
+                                                {trx.transaction_number}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div>
+                                                <p className="font-medium">
+                                                    {trx.product?.name || "-"}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    {
+                                                        trx.product?.category
+                                                            ?.name
+                                                    }
+                                                    {trx.product?.subcategory &&
+                                                        ` / ${trx.product.subcategory.name}`}
+                                                </p>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3">
+                                            <div className="flex items-center gap-2">
+                                                <ShoppingCart className="w-4 h-4 text-green-600" />
+                                                {trx.related_party ||
+                                                    "Walk-in Customer"}
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <div>
+                                                <span className="font-medium">
+                                                    {formatQuantity(
+                                                        trx.quantity
+                                                    )}
+                                                </span>
+                                                <span className="text-xs text-muted-foreground ml-1">
+                                                    {trx.unit}
+                                                </span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {formatPrice(trx.price)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right font-medium">
+                                            {formatPrice(trx.subtotal)}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {formatPrice(trx.discount) || "-"}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            {formatPrice(trx.deposit_amount) ||
+                                                "-"}
+                                        </td>
+                                        <td className="px-4 py-3 text-right">
+                                            <span className="text-green-600 font-medium">
+                                                {trx.transaction?.change
+                                                    ? formatPrice(
+                                                          trx.transaction.change
+                                                      )
+                                                    : "-"}
+                                            </span>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <Badge
+                                                variant={
+                                                    trx.payment_status ===
+                                                    "paid"
+                                                        ? "default"
+                                                        : trx.payment_status ===
+                                                          "unpaid"
+                                                        ? "destructive"
+                                                        : "secondary"
+                                                }
+                                                className="text-xs"
+                                            >
+                                                {trx.payment_status === "paid"
+                                                    ? "Lunas"
+                                                    : trx.payment_status ===
+                                                      "unpaid"
+                                                    ? "Belum Lunas"
+                                                    : trx.payment_status ===
+                                                      "partial"
+                                                    ? "Sebagian"
+                                                    : "-"}
+                                            </Badge>
+                                        </td>
+                                        <td className="px-4 py-3 text-center">
+                                            <div className="flex gap-1 justify-center">
+                                                <Button
+                                                    size="sm"
+                                                    variant="ghost"
+                                                    className="h-8 w-8 p-0"
+                                                    onClick={() =>
+                                                        router.get(
+                                                            route(
+                                                                "transaction-histories.show",
+                                                                trx.id
+                                                            )
+                                                        )
+                                                    }
+                                                >
+                                                    <span className="text-blue-600">
+                                                        👁
+                                                    </span>
+                                                </Button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </CardContent>
+            </Card>
+        );
+    };
     const handleFilter = () => {
         if (!isValidDateRange()) {
             alert("Tanggal awal harus sebelum atau sama dengan tanggal akhir.");
@@ -372,7 +491,12 @@ export default function Index({
             {
                 ...(dateFrom ? { from: dateFrom } : {}),
                 ...(dateTo ? { to: dateTo } : {}),
-                ...(tokoId ? { toko_id: tokoId } : {}),
+                ...(locationId && locationType
+                    ? {
+                          location_id: locationId,
+                          location_type: locationType,
+                      }
+                    : {}),
             },
             {
                 preserveState: true,
@@ -385,130 +509,321 @@ export default function Index({
     return (
         <>
             <Head title="Histori Transaksi" />
-            <div className="min-h-screen p-6 bg-gray-100 dark:bg-gray-900">
-                {/* Tombol Export & Cetak */}
-                <div className="flex flex-wrap justify-end gap-3 mb-4">
-                    <Button
-                        type="button"
-                        label={
-                            <span className="flex items-center gap-2">
-                                <PdfIcon className="w-5 h-5" /> Export PDF
-                            </span>
-                        }
-                        onClick={() => {
-                            window.open(
-                                route("transaction-histories.export.pdf"),
-                                "_blank"
-                            );
-                        }}
-                        className="px-4 py-2 text-white transition-colors bg-red-600 rounded-md hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800"
-                    />
-                    <Button
-                        type="button"
-                        label={
-                            <span className="flex items-center gap-2">
-                                <ExcelIcon className="w-5 h-5" /> Export Excel
-                            </span>
-                        }
-                        onClick={() => {
-                            window.open(
-                                route("transaction-histories.export.excel"),
-                                "_blank"
-                            );
-                        }}
-                        className="px-4 py-2 text-white transition-colors bg-green-600 rounded-md hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800"
-                    />
-                    <Button
-                        type="button"
-                        label={
-                            <span className="flex items-center gap-2">
-                                <Plus className="w-5 h-5" /> Tambah Transaksi
-                            </span>
-                        }
-                        onClick={() => {
-                            router.get(route("transaction-histories.create"));
-                        }}
-                        className="px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
-                    />
+            <div className="min-h-screen p-4 lg:p-6 bg-background">
+                {/* Header Section */}
+                <div className="mb-6">
+                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div>
+                            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
+                                Histori Transaksi
+                            </h1>
+                            <p className="text-muted-foreground mt-1">
+                                Kelola dan pantau riwayat semua transaksi
+                            </p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-wrap gap-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    window.open(
+                                        route(
+                                            "transaction-histories.export.pdf"
+                                        ),
+                                        "_blank"
+                                    )
+                                }
+                                className="flex items-center gap-2"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">
+                                    Export PDF
+                                </span>
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() =>
+                                    window.open(
+                                        route(
+                                            "transaction-histories.export.excel"
+                                        ),
+                                        "_blank"
+                                    )
+                                }
+                                className="flex items-center gap-2"
+                            >
+                                <Download className="w-4 h-4" />
+                                <span className="hidden sm:inline">
+                                    Export Excel
+                                </span>
+                            </Button>
+                            <Button
+                                size="sm"
+                                onClick={() =>
+                                    router.get(
+                                        route("transaction-histories.create")
+                                    )
+                                }
+                                className="flex items-center gap-2"
+                            >
+                                <Plus className="w-4 h-4" />
+                                <span className="hidden sm:inline">Tambah</span>
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Filter Section */}
-                <div className="p-6 mb-8 bg-white rounded-lg shadow-md dark:bg-gray-800">
-                    <h2 className="pb-2 mb-6 text-xl font-semibold text-gray-800 border-b dark:text-gray-200">
-                        Filter Histori Transaksi
-                    </h2>
-                    <div className="grid items-end grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                        <div className="flex flex-col space-y-2">
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                Tanggal Awal
-                            </label>
-                            <input
-                                type="date"
-                                value={dateFrom}
-                                onChange={(e) => setDateFrom(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-md bg-white text-sm text-gray-700 border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:focus:ring-blue-600 min-h-[42px]"
-                            />
+                <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2">
+                            <Filter className="w-5 h-5" />
+                            Filter Data
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    Tanggal Awal
+                                </label>
+                                <input
+                                    type="date"
+                                    value={dateFrom}
+                                    onChange={(e) =>
+                                        setDateFrom(e.target.value)
+                                    }
+                                    className="w-full px-3 py-2 border rounded-md text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    Tanggal Akhir
+                                </label>
+                                <input
+                                    type="date"
+                                    value={dateTo}
+                                    onChange={(e) => setDateTo(e.target.value)}
+                                    className="w-full px-3 py-2 border rounded-md text-sm"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">
+                                    Lokasi
+                                </label>
+                                <InputSelect
+                                    data={locations}
+                                    selected={
+                                        locations.find(
+                                            (l) =>
+                                                l.id == locationId &&
+                                                l.type == locationType
+                                        ) || null
+                                    }
+                                    setSelected={(l) => {
+                                        if (l) {
+                                            setLocationId(l.id);
+                                            setLocationType(l.type);
+                                        } else {
+                                            setLocationId("");
+                                            setLocationType("");
+                                        }
+                                    }}
+                                    displayKey="label"
+                                    placeholder="Semua Lokasi"
+                                    className="w-full"
+                                />
+                            </div>
+                            <div className="space-y-2 flex items-end">
+                                <div className="flex gap-2 w-full">
+                                    <Button
+                                        onClick={handleFilter}
+                                        disabled={loading}
+                                        className="flex-1"
+                                    >
+                                        <Search className="w-4 h-4 mr-2" />
+                                        Filter
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            setDateFrom("");
+                                            setDateTo("");
+                                            setLocationId("");
+                                            setLocationType("");
+                                            router.get(
+                                                route(
+                                                    "transaction-histories.index"
+                                                )
+                                            );
+                                        }}
+                                    >
+                                        Reset
+                                    </Button>
+                                </div>
+                            </div>
                         </div>
-                        <div className="flex flex-col space-y-2">
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                Tanggal Akhir
-                            </label>
-                            <input
-                                type="date"
-                                value={dateTo}
-                                onChange={(e) => setDateTo(e.target.value)}
-                                className="w-full px-3 py-2 border rounded-md bg-white text-sm text-gray-700 border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-gray-300 dark:border-gray-600 dark:focus:ring-blue-600 min-h-[42px]"
-                            />
-                        </div>
-                        <div className="flex flex-col space-y-2">
-                            <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                                Toko
-                            </label>
-                            <InputSelect
-                                label="Toko"
-                                data={tokos}
-                                selected={
-                                    tokos.find((t) => t.id == tokoId) || null
-                                }
-                                setSelected={(t) => setTokoId(t ? t.id : "")}
-                                displayKey="name"
-                                placeholder="Semua Toko"
-                                className="min-w-[180px]"
-                            />
-                        </div>
-                    </div>
-                    <div className="flex justify-end gap-4 mt-6">
-                        <Button
-                            type="button"
-                            label="Filter"
-                            onClick={handleFilter}
-                            className="px-4 py-2 text-white transition-colors bg-blue-600 rounded-md hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800"
-                            disabled={loading}
-                        />
-                        <Button
-                            type="button"
-                            label="Reset"
-                            onClick={() => {
-                                setDateFrom("");
-                                setDateTo("");
-                                setTokoId("");
-                                router.get(
-                                    route("transaction-histories.index")
-                                );
-                            }}
-                            className="px-4 py-2 text-gray-700 transition-colors bg-gray-300 rounded-md hover:bg-gray-400 dark:bg-gray-600 dark:text-gray-200 dark:hover:bg-gray-500"
-                        />
-                    </div>
+                    </CardContent>
+                </Card>
+
+                {/* Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                    <Card>
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Total Transaksi
+                                    </p>
+                                    <p className="text-2xl font-bold">
+                                        {allTransactions.length}
+                                    </p>
+                                </div>
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-blue-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Pembelian
+                                    </p>
+                                    <p className="text-2xl font-bold text-blue-600">
+                                        {purchaseTransactions.length}
+                                    </p>
+                                </div>
+                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Penjualan
+                                    </p>
+                                    <p className="text-2xl font-bold text-green-600">
+                                        {saleTransactions.length}
+                                    </p>
+                                </div>
+                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
+                                    <TrendingDown className="w-5 h-5 text-green-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-muted-foreground">
+                                        Total Nilai
+                                    </p>
+                                    <p className="text-lg font-bold">
+                                        {formatPrice(
+                                            allTransactions.reduce(
+                                                (sum, trx) =>
+                                                    sum +
+                                                    Number(trx.subtotal || 0),
+                                                0
+                                            )
+                                        )}
+                                    </p>
+                                </div>
+                                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                    <Package className="w-5 h-5 text-orange-600" />
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </div>
 
-                {/* Tabel Histori Transaksi */}
-                <div className="overflow-x-auto">
-                    {loading ? (
-                        <div className="py-4 text-center">Memuat data...</div>
-                    ) : (
-                        renderProductGroupedTable()
-                    )}
-                </div>
+                {/* Main Content with Tabs */}
+                <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    className="w-full"
+                >
+                    <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
+                        <TabsTrigger
+                            value="all"
+                            className="flex items-center gap-2"
+                        >
+                            <Package className="w-4 h-4" />
+                            <span className="hidden sm:inline">Semua</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="purchase"
+                            className="flex items-center gap-2"
+                        >
+                            <TrendingUp className="w-4 h-4" />
+                            <span className="hidden sm:inline">Pembelian</span>
+                        </TabsTrigger>
+                        <TabsTrigger
+                            value="sale"
+                            className="flex items-center gap-2"
+                        >
+                            <TrendingDown className="w-4 h-4" />
+                            <span className="hidden sm:inline">Penjualan</span>
+                        </TabsTrigger>
+                    </TabsList>
+
+                    <div className="mt-6">
+                        <TabsContent value="all" className="space-y-4">
+                            <PurchaseTable data={purchaseTransactions} />
+                            {purchaseTransactions.length > 0 &&
+                                saleTransactions.length > 0 && (
+                                    <Separator className="my-6" />
+                                )}
+                            <SalesTable data={saleTransactions} />
+                        </TabsContent>
+
+                        <TabsContent value="purchase">
+                            <PurchaseTable data={purchaseTransactions} />
+                        </TabsContent>
+
+                        <TabsContent value="sale">
+                            <SalesTable data={saleTransactions} />
+                        </TabsContent>
+                    </div>
+                </Tabs>
+
+                {/* Pagination */}
+                {transactions.links && (
+                    <div className="mt-6 flex justify-center">
+                        <div className="flex gap-2">
+                            {transactions.links.map((link, index) => (
+                                <Button
+                                    key={index}
+                                    variant={
+                                        link.active ? "default" : "outline"
+                                    }
+                                    size="sm"
+                                    disabled={!link.url}
+                                    onClick={() =>
+                                        link.url && router.get(link.url)
+                                    }
+                                    dangerouslySetInnerHTML={{
+                                        __html: link.label,
+                                    }}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                )}
             </div>
         </>
     );
