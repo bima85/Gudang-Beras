@@ -29,7 +29,14 @@ class TransactionController extends Controller
     public function list()
     {
         $user = request()->user();
-        if (! $user || (! $user->hasPermissionTo('transactions.sell') && ! $user->hasPermissionTo('transactions.purchase') && ! $user->hasRole('super-admin'))) {
+        // Allow users with relevant permissions or roles (toko/gudang/super-admin)
+        $allowed = false;
+        if ($user) {
+            $allowed = $user->hasAnyPermission(['transactions.sell', 'transactions.purchase', 'transactions.manage', 'transactions-access'])
+                || $user->hasAnyRole(['super-admin', 'toko', 'gudang']);
+        }
+
+        if (! $allowed) {
             abort(403, 'Akses transaksi dibatasi.');
         }
 
@@ -48,7 +55,8 @@ class TransactionController extends Controller
      */
     private function generateInvoiceNumber()
     {
-        $today = now()->format('d/m/Y');
+        // Use Asia/Jakarta timezone to match frontend behavior
+        $today = \Carbon\Carbon::now('Asia/Jakarta')->format('d/m/Y');
         $prefix = "TRX-{$today}-";
 
         // Find the last transaction number for today
@@ -144,6 +152,18 @@ class TransactionController extends Controller
      */
     public function index()
     {
+        $user = request()->user();
+        // Allow users with relevant permissions or roles (toko/gudang/super-admin)
+        $allowed = false;
+        if ($user) {
+            $allowed = $user->hasAnyPermission(['transactions.sell', 'transactions.purchase', 'transactions.manage', 'transactions-access'])
+                || $user->hasAnyRole(['super-admin', 'Toko', 'Gudang']);
+        }
+
+        if (! $allowed) {
+            abort(403, 'Akses transaksi dibatasi.');
+        }
+
         $userId = request()->user()->id;
 
         $carts = Cart::with(['product.category', 'unit'])
@@ -338,7 +358,7 @@ class TransactionController extends Controller
     public function addToCart(Request $request)
     {
         $user = $request->user();
-        if (! $user || (! $user->hasPermissionTo('transactions.sell') && ! $user->hasRole('super-admin'))) {
+        if (! $user || (! $user->hasPermissionTo('transactions.sell') && ! $user->hasRole('super-admin') && ! $user->hasRole('Toko'))) {
             $uid = null;
             if ($user) {
                 if (property_exists($user, 'id')) {
@@ -716,7 +736,22 @@ class TransactionController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-        if (! $user || (! $user->hasPermissionTo('transactions.sell') && ! $user->hasPermissionTo('transactions.purchase') && ! $user->hasRole('super-admin'))) {
+
+        // Debug logging untuk troubleshooting
+        Log::info('[TransactionController::store] Permission check', [
+            'user_id' => $user?->id,
+            'user_email' => $user?->email,
+            'has_transactions_sell' => $user ? $user->hasPermissionTo('transactions.sell') : false,
+            'has_transactions_purchase' => $user ? $user->hasPermissionTo('transactions.purchase') : false,
+            'is_super_admin' => $user ? $user->hasRole('super-admin') : false,
+            'user_roles' => $user ? $user->roles->pluck('name')->toArray() : [],
+        ]);
+
+        if (! $user || (! $user->hasPermissionTo('transactions.sell') && ! $user->hasPermissionTo('transactions.purchase') && ! $user->hasRole('super-admin') && ! $user->hasRole('Toko') && ! $user->hasRole('Gudang'))) {
+            Log::warning('[TransactionController::store] Access denied for user', [
+                'user_id' => $user?->id,
+                'user_email' => $user?->email,
+            ]);
             return response()->json(['message' => 'Akses ditolak.'], 403);
         }
         try {
@@ -947,7 +982,15 @@ class TransactionController extends Controller
                 ]);
                 $customer->deposit += $request->change_to_deposit_amount;
             }
+
+            // Force save customer changes
             $customer->save();
+
+            Log::info('[TransactionController] Customer saved with deposit changes', [
+                'customer_id' => $customer->id,
+                'final_deposit' => $customer->deposit,
+                'transaction_id' => $transaction->id
+            ]);
 
             // Hapus keranjang setelah transaksi
             Cart::where('cashier_id', $request->user()->id)->delete();
@@ -1068,7 +1111,7 @@ class TransactionController extends Controller
                     $th = \App\Models\TransactionHistory::create([
                         'transaction_number' => $transaction->invoice,
                         'transaction_type' => 'sale',
-                        'transaction_date' => now(),
+                        'transaction_date' => \Carbon\Carbon::now('Asia/Jakarta')->format('Y-m-d'),
                         // use client-provided normalized trxTime if available, otherwise server now in Asia/Jakarta
                         'transaction_time' => $trxTime ? $trxTime : \Carbon\Carbon::now('Asia/Jakarta')->format('H:i:s'),
                         'related_party' => $customer ? $customer->name : null,
@@ -1086,9 +1129,7 @@ class TransactionController extends Controller
                         // Ensure payment_status matches allowed enum values for transaction_histories
                         // Map payment_method -> payment_status: 'tempo' => 'unpaid', 'cash'|'deposit' => 'paid'
                         'payment_status' => (
-                            $transaction->payment_method === 'tempo' ? 'unpaid' : (
-                                in_array($transaction->payment_method, ['cash', 'deposit']) ? 'paid' : null
-                            )
+                            $transaction->payment_method === 'tempo' ? 'unpaid' : 'paid'
                         ),
                         'notes' => 'Auto-recorded from Transaction #' . $transaction->id,
                         'created_by' => $request->user()->id,
@@ -1192,10 +1233,167 @@ class TransactionController extends Controller
             'warehouse',
         ])->where('invoice', $invoice)->firstOrFail();
 
+        // Generate dynamic store information based on user role and transaction context
+        $storeInfo = $this->getStoreInfo($transaction);
+
         return Inertia::render('Dashboard/Transactions/Print', [
             'transaction' => $transaction,
-            'store' => ['name' => 'Nama Toko'], // Sesuaikan dengan data toko
+            'store' => $storeInfo,
         ]);
+    }
+
+    /**
+     * Print transaction by ID.
+     *
+     * @param  int  $id
+     * @return \Inertia\Response
+     */
+    public function printById($id)
+    {
+        $transaction = Transaction::with([
+            'details.product.category',
+            'details.product.subcategory',
+            'details.unit',
+            'cashier',
+            'customer',
+            'warehouse',
+        ])->findOrFail($id);
+
+        // Generate dynamic store information based on user role and transaction context
+        $storeInfo = $this->getStoreInfo($transaction);
+
+        return Inertia::render('Dashboard/Transactions/Print', [
+            'transaction' => $transaction,
+            'store' => $storeInfo,
+        ]);
+    }
+
+    /**
+     * Get dynamic store information based on user role and transaction context.
+     *
+     * @param  \App\Models\Transaction  $transaction
+     * @return array
+     */
+    private function getStoreInfo($transaction)
+    {
+        $user = request()->user();
+        $storeInfo = [
+            'name' => 'Toko88',
+            'code' => '',
+            'phone' => '',
+            'address' => '',
+            'location' => '',
+        ];
+
+        try {
+            // Priority 1: Determine based on user role and associated location
+            if ($user) {
+                // Check if user has role Gudang - show warehouse info
+                if ($user->hasRole('Gudang') || $user->hasRole('gudang')) {
+                    // Try to get warehouse associated with user or first warehouse
+                    $warehouse = null;
+
+                    // Check if user has warehouse_id in users table
+                    if (isset($user->warehouse_id) && $user->warehouse_id) {
+                        $warehouse = \App\Models\Warehouse::find($user->warehouse_id);
+                    }
+
+                    // Fallback to first warehouse
+                    if (!$warehouse) {
+                        $warehouse = \App\Models\Warehouse::first();
+                    }
+
+                    if ($warehouse) {
+                        $storeInfo['name'] = $warehouse->name;
+                        $storeInfo['code'] = $warehouse->code ?? '';
+                        $storeInfo['phone'] = $warehouse->phone ?? '';
+                        $storeInfo['address'] = $warehouse->address ?? '';
+                        $storeInfo['location'] = $warehouse->location ?? '';
+                        return $storeInfo;
+                    } else {
+                        $storeInfo['name'] = 'Gudang Utama';
+                        $storeInfo['location'] = 'Lokasi Gudang';
+                        return $storeInfo;
+                    }
+                }
+
+                // Check if user has role Toko - show toko info
+                elseif ($user->hasRole('Toko') || $user->hasRole('toko')) {
+                    // Try to get toko associated with user or first toko
+                    $toko = null;
+
+                    // Check if user has toko_id in users table
+                    if (isset($user->toko_id) && $user->toko_id) {
+                        $toko = \App\Models\Toko::find($user->toko_id);
+                    }
+
+                    // Fallback to first toko
+                    if (!$toko) {
+                        $toko = \App\Models\Toko::first();
+                    }
+
+                    if ($toko) {
+                        $storeInfo['name'] = $toko->name;
+                        $storeInfo['code'] = $toko->code ?? '';
+                        $storeInfo['phone'] = $toko->phone ?? '';
+                        $storeInfo['address'] = $toko->address ?? '';
+                        $storeInfo['location'] = $toko->address ?? ''; // Use address as location for tokos
+                        return $storeInfo;
+                    } else {
+                        $storeInfo['name'] = 'Toko Cabang';
+                        $storeInfo['location'] = 'Lokasi Toko';
+                        return $storeInfo;
+                    }
+                }
+
+                // Super admin - use company info or default warehouse
+                elseif ($user->hasRole('super-admin')) {
+                    // For super admin, try to use main warehouse or company info
+                    $mainWarehouse = \App\Models\Warehouse::where('is_main', true)->first()
+                        ?? \App\Models\Warehouse::first();
+
+                    if ($mainWarehouse) {
+                        $storeInfo['name'] = $mainWarehouse->name;
+                        $storeInfo['code'] = $mainWarehouse->code ?? '';
+                        $storeInfo['phone'] = $mainWarehouse->phone ?? '';
+                        $storeInfo['address'] = $mainWarehouse->address ?? '';
+                        $storeInfo['location'] = $mainWarehouse->location ?? '';
+                        return $storeInfo;
+                    } else {
+                        $storeInfo['name'] = 'Toko88 - Pusat';
+                        $storeInfo['location'] = 'Kantor Pusat';
+                        return $storeInfo;
+                    }
+                }
+            }
+
+            // Priority 2: Use warehouse from transaction if available (fallback)
+            if ($transaction->warehouse) {
+                $storeInfo['name'] = $transaction->warehouse->name;
+                $storeInfo['code'] = $transaction->warehouse->code ?? '';
+                $storeInfo['phone'] = $transaction->warehouse->phone ?? '';
+                $storeInfo['address'] = $transaction->warehouse->address ?? '';
+                $storeInfo['location'] = $transaction->warehouse->location ?? '';
+                return $storeInfo;
+            }
+
+            // Priority 3: Final fallback - try to use any available warehouse/toko data
+            if ($storeInfo['name'] === 'Toko88') {
+                $warehouse = \App\Models\Warehouse::first();
+                if ($warehouse) {
+                    $storeInfo['name'] = $warehouse->name;
+                    $storeInfo['code'] = $warehouse->code ?? '';
+                    $storeInfo['phone'] = $warehouse->phone ?? '';
+                    $storeInfo['address'] = $warehouse->address ?? '';
+                    $storeInfo['location'] = $warehouse->location ?? '';
+                }
+            }
+        } catch (\Exception $e) {
+            // Fallback to default if any error occurs
+            Log::warning('Error getting store info for print: ' . $e->getMessage());
+        }
+
+        return $storeInfo;
     }
 
     /**
@@ -1294,5 +1492,49 @@ class TransactionController extends Controller
 
             return response()->json(['message' => 'Failed to remove item from cart'], 500);
         }
+    }
+
+    /**
+     * Get next transaction sequence number for given date
+     */
+    public function getNextSequence(Request $request)
+    {
+        $datePattern = $request->query('date_pattern');
+
+        if (!$datePattern) {
+            // Use Asia/Jakarta timezone to match frontend behavior
+            $datePattern = \Carbon\Carbon::now('Asia/Jakarta')->format('d/m/Y');
+        }
+
+        $prefix = "TRX-{$datePattern}-";
+
+        // Find the last transaction number for the given date
+        $lastTransaction = Transaction::where('transaction_number', 'like', $prefix . '%')
+            ->orderBy('transaction_number', 'desc')
+            ->first();
+
+        if ($lastTransaction) {
+            // Extract the last number and increment
+            $lastNumber = (int) substr($lastTransaction->transaction_number, -3);
+            $nextNumber = $lastNumber + 1;
+        } else {
+            // First transaction of the day
+            $nextNumber = 1;
+        }
+
+        Log::info('[TransactionController::getNextSequence] Generated sequence', [
+            'date_pattern' => $datePattern,
+            'prefix' => $prefix,
+            'last_transaction' => $lastTransaction ? $lastTransaction->transaction_number : 'None',
+            'last_number' => $lastTransaction ? (int) substr($lastTransaction->transaction_number, -3) : 0,
+            'next_number' => $nextNumber,
+            'preview_number' => $prefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT),
+        ]);
+
+        return response()->json([
+            'next_sequence' => $nextNumber,
+            'date_pattern' => $datePattern,
+            'preview_number' => $prefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT)
+        ]);
     }
 }

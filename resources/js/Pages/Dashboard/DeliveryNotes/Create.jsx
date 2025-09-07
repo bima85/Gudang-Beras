@@ -72,13 +72,14 @@ export default function Create({
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        
+
         // Prepare data, convert "none" transaction_id to empty string
         const submitData = {
             ...data,
-            transaction_id: data.transaction_id === "none" ? "" : data.transaction_id
+            transaction_id:
+                data.transaction_id === "none" ? "" : data.transaction_id,
         };
-        
+
         post(route("delivery-notes.store"), {
             data: submitData,
             onSuccess: () => {

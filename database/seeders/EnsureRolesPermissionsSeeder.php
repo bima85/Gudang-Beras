@@ -42,11 +42,15 @@ class EnsureRolesPermissionsSeeder extends Seeder
             $gudang = Role::where('name', 'gudang')->first();
             if ($gudang) {
                 $gudang->givePermissionTo('deliveries-access');
+                // Allow gudang to view transaction reports and export
+                $gudang->givePermissionTo(['reports.transactions', 'reports-export', 'transactions-delete']);
             }
 
             $toko = Role::where('name', 'toko')->first();
             if ($toko) {
-                $toko->givePermissionTo(['transactions.manage', 'purchases.manage']);
+                $toko->givePermissionTo(['transactions.manage', 'purchases.manage', 'transactions.sell', 'transactions.purchase']);
+                // Allow toko to view transaction reports and export
+                $toko->givePermissionTo(['reports.transactions', 'reports-export', 'transactions-delete']);
             }
         });
     }

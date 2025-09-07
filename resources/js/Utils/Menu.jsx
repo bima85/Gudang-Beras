@@ -226,7 +226,9 @@ export default function Menu() {
                             ? true
                             : false,
                     icon: <IconChartBarPopular size={20} strokeWidth={1.5} />,
-                    permissions: true, // Atur permission sesuai kebutuhan
+                    permissions:
+                        isSuperAdmin ||
+                        hasAnyPermission(["reports.transactions"]),
                 },
                 {
                     title: "Laporan Stok",

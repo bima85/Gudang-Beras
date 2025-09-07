@@ -271,32 +271,54 @@ export default function Transactions({
                                                                     <td className="px-2 py-1 border text-center">
                                                                         {i ===
                                                                             0 && (
-                                                                            <Button
-                                                                                type="button"
-                                                                                label={
-                                                                                    <span className="text-red-600">
-                                                                                        Hapus
-                                                                                    </span>
-                                                                                }
-                                                                                className="bg-transparent hover:bg-red-100 dark:hover:bg-red-900 text-red-600 px-2 py-1 rounded"
-                                                                                onClick={() => {
-                                                                                    if (
-                                                                                        confirm(
-                                                                                            "Yakin ingin menghapus transaksi ini?"
-                                                                                        )
-                                                                                    ) {
-                                                                                        router.delete(
-                                                                                            route(
-                                                                                                "transactions.delete",
-                                                                                                trx.id
-                                                                                            ),
-                                                                                            {
-                                                                                                preserveScroll: true,
-                                                                                            }
-                                                                                        );
+                                                                            <div className="flex gap-2 justify-center">
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    label={
+                                                                                        <span className="text-blue-600">
+                                                                                            Print
+                                                                                        </span>
                                                                                     }
-                                                                                }}
-                                                                            />
+                                                                                    className="bg-transparent hover:bg-blue-100 dark:hover:bg-blue-900 text-blue-600 px-2 py-1 rounded"
+                                                                                    onClick={() => {
+                                                                                        window.open(
+                                                                                            route(
+                                                                                                "transactions.print.id",
+                                                                                                {
+                                                                                                    id: trx.id,
+                                                                                                }
+                                                                                            ),
+                                                                                            "_blank"
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                                <Button
+                                                                                    type="button"
+                                                                                    label={
+                                                                                        <span className="text-red-600">
+                                                                                            Hapus
+                                                                                        </span>
+                                                                                    }
+                                                                                    className="bg-transparent hover:bg-red-100 dark:hover:bg-red-900 text-red-600 px-2 py-1 rounded"
+                                                                                    onClick={() => {
+                                                                                        if (
+                                                                                            confirm(
+                                                                                                "Yakin ingin menghapus transaksi ini?"
+                                                                                            )
+                                                                                        ) {
+                                                                                            router.delete(
+                                                                                                route(
+                                                                                                    "transactions.delete",
+                                                                                                    trx.id
+                                                                                                ),
+                                                                                                {
+                                                                                                    preserveScroll: true,
+                                                                                                }
+                                                                                            );
+                                                                                        }
+                                                                                    }}
+                                                                                />
+                                                                            </div>
                                                                         )}
                                                                     </td>
                                                                 </tr>

@@ -24,7 +24,7 @@ class ReportController extends Controller
     {
         // Check permission
         $user = Auth::user();
-        if (! $user || ! $user->hasPermissionTo('reports-access')) {
+        if (! $user || ! $user->hasPermissionTo('reports.transactions')) {
             abort(403, 'Unauthorized');
         }
 
@@ -36,11 +36,14 @@ class ReportController extends Controller
             'details.unit'
         ]);
 
-        // Filter by date range
+        // Filter by date range - use Asia/Jakarta timezone
         if ($request->filled('date_from') && $request->filled('date_to')) {
+            $dateFrom = \Carbon\Carbon::parse($request->date_from, 'Asia/Jakarta')->startOfDay();
+            $dateTo = \Carbon\Carbon::parse($request->date_to, 'Asia/Jakarta')->endOfDay();
+
             $query->whereBetween('created_at', [
-                $request->date_from . ' 00:00:00',
-                $request->date_to . ' 23:59:59'
+                $dateFrom->utc()->format('Y-m-d H:i:s'),
+                $dateTo->utc()->format('Y-m-d H:i:s')
             ]);
         }
 
@@ -105,7 +108,7 @@ class ReportController extends Controller
 
             // Check if user has permission to delete transactions
             $user = Auth::user();
-            if (! $user || ! $user->hasPermissionTo('transaction-delete')) {
+            if (! $user || ! $user->hasPermissionTo('transactions-delete')) {
                 return response()->json(['error' => 'Unauthorized'], 403);
             }
 

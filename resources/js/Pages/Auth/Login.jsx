@@ -4,7 +4,7 @@ import ApplicationLogo from "@/Components/ApplicationLogo";
 
 export default function Login({ status, canResetPassword }) {
     const { data, setData, post, processing, errors, reset } = useForm({
-        email: "",
+        login: "",
         password: "",
         remember: false,
         role: "Toko", // Default to Toko
@@ -93,12 +93,12 @@ export default function Login({ status, canResetPassword }) {
     return (
         <>
             <Head title="Log in" />
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="w-full max-w-md bg-white p-8 rounded-lg shadow-lg">
-                    <div className="text-center mb-6">
+            <div className="flex items-center justify-center min-h-screen bg-gray-100">
+                <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
+                    <div className="mb-6 text-center">
                         <ApplicationLogo className="w-20 h-20 mx-auto mb-4" />
-                        <h1 className="text-3xl text-black font-bold mb-2">
-                            Toko_88
+                        <h1 className="mb-2 text-3xl font-bold text-black">
+                            Toko 85
                         </h1>
                         <h2 className="text-xl font-semibold text-gray-700">
                             Login
@@ -108,8 +108,8 @@ export default function Login({ status, canResetPassword }) {
 
                     <form onSubmit={submit}>
                         {errors && Object.keys(errors).length > 0 && (
-                            <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-700 rounded">
-                                <ul className="list-disc pl-5 text-sm">
+                            <div className="p-3 mb-4 text-red-700 border border-red-100 rounded bg-red-50">
+                                <ul className="pl-5 text-sm list-disc">
                                     {Object.entries(errors).map(([k, v]) => (
                                         <li key={k}>{v}</li>
                                     ))}
@@ -119,7 +119,7 @@ export default function Login({ status, canResetPassword }) {
                         <div className="mb-4">
                             <label
                                 htmlFor="role"
-                                className="block text-gray-700 font-bold mb-2"
+                                className="block mb-2 font-bold text-gray-700"
                             >
                                 Pilih Role
                             </label>
@@ -140,18 +140,20 @@ export default function Login({ status, canResetPassword }) {
 
                         <div className="mb-4">
                             <label
-                                htmlFor="email"
+                                htmlFor="login"
                                 className="block text-sm font-medium text-gray-700"
                             >
-                                Email
+                                Username or Email
                             </label>
                             <input
-                                type="email"
-                                name="email"
-                                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-300"
-                                value={data.email}
+                                type="text"
+                                name="login"
+                                id="login"
+                                className="block w-full px-4 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-300"
+                                value={data.login}
+                                autoComplete="username"
                                 onChange={(e) =>
-                                    setData("email", e.target.value)
+                                    setData("login", e.target.value)
                                 }
                             />
                         </div>
@@ -166,7 +168,7 @@ export default function Login({ status, canResetPassword }) {
                             <input
                                 type="password"
                                 name="password"
-                                className="mt-1 block w-full px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-300"
+                                className="block w-full px-4 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-300"
                                 value={data.password}
                                 onChange={(e) =>
                                     setData("password", e.target.value)
@@ -180,7 +182,7 @@ export default function Login({ status, canResetPassword }) {
                                     id="remember_me"
                                     name="remember"
                                     type="checkbox"
-                                    className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
                                     checked={data.remember}
                                     onChange={(e) =>
                                         setData("remember", e.target.checked)
@@ -188,7 +190,7 @@ export default function Login({ status, canResetPassword }) {
                                 />
                                 <label
                                     htmlFor="remember_me"
-                                    className="ml-2 block text-sm text-gray-900"
+                                    className="block ml-2 text-sm text-gray-900"
                                 >
                                     Ingat saya
                                 </label>
@@ -205,7 +207,7 @@ export default function Login({ status, canResetPassword }) {
                         <div>
                             <button
                                 type="submit"
-                                className="w-full py-2 px-4 bg-blue-600 text-white font-semibold rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                                className="w-full px-4 py-2 font-semibold text-white bg-blue-600 rounded-md shadow hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                             >
                                 Masuk
                             </button>

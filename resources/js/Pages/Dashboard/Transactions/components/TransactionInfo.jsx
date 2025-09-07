@@ -29,7 +29,7 @@ export default function TransactionInfo({ location, auth, className }) {
             </CardHeader>
             <CardContent className="space-y-4">
                 {/* Date and Time */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                             <Calendar className="w-4 h-4" />
@@ -88,14 +88,14 @@ export default function TransactionInfo({ location, auth, className }) {
                         <Receipt className="w-4 h-4" />
                         <span className="font-medium">Status Sistem</span>
                     </div>
-                    <div className="p-3 bg-green-50 dark:bg-green-950/20 rounded-lg border border-green-200 dark:border-green-800">
+                    <div className="p-3 border border-green-200 rounded-lg bg-green-50 dark:bg-green-950/20 dark:border-green-800">
                         <div className="flex items-center gap-2">
                             <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                             <p className="text-sm font-semibold text-green-700 dark:text-green-400">
                                 Sistem Siap
                             </p>
                         </div>
-                        <p className="text-xs text-green-600 dark:text-green-500 mt-1">
+                        <p className="mt-1 text-xs text-green-600 dark:text-green-500">
                             Transaksi dapat diproses dengan normal
                         </p>
                     </div>
@@ -108,14 +108,16 @@ export default function TransactionInfo({ location, auth, className }) {
                             Aksi Cepat
                         </p>
                         <div className="grid grid-cols-2 gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="text-xs"
-                            >
-                                <Receipt className="w-3 h-3 mr-1" />
-                                Riwayat
-                            </Button>
+                            <a href={route("reports.transactions")}>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs"
+                                >
+                                    <Receipt className="w-3 h-3 mr-1" />
+                                    Riwayat
+                                </Button>
+                            </a>
                             <Button
                                 variant="outline"
                                 size="sm"

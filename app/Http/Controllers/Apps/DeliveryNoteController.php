@@ -8,9 +8,17 @@ use App\Models\Product;
 use App\Models\Warehouse;
 use App\Models\Toko;
 use App\Models\Unit;
+use App\Models\WarehouseStock;
+use App\Models\StoreStock;
+use App\Models\StockMovement;
+use App\Models\StockCard;
+use App\Models\Unit as UnitModel;
+use App\Services\StockUpdateService;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Controller untuk mengelola surat jalan (Delivery Notes)
@@ -178,27 +186,172 @@ class DeliveryNoteController extends Controller
             $validated['delivery_number'] = DeliveryNote::generateDeliveryNumber();
         }
 
-        // Tambahkan data tambahan
-        $validated['status'] = 'pending';
-        $validated['created_by'] = $user->id;
+        // Cek ketersediaan stok gudang sebelum memproses
+        $warehouseStock = WarehouseStock::getStock($validated['product_id'], $validated['warehouse_id']);
+        if ($warehouseStock < $validated['qty_kg']) {
+            return back()->withErrors([
+                'qty_kg' => 'Stok gudang tidak mencukupi. Tersedia: ' . number_format($warehouseStock, 2) . ' kg, Dibutuhkan: ' . number_format($validated['qty_kg'], 2) . ' kg'
+            ])->withInput();
+        }
 
-        // Buat delivery note
-        $deliveryNote = DeliveryNote::create($validated);
+        // Mulai database transaction
+        DB::beginTransaction();
 
-        // Log activity
-        \Illuminate\Support\Facades\Log::info('[DeliveryNoteController] Manual delivery note created', [
-            'delivery_note_id' => $deliveryNote->id,
-            'delivery_number' => $deliveryNote->delivery_number,
-            'created_by' => $user->id,
-            'warehouse_id' => $validated['warehouse_id'],
-            'toko_id' => $validated['toko_id'],
-            'product_id' => $validated['product_id'],
-            'qty_transferred' => $validated['qty_transferred'],
-            'unit' => $validated['unit'],
+        try {
+            // Tambahkan data tambahan
+            $validated['status'] = 'pending';
+            $validated['created_by'] = $user->id;
+
+            // Buat delivery note
+            $deliveryNote = DeliveryNote::create($validated);
+
+            // Update stok: kurangi stok gudang dan tambah stok toko
+            $this->updateStockForDelivery(
+                $validated['product_id'],
+                $validated['warehouse_id'],
+                $validated['toko_id'],
+                $validated['qty_kg'],
+                $user->id,
+                $deliveryNote->id
+            );
+
+            // Commit transaction
+            DB::commit();
+
+            // Log activity
+            Log::info('[DeliveryNoteController] Manual delivery note created with stock update', [
+                'delivery_note_id' => $deliveryNote->id,
+                'delivery_number' => $deliveryNote->delivery_number,
+                'created_by' => $user->id,
+                'warehouse_id' => $validated['warehouse_id'],
+                'toko_id' => $validated['toko_id'],
+                'product_id' => $validated['product_id'],
+                'qty_transferred' => $validated['qty_transferred'],
+                'qty_kg' => $validated['qty_kg'],
+                'unit' => $validated['unit'],
+            ]);
+
+            return redirect()->route('delivery-notes.show', $deliveryNote)
+                ->with('success', 'Surat jalan berhasil dibuat dan stok telah diperbarui');
+        } catch (\Exception $e) {
+            // Rollback transaction jika ada error
+            DB::rollback();
+
+            Log::error('[DeliveryNoteController] Error creating delivery note with stock update', [
+                'error' => $e->getMessage(),
+                'validated_data' => $validated
+            ]);
+
+            return back()->withErrors([
+                'error' => 'Terjadi kesalahan saat membuat surat jalan: ' . $e->getMessage()
+            ])->withInput();
+        }
+    }
+
+    /**
+     * Update stok untuk pengiriman surat jalan
+     * Kurangi stok gudang dan tambah stok toko dengan tracking lengkap
+     */
+    private function updateStockForDelivery($productId, $warehouseId, $tokoId, $qtyKg, $userId, $deliveryNoteId)
+    {
+        // 1. Kurangi stok gudang
+        $warehouseStock = WarehouseStock::reduceStock($productId, $warehouseId, $qtyKg, $userId);
+        if (!$warehouseStock) {
+            throw new \Exception('Gagal mengurangi stok gudang');
+        }
+
+        // 2. Tambah stok toko
+        $storeStock = StoreStock::addStock($productId, $tokoId, $qtyKg, $userId);
+        if (!$storeStock) {
+            throw new \Exception('Gagal menambah stok toko');
+        }
+
+        // 3. Record Stock Movement untuk Gudang (OUT)
+        try {
+            StockMovement::recordMovement(
+                $productId,
+                $warehouseId,
+                'transfer_out', // type: transfer keluar dari gudang
+                -$qtyKg, // negative karena pengurangan
+                $warehouseStock->qty_in_kg, // balance setelah pengurangan
+                'DeliveryNote', // reference type
+                $deliveryNoteId, // reference id
+                "Transfer ke toko via surat jalan #{$deliveryNoteId}",
+                $userId
+            );
+        } catch (\Exception $e) {
+            Log::error('[DeliveryNoteController] Failed to record warehouse stock movement', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'warehouse_id' => $warehouseId,
+                'delivery_note_id' => $deliveryNoteId
+            ]);
+            // Continue execution, don't throw error for stock movement failure
+        }
+
+        // 4. Record Stock Movement untuk Toko (IN)
+        try {
+            StockMovement::recordTokoMovement(
+                $productId,
+                $tokoId,
+                'transfer_in', // type: transfer masuk ke toko
+                $qtyKg, // positive karena penambahan
+                'DeliveryNote', // reference type
+                $deliveryNoteId, // reference id
+                "Transfer dari gudang via surat jalan #{$deliveryNoteId}",
+                $userId
+            );
+        } catch (\Exception $e) {
+            Log::error('[DeliveryNoteController] Failed to record toko stock movement', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'toko_id' => $tokoId,
+                'delivery_note_id' => $deliveryNoteId
+            ]);
+            // Continue execution, don't throw error for stock movement failure
+        }
+
+        // 5. Record Stock Card untuk Gudang (OUT) - tracking detail transaksi
+        try {
+            $this->createStockCardForWarehouse($productId, $warehouseId, $qtyKg, $deliveryNoteId, $userId, 'out');
+        } catch (\Exception $e) {
+            Log::error('[DeliveryNoteController] Failed to record warehouse stock card', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'warehouse_id' => $warehouseId,
+                'delivery_note_id' => $deliveryNoteId
+            ]);
+            // Continue execution
+        }
+
+        // 6. Record Stock Card untuk Toko (IN) - tracking detail transaksi
+        try {
+            $this->createStockCardForToko($productId, $tokoId, $qtyKg, $deliveryNoteId, $userId, 'in');
+        } catch (\Exception $e) {
+            Log::error('[DeliveryNoteController] Failed to record toko stock card', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'toko_id' => $tokoId,
+                'delivery_note_id' => $deliveryNoteId
+            ]);
+            // Continue execution
+        }
+
+        // 7. Total stok produk tidak berubah (transfer internal antar lokasi)
+        // Tidak perlu mengubah Products.stock karena ini hanya perpindahan lokasi
+
+        Log::info('[DeliveryNoteController] Stock transfer completed with full tracking', [
+            'delivery_note_id' => $deliveryNoteId,
+            'product_id' => $productId,
+            'warehouse_id' => $warehouseId,
+            'toko_id' => $tokoId,
+            'qty_kg' => $qtyKg,
+            'warehouse_stock_after' => $warehouseStock->qty_in_kg,
+            'store_stock_after' => $storeStock->qty_in_kg,
+            'movements_recorded' => true
         ]);
 
-        return redirect()->route('delivery-notes.show', $deliveryNote)
-            ->with('success', 'Surat jalan berhasil dibuat');
+        return true;
     }
 
     /**
@@ -395,5 +548,87 @@ class DeliveryNoteController extends Controller
         // Menggunakan Laravel Excel atau format lainnya
 
         return back()->with('info', 'Fitur export sedang dalam pengembangan');
+    }
+
+    /**
+     * Create Stock Card untuk Gudang (OUT)
+     */
+    private function createStockCardForWarehouse($productId, $warehouseId, $qtyKg, $deliveryNoteId, $userId, $type)
+    {
+        // Cari Unit default (biasanya Kg)
+        $unit = UnitModel::where('name', 'Kg')->first() ?? UnitModel::first();
+
+        // Get last stock card untuk calculate saldo
+        $lastCard = StockCard::where('product_id', $productId)
+            ->where('warehouse_id', $warehouseId)
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $saldoLama = $lastCard ? $lastCard->saldo : 0;
+        $saldoBaru = ($type === 'out') ? $saldoLama - $qtyKg : $saldoLama + $qtyKg;
+
+        StockCard::create([
+            'product_id' => $productId,
+            'warehouse_id' => $warehouseId,
+            'toko_id' => null,
+            'unit_id' => $unit ? $unit->id : null,
+            'date' => now(),
+            'type' => $type,
+            'qty' => $qtyKg,
+            'saldo' => $saldoBaru,
+            'note' => "Transfer via surat jalan #{$deliveryNoteId}",
+            'user_id' => $userId,
+        ]);
+
+        Log::info('[DeliveryNoteController] Stock card created for warehouse', [
+            'product_id' => $productId,
+            'warehouse_id' => $warehouseId,
+            'delivery_note_id' => $deliveryNoteId,
+            'type' => $type,
+            'qty_kg' => $qtyKg,
+            'saldo_after' => $saldoBaru
+        ]);
+    }
+
+    /**
+     * Create Stock Card untuk Toko (IN)
+     */
+    private function createStockCardForToko($productId, $tokoId, $qtyKg, $deliveryNoteId, $userId, $type)
+    {
+        // Cari Unit default (biasanya Kg)
+        $unit = UnitModel::where('name', 'Kg')->first() ?? UnitModel::first();
+
+        // Get last stock card untuk calculate saldo
+        $lastCard = StockCard::where('product_id', $productId)
+            ->where('toko_id', $tokoId)
+            ->orderBy('created_at', 'desc')
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $saldoLama = $lastCard ? $lastCard->saldo : 0;
+        $saldoBaru = ($type === 'in') ? $saldoLama + $qtyKg : $saldoLama - $qtyKg;
+
+        StockCard::create([
+            'product_id' => $productId,
+            'warehouse_id' => null,
+            'toko_id' => $tokoId,
+            'unit_id' => $unit ? $unit->id : null,
+            'date' => now(),
+            'type' => $type,
+            'qty' => $qtyKg,
+            'saldo' => $saldoBaru,
+            'note' => "Transfer via surat jalan #{$deliveryNoteId}",
+            'user_id' => $userId,
+        ]);
+
+        Log::info('[DeliveryNoteController] Stock card created for toko', [
+            'product_id' => $productId,
+            'toko_id' => $tokoId,
+            'delivery_note_id' => $deliveryNoteId,
+            'type' => $type,
+            'qty_kg' => $qtyKg,
+            'saldo_after' => $saldoBaru
+        ]);
     }
 }

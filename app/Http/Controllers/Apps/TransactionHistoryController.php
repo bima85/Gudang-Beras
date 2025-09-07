@@ -34,12 +34,15 @@ class TransactionHistoryController extends Controller
             'toko',
             'creator',
             'transaction'
-        ])->orderBy('transaction_date', 'desc');
+        ])->orderBy('transaction_date', 'desc')->orderBy('transaction_time', 'desc');
+
         if ($from) {
-            $query->whereDate('transaction_date', '>=', $from);
+            $fromDate = \Carbon\Carbon::parse($from, 'Asia/Jakarta')->startOfDay()->utc();
+            $query->where('transaction_date', '>=', $fromDate->format('Y-m-d'));
         }
         if ($to) {
-            $query->whereDate('transaction_date', '<=', $to);
+            $toDate = \Carbon\Carbon::parse($to, 'Asia/Jakarta')->endOfDay()->utc();
+            $query->where('transaction_date', '<=', $toDate->format('Y-m-d'));
         }
         if ($locationId && $locationType) {
             if ($locationType === 'warehouse') {

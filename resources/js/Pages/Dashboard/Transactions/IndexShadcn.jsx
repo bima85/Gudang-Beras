@@ -81,6 +81,8 @@ export default function IndexShadcn() {
     // Deposit states
     const [useChangeAsDeposit, setUseChangeAsDeposit] = useState(false);
     const [depositAmount, setDepositAmount] = useState("");
+    const [useDepositPayment, setUseDepositPayment] = useState(false);
+    const [depositPaymentAmount, setDepositPaymentAmount] = useState("");
 
     // Transaction number states
     const [transactionNumber, setTransactionNumber] = useState("");
@@ -95,6 +97,7 @@ export default function IndexShadcn() {
 
     // Function to get next available sequence number
     const getNextAvailableSequence = async () => {
+        console.log("[DEBUG] getNextAvailableSequence called");
         setIsLoadingSequence(true);
         try {
             const today = new Date();
@@ -102,6 +105,7 @@ export default function IndexShadcn() {
             const month = (today.getMonth() + 1).toString().padStart(2, "0");
             const year = today.getFullYear();
             const datePattern = `${day}/${month}/${year}`;
+            console.log("[DEBUG] Date pattern:", datePattern);
 
             // Try to get from API, fallback to local logic if route doesn't exist
             try {
@@ -111,11 +115,16 @@ export default function IndexShadcn() {
                         params: { date_pattern: datePattern },
                     }
                 );
+                console.log("[DEBUG] API response:", response.data);
 
                 if (response.data && response.data.next_sequence) {
                     const nextSeq = response.data.next_sequence
                         .toString()
                         .padStart(3, "0");
+                    console.log(
+                        "[DEBUG] Setting transactionSequence to:",
+                        nextSeq
+                    );
                     setTransactionSequence(nextSeq);
                     return nextSeq;
                 }
@@ -153,6 +162,14 @@ export default function IndexShadcn() {
     useEffect(() => {
         const generatedNumber = generateTransactionNumber(transactionSequence);
         setTransactionNumber(generatedNumber);
+    }, [transactionSequence]);
+
+    // Debug: Monitor transactionSequence changes
+    useEffect(() => {
+        console.log(
+            "[DEBUG] transactionSequence state changed to:",
+            transactionSequence
+        );
     }, [transactionSequence]);
 
     // Auto-load next available sequence number on component mount
@@ -397,7 +414,15 @@ export default function IndexShadcn() {
 
     // Process transaction function
     const processTransaction = async () => {
+        console.log("[DEBUG] processTransaction called");
+        console.log("[DEBUG] Carts:", carts);
+        console.log(
+            "[DEBUG] Current transactionSequence:",
+            transactionSequence
+        );
+
         if (!carts || carts.length === 0) {
+            console.log("[DEBUG] Cart is empty");
             toast.error("Keranjang kosong");
             return;
         }
@@ -409,18 +434,38 @@ export default function IndexShadcn() {
         const discountAmount = parseFloat(discount) || 0;
         const finalTotal = total - discountAmount;
         const cashAmount = parseFloat(cash) || 0;
+        const depositPayment = useDepositPayment
+            ? parseFloat(depositPaymentAmount) || 0
+            : 0;
 
-        if (cashAmount < finalTotal) {
-            toast.error("Uang tunai tidak mencukupi");
+        // Total pembayaran = tunai + deposit
+        const totalPayment = cashAmount + depositPayment;
+
+        if (totalPayment < finalTotal) {
+            toast.error("Total pembayaran (tunai + deposit) tidak mencukupi");
             return;
         }
 
-        // Validate customer selection if using deposit
-        if (useChangeAsDeposit && !selectedCustomer) {
+        // Validate customer selection if using deposit features
+        if ((useChangeAsDeposit || useDepositPayment) && !selectedCustomer) {
             toast.error(
                 "Pilih pelanggan terlebih dahulu untuk menggunakan fitur deposit"
             );
             return;
+        }
+
+        // Validate customer deposit if using deposit payment
+        if (useDepositPayment && depositPayment > 0) {
+            const selectedCustomerData = customers.find(
+                (c) => c.id === selectedCustomer
+            );
+            if (
+                !selectedCustomerData ||
+                selectedCustomerData.deposit < depositPayment
+            ) {
+                toast.error("Saldo deposit pelanggan tidak mencukupi");
+                return;
+            }
         }
 
         setIsProcessingTransaction(true);
@@ -439,7 +484,7 @@ export default function IndexShadcn() {
                 : parseFloat(carts_total);
             const change = Math.max(
                 0,
-                cashAmount - (grandTotal - discountAmount)
+                totalPayment - (grandTotal - discountAmount)
             );
 
             // Handle deposit from change
@@ -452,6 +497,10 @@ export default function IndexShadcn() {
                 finalChange = change - finalDepositAmount;
             }
 
+            // Determine payment method
+            const paymentMethod =
+                useDepositPayment && depositPayment > 0 ? "deposit" : "cash";
+
             const response = await axios.post(
                 "/dashboard/transactions/store",
                 {
@@ -461,9 +510,10 @@ export default function IndexShadcn() {
                     change: finalChange,
                     discount: discountAmount,
                     grand_total: grandTotal,
-                    payment_method: "cash",
+                    payment_method: paymentMethod,
                     is_tempo: false,
-                    is_deposit: false, // Set false karena ini bukan payment dengan deposit
+                    is_deposit: useDepositPayment && depositPayment > 0,
+                    deposit_amount: useDepositPayment ? depositPayment : 0,
                     add_change_to_deposit: useChangeAsDeposit,
                     change_to_deposit_amount: finalDepositAmount,
                     print: false, // Prevent auto redirect to print page
@@ -477,6 +527,7 @@ export default function IndexShadcn() {
                     },
                 }
             );
+            console.log("[DEBUG] Transaction response:", response.data);
 
             if (response.data.success) {
                 toast.success("Transaksi berhasil diproses");
@@ -488,13 +539,16 @@ export default function IndexShadcn() {
                 setSelectedCustomer(null);
                 setUseChangeAsDeposit(false);
                 setDepositAmount("");
+                setUseDepositPayment(false);
+                setDepositPaymentAmount("");
                 localStorage.removeItem("cash");
                 localStorage.removeItem("discount");
 
-                // Generate new transaction number for next transaction
-                await getNextAvailableSequence();
+                // Small delay to ensure sequence is properly generated after transaction
+                await new Promise((resolve) => setTimeout(resolve, 100));
 
                 // Reload only cart data to clear it
+                // Note: The useEffect will automatically call getNextAvailableSequence after reload
                 router.reload({ only: ["carts", "carts_total"] });
 
                 // Optional: Open print page in new tab without redirecting current page
@@ -692,6 +746,10 @@ export default function IndexShadcn() {
                                         {isLoadingSequence
                                             ? "Mencari nomor urut tersedia..."
                                             : `Otomatis: ${transactionSequence} (Next available)`}
+                                        {console.log(
+                                            "[DEBUG] UI rendering with transactionSequence:",
+                                            transactionSequence
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -803,6 +861,10 @@ export default function IndexShadcn() {
                             setUseChangeAsDeposit={setUseChangeAsDeposit}
                             depositAmount={depositAmount}
                             setDepositAmount={setDepositAmount}
+                            useDepositPayment={useDepositPayment}
+                            setUseDepositPayment={setUseDepositPayment}
+                            depositPaymentAmount={depositPaymentAmount}
+                            setDepositPaymentAmount={setDepositPaymentAmount}
                             processTransaction={processTransaction}
                             isProcessingTransaction={isProcessingTransaction}
                             openCustomerModal={() => setShowCustomerModal(true)}

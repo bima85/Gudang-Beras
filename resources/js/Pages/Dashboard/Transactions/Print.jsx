@@ -29,16 +29,16 @@ export default function Print({ transaction = {}, store }) {
         <div className="max-w-2xl mx-auto p-4 bg-white print:bg-white print:text-black">
             <Head title="Print Invoice" />
             <div className="text-center mb-8">
-                <h1 className="text-2xl font-bold">
-                    {transaction.warehouse
-                        ? transaction.warehouse.name
-                        : store?.name || "Toko"}
-                </h1>
-                {transaction.warehouse && (
+                <h1 className="text-2xl font-bold">{store?.name || "Toko"}</h1>
+                {(store?.code ||
+                    store?.phone ||
+                    store?.address ||
+                    store?.location) && (
                     <>
-                        <p>Kode: {transaction.warehouse.code || "-"}</p>
-                        <p>Telp: {transaction.warehouse.phone || "-"}</p>
-                        <p>{transaction.warehouse.location || "-"}</p>
+                        {store?.code && <p>Kode: {store.code}</p>}
+                        {store?.phone && <p>Telp: {store.phone}</p>}
+                        {store?.address && <p>{store.address}</p>}
+                        {store?.location && <p>{store.location}</p>}
                     </>
                 )}
             </div>

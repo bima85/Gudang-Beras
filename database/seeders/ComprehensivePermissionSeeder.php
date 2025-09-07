@@ -98,6 +98,8 @@ class ComprehensivePermissionSeeder extends Seeder
 
             // reports permissions
             'reports-access',
+            // specific reports
+            'reports.transactions',
             'reports-create',
             'reports-edit',
             'reports-delete',

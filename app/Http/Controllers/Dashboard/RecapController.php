@@ -17,19 +17,29 @@ class RecapController extends Controller
         $start = $request->input('start_date');
         $end = $request->input('end_date');
 
-        // Query transaksi penjualan
+        // Query transaksi penjualan dengan timezone Asia/Jakarta
         $query = Transaction::with(['cashier', 'customer', 'details.product.category']);
         if ($start && $end) {
-            $query->whereDate('created_at', '>=', $start)
-                ->whereDate('created_at', '<=', $end);
+            $startDate = \Carbon\Carbon::parse($start, 'Asia/Jakarta')->startOfDay()->utc();
+            $endDate = \Carbon\Carbon::parse($end, 'Asia/Jakarta')->endOfDay()->utc();
+
+            $query->whereBetween('created_at', [
+                $startDate->format('Y-m-d H:i:s'),
+                $endDate->format('Y-m-d H:i:s')
+            ]);
         }
         $transactions = $query->orderByDesc('created_at')->paginate(20)->withQueryString();
 
-        // Query pembelian untuk periode yang sama
+        // Query pembelian untuk periode yang sama dengan timezone Asia/Jakarta
         $purchaseQuery = Purchase::with(['supplier', 'items.product.category']);
         if ($start && $end) {
-            $purchaseQuery->whereDate('purchase_date', '>=', $start)
-                ->whereDate('purchase_date', '<=', $end);
+            $startDate = \Carbon\Carbon::parse($start, 'Asia/Jakarta')->startOfDay()->utc();
+            $endDate = \Carbon\Carbon::parse($end, 'Asia/Jakarta')->endOfDay()->utc();
+
+            $purchaseQuery->whereBetween('purchase_date', [
+                $startDate->format('Y-m-d H:i:s'),
+                $endDate->format('Y-m-d H:i:s')
+            ]);
         }
         $purchases = $purchaseQuery->orderByDesc('purchase_date')->get();
 

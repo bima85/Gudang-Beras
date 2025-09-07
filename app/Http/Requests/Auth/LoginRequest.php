@@ -27,7 +27,8 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['required', 'string', 'email'],
+            // Accept a generic "login" field which can be email or username
+            'login' => ['required', 'string'],
             'password' => ['required', 'string'],
             // role can be provided by the client, but allow null for test flows / legacy clients
             'role' => ['nullable', 'string', 'in:Toko,Gudang'], // Validate role
@@ -45,7 +46,7 @@ class LoginRequest extends FormRequest
 
         // Log attempt for debugging in test environments
         \Illuminate\Support\Facades\Log::info('LoginRequest::authenticate called', [
-            'email' => $this->input('email'),
+            'login' => $this->input('login'),
             'remember' => $this->boolean('remember'),
         ]);
 
@@ -61,7 +62,41 @@ class LoginRequest extends FormRequest
             \Illuminate\Support\Facades\Log::warning('LoginRequest::authenticate: failed to log session debug', ['error' => $e->getMessage()]);
         }
 
-        $attempt = Auth::attempt($this->only('email', 'password'), $this->boolean('remember'));
+
+        // Try authenticating by email first (safe). If that fails, perform
+        // manual lookups by name and, if present, username to avoid SQL
+        // errors when the 'username' column does not exist.
+        $login = $this->input('login');
+        $password = $this->input('password');
+
+        $attempt = false;
+
+        // 1) Try the standard Laravel attempt by email
+        if (Auth::attempt(['email' => $login, 'password' => $password], $this->boolean('remember'))) {
+            $attempt = true;
+        } else {
+            // 2) Manual lookup: try name -> username (only if column exists) -> email (already tried)
+            try {
+                $userModel = \App\Models\User::where('name', $login)->first();
+
+                // If not found by name, check username column existence and try
+                if (! $userModel && \Illuminate\Support\Facades\Schema::hasColumn('users', 'username')) {
+                    $userModel = \App\Models\User::where('username', $login)->first();
+                }
+
+                // As a last resort, try email again via manual lookup (covers case-insensitive or trimmed values)
+                if (! $userModel) {
+                    $userModel = \App\Models\User::where('email', $login)->first();
+                }
+
+                if ($userModel && \Illuminate\Support\Facades\Hash::check($password, $userModel->password)) {
+                    Auth::login($userModel, $this->boolean('remember'));
+                    $attempt = true;
+                }
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::warning('LoginRequest::authenticate manual lookup failed', ['error' => $e->getMessage()]);
+            }
+        }
 
         \Illuminate\Support\Facades\Log::info('LoginRequest::authenticate result', ['attempt' => $attempt]);
 
@@ -69,7 +104,7 @@ class LoginRequest extends FormRequest
             RateLimiter::hit($this->throttleKey());
 
             throw ValidationException::withMessages([
-                'email' => trans('auth.failed'),
+                'login' => trans('auth.failed'),
             ]);
         }
 
@@ -104,6 +139,7 @@ class LoginRequest extends FormRequest
      */
     public function throttleKey(): string
     {
-        return Str::transliterate(Str::lower($this->string('email')) . '|' . $this->ip());
+        // Use the provided login (email or username) as part of throttle key
+        return Str::transliterate(Str::lower($this->string('login')) . '|' . $this->ip());
     }
 }

@@ -21,6 +21,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'warehouse_id',
+        'toko_id',
     ];
 
     /**
@@ -64,5 +66,21 @@ class User extends Authenticatable
     public function isSuperAdmin()
     {
         return $this->hasRole('super-admin');
+    }
+
+    /**
+     * Get the warehouse associated with the user.
+     */
+    public function warehouse()
+    {
+        return $this->belongsTo(Warehouse::class);
+    }
+
+    /**
+     * Get the toko associated with the user.
+     */
+    public function toko()
+    {
+        return $this->belongsTo(Toko::class);
     }
 }

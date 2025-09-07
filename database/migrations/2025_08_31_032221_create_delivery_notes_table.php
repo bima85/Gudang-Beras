@@ -14,8 +14,8 @@ return new class extends Migration
         Schema::create('delivery_notes', function (Blueprint $table) {
             $table->id();
             $table->string('delivery_number', 20)->unique()->comment('Nomor surat jalan unik');
-            $table->foreignId('transaction_id')->constrained('transactions')->onDelete('cascade')
-                ->comment('ID transaksi penjualan');
+            $table->foreignId('transaction_id')->nullable()->constrained('transactions')->onDelete('cascade')
+                ->comment('ID transaksi penjualan (opsional untuk manual delivery)');
             $table->foreignId('product_id')->constrained()->onDelete('cascade')
                 ->comment('ID produk yang dipindahkan');
             $table->foreignId('warehouse_id')->constrained()->onDelete('cascade')

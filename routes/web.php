@@ -175,6 +175,9 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], fu
     // Pencarian produk berdasarkan nama
     Route::post('/transactions/searchProductByName', [TransactionController::class, 'searchProductByName'])->name('transactions.searchProductByName');
 
+    // Get next transaction sequence number
+    Route::get('/transactions/getNextSequence', [TransactionController::class, 'getNextSequence'])->name('transactions.getNextSequence');
+
 
 
     // Manajemen Toko (resource)
@@ -219,7 +222,8 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], fu
     // Menyimpan transaksi
     Route::post('/transactions/store', [TransactionController::class, 'store'])->name('transactions.store');
 
-    // Mencetak transaksi
+    // Mencetak transaksi (route spesifik harus didahulukan)
+    Route::get('/transactions/print/{id}', [TransactionController::class, 'printById'])->name('transactions.print.id');
     Route::get('/transactions/{invoice}/print', [TransactionController::class, 'print'])->name('transactions.print');
 
     // Menghapus transaksi

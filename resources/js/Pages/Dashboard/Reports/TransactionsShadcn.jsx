@@ -65,6 +65,7 @@ import {
     AlertTriangle,
     CheckCircle,
     Clock,
+    Printer,
 } from "lucide-react";
 
 export default function TransactionsShadcn({
@@ -240,6 +241,14 @@ export default function TransactionsShadcn({
     const handleView = (transaction) => {
         setSelectedTransaction(transaction);
         setShowViewDialog(true);
+    };
+
+    const handlePrint = (transaction) => {
+        // Open print page in new window/tab using transaction ID to avoid URL encoding issues
+        window.open(
+            route("transactions.print.id", { id: transaction.id }),
+            "_blank"
+        );
     };
 
     // Export functions
@@ -733,6 +742,17 @@ export default function TransactionsShadcn({
                                                                                         >
                                                                                             <Edit className="w-4 h-4 mr-2" />
                                                                                             Edit
+                                                                                        </DropdownMenuItem>
+                                                                                        <DropdownMenuItem
+                                                                                            onClick={() =>
+                                                                                                handlePrint(
+                                                                                                    transaction
+                                                                                                )
+                                                                                            }
+                                                                                        >
+                                                                                            <Printer className="w-4 h-4 mr-2" />
+                                                                                            Cetak
+                                                                                            Nota
                                                                                         </DropdownMenuItem>
                                                                                         <DropdownMenuSeparator />
                                                                                         <DropdownMenuItem
