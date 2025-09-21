@@ -113,9 +113,9 @@ export default function Index({ units }) {
     return (
         <>
             <Head title="Manajemen Satuan" />
-            <div className="container mx-auto p-4 space-y-6">
+            <div className="container p-4 mx-auto space-y-6">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
                     <div>
                         <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
                             Manajemen Satuan
@@ -128,7 +128,7 @@ export default function Index({ units }) {
                         variant="outline"
                         className="flex items-center gap-2"
                     >
-                        <Scale className="h-4 w-4" />
+                        <Scale className="w-4 h-4" />
                         {units.length} Satuan
                     </Badge>
                 </div>
@@ -138,9 +138,9 @@ export default function Index({ units }) {
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
                             {editingId ? (
-                                <Edit className="h-5 w-5" />
+                                <Edit className="w-5 h-5" />
                             ) : (
-                                <Plus className="h-5 w-5" />
+                                <Plus className="w-5 h-5" />
                             )}
                             {editingId ? "Edit Satuan" : "Tambah Satuan Baru"}
                         </CardTitle>
@@ -152,7 +152,7 @@ export default function Index({ units }) {
                     </CardHeader>
                     <CardContent>
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                                 <div className="space-y-2">
                                     <Label htmlFor="name">Nama Satuan</Label>
                                     <Input
@@ -221,7 +221,7 @@ export default function Index({ units }) {
                             </div>
 
                             {/* Form Actions */}
-                            <div className="flex flex-col sm:flex-row justify-between gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
+                            <div className="flex flex-col justify-between gap-4 pt-6 border-t border-gray-200 sm:flex-row dark:border-gray-700">
                                 <div className="order-2 sm:order-1">
                                     {editingId && (
                                         <Button
@@ -229,23 +229,23 @@ export default function Index({ units }) {
                                             variant="outline"
                                             onClick={handleCancel}
                                         >
-                                            <X className="mr-2 h-4 w-4" />
+                                            <X className="w-4 h-4 mr-2" />
                                             Batal Edit
                                         </Button>
                                     )}
                                 </div>
 
-                                <div className="flex gap-3 order-1 sm:order-2">
+                                <div className="flex order-1 gap-3 sm:order-2">
                                     <Button
                                         type="button"
                                         variant="outline"
                                         onClick={() => reset()}
                                     >
-                                        <RotateCcw className="mr-2 h-4 w-4" />
+                                        <RotateCcw className="w-4 h-4 mr-2" />
                                         Reset
                                     </Button>
                                     <Button type="submit" disabled={processing}>
-                                        <Save className="mr-2 h-4 w-4" />
+                                        <Save className="w-4 h-4 mr-2" />
                                         {processing
                                             ? editingId
                                                 ? "Memperbarui..."
@@ -294,7 +294,7 @@ export default function Index({ units }) {
                                             >
                                                 <TableCell className="font-medium">
                                                     <div className="flex items-center gap-2">
-                                                        <Scale className="h-4 w-4 text-gray-400" />
+                                                        <Scale className="w-4 h-4 text-gray-400" />
                                                         {unit.name}
                                                         {editingId ===
                                                             unit.id && (
@@ -309,14 +309,34 @@ export default function Index({ units }) {
                                                 </TableCell>
                                                 <TableCell>
                                                     <span className="font-mono text-sm">
-                                                        {parseFloat(
-                                                            unit.conversion_to_kg
-                                                        ).toFixed(3)}
+                                                        {(() => {
+                                                            const num =
+                                                                parseFloat(
+                                                                    unit.conversion_to_kg
+                                                                );
+                                                            // Format to 2 decimal places, remove trailing zeros
+                                                            const formatted =
+                                                                num
+                                                                    .toFixed(2)
+                                                                    .replace(
+                                                                        /\.?0+$/,
+                                                                        ""
+                                                                    );
+                                                            // Display as "1Kg" for whole numbers, "0.5kg" for decimals
+                                                            return (
+                                                                formatted +
+                                                                (formatted.includes(
+                                                                    "."
+                                                                )
+                                                                    ? "kg"
+                                                                    : "Kg")
+                                                            );
+                                                        })()}
                                                     </span>
                                                 </TableCell>
                                                 <TableCell>
                                                     {unit.is_default ? (
-                                                        <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">
+                                                        <Badge className="text-green-800 bg-green-100 dark:bg-green-900 dark:text-green-300">
                                                             Default
                                                         </Badge>
                                                     ) : (
@@ -332,9 +352,9 @@ export default function Index({ units }) {
                                                         >
                                                             <Button
                                                                 variant="ghost"
-                                                                className="h-8 w-8 p-0"
+                                                                className="w-8 h-8 p-0"
                                                             >
-                                                                <MoreHorizontal className="h-4 w-4" />
+                                                                <MoreHorizontal className="w-4 h-4" />
                                                             </Button>
                                                         </DropdownMenuTrigger>
                                                         <DropdownMenuContent align="end">
@@ -349,7 +369,7 @@ export default function Index({ units }) {
                                                                     unit.id
                                                                 }
                                                             >
-                                                                <Edit className="mr-2 h-4 w-4" />
+                                                                <Edit className="w-4 h-4 mr-2" />
                                                                 {editingId ===
                                                                 unit.id
                                                                     ? "Sedang diedit"
@@ -366,7 +386,7 @@ export default function Index({ units }) {
                                                                             e.preventDefault()
                                                                         }
                                                                     >
-                                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                                        <Trash2 className="w-4 h-4 mr-2" />
                                                                         Hapus
                                                                     </DropdownMenuItem>
                                                                 </AlertDialogTrigger>
@@ -426,10 +446,10 @@ export default function Index({ units }) {
                                         <TableRow>
                                             <TableCell
                                                 colSpan={4}
-                                                className="text-center py-8"
+                                                className="py-8 text-center"
                                             >
                                                 <div className="flex flex-col items-center gap-2 text-gray-500 dark:text-gray-400">
-                                                    <Scale className="h-8 w-8" />
+                                                    <Scale className="w-8 h-8" />
                                                     <p className="font-medium">
                                                         Belum ada satuan
                                                     </p>

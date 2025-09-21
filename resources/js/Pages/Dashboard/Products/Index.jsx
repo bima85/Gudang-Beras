@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
 import { Head, router, Link } from "@inertiajs/react";
 import { Button } from "@/Components/ui/button";
+import { Checkbox } from "@/Components/ui/checkbox";
 import { Card, CardHeader, CardTitle, CardContent } from "@/Components/ui/card";
 import { Input } from "@/Components/ui/input";
 import {
@@ -19,6 +20,7 @@ import {
     IconTrash,
     IconDatabaseOff,
 } from "@tabler/icons-react";
+import EmptyState from "@/Components/Dashboard/EmptyState";
 import Search from "@/Components/Dashboard/Search";
 import DataTable from "react-data-table-component";
 import Pagination from "@/Components/Dashboard/Pagination";
@@ -115,6 +117,7 @@ function Index({ products, errors }) {
                                 />
                                 <Button type="submit">Cari</Button>
                                 <Button
+                                    className="ml-2"
                                     type="button"
                                     variant="ghost"
                                     onClick={handleReset}
@@ -142,10 +145,10 @@ function Index({ products, errors }) {
                             <TableHeader>
                                 <TableRow>
                                     <TableHead>
-                                        <input
-                                            type="checkbox"
+                                        <Checkbox
                                             checked={isAllChecked}
-                                            onChange={handleCheckAll}
+                                            onCheckedChange={handleCheckAll}
+                                            aria-label="Pilih semua produk"
                                         />
                                     </TableHead>
                                     <TableHead>No</TableHead>
@@ -154,20 +157,16 @@ function Index({ products, errors }) {
                                     <TableHead>Subkategori</TableHead>
                                     <TableHead>Nama</TableHead>
                                     <TableHead>Satuan</TableHead>
-                                    <TableHead>Min Stok</TableHead>
+                                    <TableHead>Min Stok/Kg</TableHead>
                                     <TableHead>Deskripsi</TableHead>
                                     <TableHead>Aksi</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {Object.entries(groupedProducts).length ===
-                                    0 && (
+                                {Object.entries(groupedProducts).length === 0 && (
                                     <TableRow>
-                                        <TableCell
-                                            colSpan={10}
-                                            className="text-center py-6"
-                                        >
-                                            Data produk belum ada.
+                                        <TableCell colSpan={10} className="text-center py-6">
+                                            <EmptyState title="Data produk belum ada" description="Silakan tambahkan produk baru." />
                                         </TableCell>
                                     </TableRow>
                                 )}
@@ -178,22 +177,22 @@ function Index({ products, errors }) {
                                             <TableRow>
                                                 <TableCell
                                                     colSpan={10}
-                                                    className="font-semibold bg-gray-50"
+                                                    className="font-semibold bg-gray-50 dark:bg-gray-800"
                                                 >{`Kategori: ${cat}`}</TableCell>
                                             </TableRow>
                                             {prods.map((row, index) => (
                                                 <TableRow key={row.id || index}>
                                                     <TableCell>
-                                                        <input
-                                                            type="checkbox"
+                                                        <Checkbox
                                                             checked={selectedIds.includes(
                                                                 row.id
                                                             )}
-                                                            onChange={() =>
+                                                            onCheckedChange={() =>
                                                                 handleCheck(
                                                                     row.id
                                                                 )
                                                             }
+                                                            aria-label={`Pilih produk ${row.name}`}
                                                         />
                                                     </TableCell>
                                                     <TableCell>
@@ -225,15 +224,11 @@ function Index({ products, errors }) {
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex gap-2">
-                                                            <Link
-                                                                href={route(
-                                                                    "products.edit",
-                                                                    row.id
-                                                                )}
-                                                                className="inline-flex items-center px-2 py-1 bg-yellow-400 text-white rounded"
-                                                            >
-                                                                Edit
-                                                            </Link>
+                                                            <Button variant="ghost" size="sm" asChild>
+                                                                <Link href={route("products.edit", row.id)} className="inline-flex items-center px-2 py-1">
+                                                                    Edit
+                                                                </Link>
+                                                            </Button>
                                                             <Button
                                                                 variant="destructive"
                                                                 size="sm"

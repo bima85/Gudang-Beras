@@ -27,6 +27,11 @@ use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PurchaseExport;
 use Barryvdh\DomPDF\Facade\Pdf;
 
+/**
+ * Purchase Controller
+ * 
+ * @method \App\Models\User user() Get authenticated user with hasPermissionTo method
+ */
 class PurchaseController extends Controller
 {
     /**
@@ -37,6 +42,7 @@ class PurchaseController extends Controller
     public function index()
     {
         // Check permission
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         if (! $user || ! $user->hasPermissionTo('purchases-access')) {
             abort(403, 'Unauthorized');
@@ -65,6 +71,7 @@ class PurchaseController extends Controller
     public function create()
     {
         // Check permission
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         if (! $user || ! $user->hasPermissionTo('purchases-access')) {
             abort(403, 'Unauthorized');
@@ -83,12 +90,13 @@ class PurchaseController extends Controller
         return Inertia::render('Dashboard/Purchases/Create', [
             'suppliers' => Supplier::select('id', 'name', 'phone', 'address')->get(),
             'warehouses' => Warehouse::select('id', 'name', 'address', 'phone')->get(),
-            'products' => Product::select('id', 'name')->get(),
+            'products' => Product::select('id', 'name', 'category_id', 'subcategory_id')->get(),
             'units' => Unit::select('id', 'name', 'conversion_to_kg')->get(),
             'categories' => $categories,
             'subcategories' => $subcategories,
             'tokos' => \App\Models\Toko::select('id', 'name', 'address', 'phone')->get(),
             'lastPurchaseId' => session('lastPurchaseId'),
+            'successMessage' => session('successMessage'),
         ]);
     }
 
@@ -101,6 +109,7 @@ class PurchaseController extends Controller
     public function edit($id)
     {
         // Check permission
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         if (! $user || ! $user->hasPermissionTo('purchases-access')) {
             abort(403, 'Unauthorized');
@@ -120,7 +129,7 @@ class PurchaseController extends Controller
             'purchase' => $purchase,
             'suppliers' => Supplier::select('id', 'name', 'phone', 'address')->get(),
             'warehouses' => Warehouse::select('id', 'name')->get(),
-            'products' => Product::select('id', 'name')->get(),
+            'products' => Product::select('id', 'name', 'category_id', 'subcategory_id')->get(),
             'units' => Unit::select('id', 'name', 'conversion_to_kg')->get(),
             'categories' => Category::select('id', 'name')->get(),
             'subcategories' => Subcategory::select('id', 'name', 'category_id')->get(),
@@ -159,6 +168,7 @@ class PurchaseController extends Controller
     public function store(Request $request)
     {
         // Check permission
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         if (! $user || ! $user->hasPermissionTo('purchases-access')) {
             abort(403, 'Unauthorized');
@@ -279,24 +289,63 @@ class PurchaseController extends Controller
 
             $totalPembelian = 0;
             $itemSubtotals = [];
+            $totalQtyKg = 0; // untuk perhitungan fee kuli dan timbangan
+
+            // Hitung total qty kg terlebih dahulu
             foreach ($validated['items'] as $item) {
                 $unit = Unit::find($item['unit_id']);
                 $conversion = $unit ? $unit->conversion_to_kg : 1;
-                $subtotal = $conversion * $item['qty'] * $item['harga_pembelian'];
-                $itemSubtotals[] = [
-                    'item' => $item,
-                    'subtotal' => $subtotal,
-                    'conversion' => $conversion,
-                ];
-                $totalPembelian += $subtotal;
+                $totalQtyKg += $item['qty'] * $conversion;
             }
 
-            $kuliFeeActive = count($validated['items']) > 0 && collect($validated['items'])->every(fn($item) => isset($item['kuli_fee']) && floatval($item['kuli_fee']) > 0);
-            $kuliFee = $kuliFeeActive ? floatval($validated['items'][0]['kuli_fee'] ?? 0) : 0;
-            $totalFinal = $totalPembelian + ($kuliFeeActive ? $kuliFee : 0);
+            // Fee kuli dan timbangan (flat rate berdasarkan total qty kg)
+            $kuliFeeRate = 0;
+            if (count($validated['items']) > 0 && isset($validated['items'][0]['kuli_fee'])) {
+                $kuliFeeRate = floatval($validated['items'][0]['kuli_fee']);
+            }
+            $kuliFee = $totalQtyKg * $kuliFeeRate;
+
+            $timbanganValue = 0;
+            if (count($validated['items']) > 0 && isset($validated['items'][0]['timbangan'])) {
+                $timbanganValue = floatval($validated['items'][0]['timbangan']);
+            }
+            $totalTimbangan = $totalQtyKg * $timbanganValue;
+
+            // Hitung subtotal per item dengan proporsi fee kuli dan timbangan
+            foreach ($validated['items'] as $item) {
+                $unit = Unit::find($item['unit_id']);
+                $conversion = $unit ? $unit->conversion_to_kg : 1;
+                $itemQtyKg = $item['qty'] * $conversion;
+
+                // Subtotal dasar (qty * harga)
+                $baseSubtotal = $itemQtyKg * $item['harga_pembelian'];
+
+                // Proporsi fee kuli dan timbangan untuk item ini
+                $itemKuliFee = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $kuliFee : 0;
+                $itemTimbangan = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $totalTimbangan : 0;
+
+                // Subtotal final termasuk fee kuli dan timbangan
+                $finalSubtotal = $baseSubtotal + $itemKuliFee + $itemTimbangan;
+
+                $itemSubtotals[] = [
+                    'item' => $item,
+                    'subtotal' => $finalSubtotal, // sudah termasuk proporsi fee kuli dan timbangan
+                    'conversion' => $conversion,
+                    'base_subtotal' => $baseSubtotal,
+                    'item_kuli_fee' => $itemKuliFee,
+                    'item_timbangan' => $itemTimbangan,
+                ];
+                $totalPembelian += $baseSubtotal;
+            }
+
+            $totalFinal = $totalPembelian + $kuliFee + $totalTimbangan;
 
             Log::info('Total subtotal pembelian:', ['total_subtotal' => $totalPembelian]);
-            Log::info('Fee kuli:', ['fee_kuli' => $kuliFee]);
+            Log::info('Total qty dalam kg:', ['total_qty_kg' => $totalQtyKg]);
+            Log::info('Fee kuli rate:', ['kuli_fee_rate' => $kuliFeeRate]);
+            Log::info('Fee kuli total:', ['fee_kuli_total' => $kuliFee]);
+            Log::info('Timbangan value:', ['timbangan_value' => $timbanganValue]);
+            Log::info('Total timbangan:', ['total_timbangan' => $totalTimbangan]);
             Log::info('Total akhir pembelian:', ['total_final' => $totalFinal]);
 
             $today = date('Y/m/d', strtotime($validated['purchase_date']));
@@ -322,7 +371,7 @@ class PurchaseController extends Controller
                 'warehouse_id' => $warehouse ? $warehouse->id : null,
                 'toko_id' => $validated['toko_id'] ?? null,
                 'purchase_date' => $validated['purchase_date'],
-                'total' => $totalPembelian,
+                'total' => $totalFinal, // Total termasuk fee kuli dan timbangan
                 'user_id' => Auth::id(),
             ]);
 
@@ -342,9 +391,9 @@ class PurchaseController extends Controller
                     'qty_gudang' => $item['qty_gudang'] ?? 0,
                     'qty_toko' => $item['qty_toko'] ?? 0,
                     'harga_pembelian' => $item['harga_pembelian'],
-                    'subtotal' => $subtotal,
-                    'kuli_fee' => $item['kuli_fee'] ?? 0,
-                    'timbangan' => $item['timbangan'] ?? null,
+                    'subtotal' => $subtotal, // sudah termasuk proporsi fee kuli dan timbangan
+                    'kuli_fee' => $itemData['item_kuli_fee'], // porsi kuli fee untuk item ini
+                    'timbangan' => $itemData['item_timbangan'], // porsi timbangan untuk item ini
                 ]);
 
                 // Siapkan distribusi stok menggunakan helper baru
@@ -530,6 +579,7 @@ class PurchaseController extends Controller
                 // Untuk request Inertia, kembalikan respon Inertia yang valid.
                 // Simpan sementara lastPurchaseId di session lalu render kembali halaman Create
                 session()->flash('lastPurchaseId', $purchase->id);
+                session()->flash('successMessage', 'Pembelian berhasil disimpan dengan nomor invoice ' . $invoiceNumber . '. Form telah direset untuk transaksi baru.');
                 return $this->create();
             }
 
@@ -556,6 +606,7 @@ class PurchaseController extends Controller
     public function update(Request $request, $id)
     {
         // Check permission
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         if (! $user || ! $user->hasPermissionTo('purchases-access')) {
             abort(403, 'Unauthorized');
@@ -615,6 +666,7 @@ class PurchaseController extends Controller
     public function destroy($id)
     {
         // Check permission
+        /** @var \App\Models\User $user */
         $user = Auth::user();
         if (! $user || ! $user->hasPermissionTo('purchases-access')) {
             abort(403, 'Unauthorized');
@@ -691,6 +743,66 @@ class PurchaseController extends Controller
     }
 
     /**
+     * Generate next invoice number for a given date
+     *
+     * @param \Illuminate\Http\Request $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function nextInvoice(Request $request)
+    {
+        try {
+            $date = $request->query('date');
+
+            if (!$date) {
+                return response()->json(['error' => 'Date parameter is required'], 400);
+            }
+
+            // Validate date format
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                return response()->json(['error' => 'Invalid date format. Use YYYY-MM-DD'], 400);
+            }
+
+            // Format date for invoice number (YYYY/MM/DD)
+            $formattedDate = str_replace('-', '/', $date);
+
+            // Find existing invoice numbers for this date
+            $existingInvoices = Purchase::where('invoice_number', 'like', "PB-{$formattedDate}-%")
+                ->pluck('invoice_number')
+                ->toArray();
+
+            // Extract sequence numbers
+            $sequences = [];
+            foreach ($existingInvoices as $invoice) {
+                $parts = explode('-', $invoice);
+                if (count($parts) === 3) {
+                    $seq = (int) $parts[2];
+                    $sequences[] = $seq;
+                }
+            }
+
+            // Get next sequence number
+            $nextSeq = empty($sequences) ? 1 : max($sequences) + 1;
+            $nextSeqFormatted = str_pad($nextSeq, 3, '0', STR_PAD_LEFT);
+
+            // Generate invoice number
+            $invoiceNumber = "PB-{$formattedDate}-{$nextSeqFormatted}";
+
+            return response()->json([
+                'invoice_number' => $invoiceNumber,
+                'invoice_seq' => $nextSeqFormatted
+            ]);
+        } catch (\Exception $e) {
+            Log::error('Error generating next invoice number', [
+                'date' => $date ?? null,
+                'error' => $e->getMessage(),
+                'user_id' => Auth::id()
+            ]);
+
+            return response()->json(['error' => 'Failed to generate invoice number'], 500);
+        }
+    }
+
+    /**
      * Memperbarui stok berdasarkan data pembelian.
      *
      * @param int $productId
@@ -728,7 +840,7 @@ class PurchaseController extends Controller
 
             $unitId = $units[$key]->id;
 
-            $stock = Stock::firstOrCreate([
+            $stock = WarehouseStock::firstOrCreate([
                 'product_id' => $productId,
                 'warehouse_id' => $warehouseId,
                 'unit_id' => $unitId,

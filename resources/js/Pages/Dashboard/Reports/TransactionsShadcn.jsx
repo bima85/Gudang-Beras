@@ -116,15 +116,16 @@ export default function TransactionsShadcn({
 
     const formatDate = (dateString) => {
         if (!dateString) return "-";
-        return new Date(dateString).toLocaleDateString("id-ID", {
+        return new Date(dateString).toLocaleString("id-ID", {
+            timeZone: "Asia/Jakarta",
             day: "2-digit",
             month: "2-digit",
             year: "numeric",
             hour: "2-digit",
             minute: "2-digit",
+            second: "2-digit",
         });
     };
-
     const getStatusBadge = (status) => {
         const statusConfig = {
             completed: {
@@ -531,7 +532,7 @@ export default function TransactionsShadcn({
                                 {formatPrice(
                                     totals.totalTransactions > 0
                                         ? totals.totalAmount /
-                                              totals.totalTransactions
+                                        totals.totalTransactions
                                         : 0
                                 )}
                             </div>
@@ -694,13 +695,13 @@ export default function TransactionsShadcn({
                                                                             <TableCell>
                                                                                 {formatPrice(
                                                                                     transaction.change ||
-                                                                                        0
+                                                                                    0
                                                                                 )}
                                                                             </TableCell>
                                                                             <TableCell>
                                                                                 {getStatusBadge(
                                                                                     transaction.status ||
-                                                                                        "completed"
+                                                                                    "completed"
                                                                                 )}
                                                                             </TableCell>
                                                                             <TableCell>
@@ -776,189 +777,189 @@ export default function TransactionsShadcn({
                                                                             transaction
                                                                                 .id
                                                                         ] && (
-                                                                            <TableRow>
-                                                                                <TableCell
-                                                                                    colSpan={
-                                                                                        8
-                                                                                    }
-                                                                                    className="p-0 bg-muted/20"
-                                                                                >
-                                                                                    <div className="p-4 space-y-4">
-                                                                                        {/* Transaction Info */}
-                                                                                        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                                                                                            <div>
-                                                                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                                                                    Cash
-                                                                                                </Label>
-                                                                                                <p className="text-sm font-medium">
-                                                                                                    {formatPrice(
-                                                                                                        transaction.cash ||
-                                                                                                            0
-                                                                                                    )}
-                                                                                                </p>
-                                                                                            </div>
-                                                                                            <div>
-                                                                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                                                                    Diskon
-                                                                                                </Label>
-                                                                                                <p className="text-sm font-medium">
-                                                                                                    {formatPrice(
-                                                                                                        transaction.discount ||
-                                                                                                            0
-                                                                                                    )}
-                                                                                                </p>
-                                                                                            </div>
-                                                                                            <div>
-                                                                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                                                                    Total
-                                                                                                    Bayar
-                                                                                                </Label>
-                                                                                                <p className="text-sm font-medium">
-                                                                                                    {formatPrice(
-                                                                                                        transaction.grand_total
-                                                                                                    )}
-                                                                                                </p>
-                                                                                            </div>
-                                                                                            <div>
-                                                                                                <Label className="text-xs font-medium text-muted-foreground">
-                                                                                                    Kembalian
-                                                                                                </Label>
-                                                                                                <p className="text-sm font-medium text-green-600">
-                                                                                                    {formatPrice(
-                                                                                                        transaction.change ||
-                                                                                                            0
-                                                                                                    )}
-                                                                                                </p>
-                                                                                            </div>
-                                                                                        </div>
-
-                                                                                        {/* Products Detail */}
-                                                                                        {transaction.details &&
-                                                                                            transaction
-                                                                                                .details
-                                                                                                .length >
-                                                                                                0 && (
+                                                                                <TableRow>
+                                                                                    <TableCell
+                                                                                        colSpan={
+                                                                                            8
+                                                                                        }
+                                                                                        className="p-0 bg-muted/20"
+                                                                                    >
+                                                                                        <div className="p-4 space-y-4">
+                                                                                            {/* Transaction Info */}
+                                                                                            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                                                                                                 <div>
-                                                                                                    <Label className="block mb-2 text-sm font-medium">
-                                                                                                        Detail
-                                                                                                        Produk
-                                                                                                        (
-                                                                                                        {
-                                                                                                            transaction
-                                                                                                                .details
-                                                                                                                .length
-                                                                                                        }{" "}
-                                                                                                        item)
+                                                                                                    <Label className="text-xs font-medium text-muted-foreground">
+                                                                                                        Cash
                                                                                                     </Label>
-                                                                                                    <div className="border rounded-md bg-background">
-                                                                                                        <Table>
-                                                                                                            <TableHeader>
-                                                                                                                <TableRow>
-                                                                                                                    <TableHead className="text-xs">
-                                                                                                                        Kategori
-                                                                                                                    </TableHead>
-                                                                                                                    <TableHead className="text-xs">
-                                                                                                                        Sub
-                                                                                                                        Kategori
-                                                                                                                    </TableHead>
-                                                                                                                    <TableHead className="text-xs">
-                                                                                                                        Nama
-                                                                                                                        Produk
-                                                                                                                    </TableHead>
-                                                                                                                    <TableHead className="text-xs">
-                                                                                                                        Unit
-                                                                                                                    </TableHead>
-                                                                                                                    <TableHead className="text-xs">
-                                                                                                                        Qty
-                                                                                                                    </TableHead>
-                                                                                                                    <TableHead className="text-xs">
-                                                                                                                        Harga
-                                                                                                                    </TableHead>
-                                                                                                                    <TableHead className="text-xs">
-                                                                                                                        Subtotal
-                                                                                                                    </TableHead>
-                                                                                                                </TableRow>
-                                                                                                            </TableHeader>
-                                                                                                            <TableBody>
-                                                                                                                {transaction.details.map(
-                                                                                                                    (
-                                                                                                                        detail,
-                                                                                                                        index
-                                                                                                                    ) => (
-                                                                                                                        <TableRow
-                                                                                                                            key={
-                                                                                                                                index
-                                                                                                                            }
-                                                                                                                        >
-                                                                                                                            <TableCell className="text-xs">
-                                                                                                                                <Badge
-                                                                                                                                    variant="outline"
-                                                                                                                                    className="text-xs"
-                                                                                                                                >
-                                                                                                                                    {detail
-                                                                                                                                        .product
-                                                                                                                                        ?.category
-                                                                                                                                        ?.name ||
-                                                                                                                                        "-"}
-                                                                                                                                </Badge>
-                                                                                                                            </TableCell>
-                                                                                                                            <TableCell className="text-xs">
-                                                                                                                                <Badge
-                                                                                                                                    variant="secondary"
-                                                                                                                                    className="text-xs"
-                                                                                                                                >
-                                                                                                                                    {detail
-                                                                                                                                        .product
-                                                                                                                                        ?.subcategory
-                                                                                                                                        ?.name ||
-                                                                                                                                        "-"}
-                                                                                                                                </Badge>
-                                                                                                                            </TableCell>
-                                                                                                                            <TableCell className="text-xs font-medium">
-                                                                                                                                {detail
-                                                                                                                                    .product
-                                                                                                                                    ?.name ||
-                                                                                                                                    "-"}
-                                                                                                                            </TableCell>
-                                                                                                                            <TableCell className="text-xs">
-                                                                                                                                <Badge
-                                                                                                                                    variant="outline"
-                                                                                                                                    className="text-xs"
-                                                                                                                                >
-                                                                                                                                    {detail
-                                                                                                                                        .unit
-                                                                                                                                        ?.name ||
-                                                                                                                                        "-"}
-                                                                                                                                </Badge>
-                                                                                                                            </TableCell>
-                                                                                                                            <TableCell className="text-xs font-medium">
-                                                                                                                                {
-                                                                                                                                    detail.qty
-                                                                                                                                }
-                                                                                                                            </TableCell>
-                                                                                                                            <TableCell className="text-xs">
-                                                                                                                                {formatPrice(
-                                                                                                                                    detail.price
-                                                                                                                                )}
-                                                                                                                            </TableCell>
-                                                                                                                            <TableCell className="text-xs font-semibold">
-                                                                                                                                {formatPrice(
-                                                                                                                                    detail.qty *
-                                                                                                                                        detail.price
-                                                                                                                                )}
-                                                                                                                            </TableCell>
-                                                                                                                        </TableRow>
-                                                                                                                    )
-                                                                                                                )}
-                                                                                                            </TableBody>
-                                                                                                        </Table>
-                                                                                                    </div>
+                                                                                                    <p className="text-sm font-medium">
+                                                                                                        {formatPrice(
+                                                                                                            transaction.cash ||
+                                                                                                            0
+                                                                                                        )}
+                                                                                                    </p>
                                                                                                 </div>
-                                                                                            )}
-                                                                                    </div>
-                                                                                </TableCell>
-                                                                            </TableRow>
-                                                                        )}
+                                                                                                <div>
+                                                                                                    <Label className="text-xs font-medium text-muted-foreground">
+                                                                                                        Diskon
+                                                                                                    </Label>
+                                                                                                    <p className="text-sm font-medium">
+                                                                                                        {formatPrice(
+                                                                                                            transaction.discount ||
+                                                                                                            0
+                                                                                                        )}
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <Label className="text-xs font-medium text-muted-foreground">
+                                                                                                        Total
+                                                                                                        Bayar
+                                                                                                    </Label>
+                                                                                                    <p className="text-sm font-medium">
+                                                                                                        {formatPrice(
+                                                                                                            transaction.grand_total
+                                                                                                        )}
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                                <div>
+                                                                                                    <Label className="text-xs font-medium text-muted-foreground">
+                                                                                                        Kembalian
+                                                                                                    </Label>
+                                                                                                    <p className="text-sm font-medium text-green-600">
+                                                                                                        {formatPrice(
+                                                                                                            transaction.change ||
+                                                                                                            0
+                                                                                                        )}
+                                                                                                    </p>
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            {/* Products Detail */}
+                                                                                            {transaction.details &&
+                                                                                                transaction
+                                                                                                    .details
+                                                                                                    .length >
+                                                                                                0 && (
+                                                                                                    <div>
+                                                                                                        <Label className="block mb-2 text-sm font-medium">
+                                                                                                            Detail
+                                                                                                            Produk
+                                                                                                            (
+                                                                                                            {
+                                                                                                                transaction
+                                                                                                                    .details
+                                                                                                                    .length
+                                                                                                            }{" "}
+                                                                                                            item)
+                                                                                                        </Label>
+                                                                                                        <div className="border rounded-md bg-background">
+                                                                                                            <Table>
+                                                                                                                <TableHeader>
+                                                                                                                    <TableRow>
+                                                                                                                        <TableHead className="text-xs">
+                                                                                                                            Kategori
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead className="text-xs">
+                                                                                                                            Sub
+                                                                                                                            Kategori
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead className="text-xs">
+                                                                                                                            Nama
+                                                                                                                            Produk
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead className="text-xs">
+                                                                                                                            Unit
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead className="text-xs">
+                                                                                                                            Qty
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead className="text-xs">
+                                                                                                                            Harga
+                                                                                                                        </TableHead>
+                                                                                                                        <TableHead className="text-xs">
+                                                                                                                            Subtotal
+                                                                                                                        </TableHead>
+                                                                                                                    </TableRow>
+                                                                                                                </TableHeader>
+                                                                                                                <TableBody>
+                                                                                                                    {transaction.details.map(
+                                                                                                                        (
+                                                                                                                            detail,
+                                                                                                                            index
+                                                                                                                        ) => (
+                                                                                                                            <TableRow
+                                                                                                                                key={
+                                                                                                                                    index
+                                                                                                                                }
+                                                                                                                            >
+                                                                                                                                <TableCell className="text-xs">
+                                                                                                                                    <Badge
+                                                                                                                                        variant="outline"
+                                                                                                                                        className="text-xs"
+                                                                                                                                    >
+                                                                                                                                        {detail
+                                                                                                                                            .product
+                                                                                                                                            ?.category
+                                                                                                                                            ?.name ||
+                                                                                                                                            "-"}
+                                                                                                                                    </Badge>
+                                                                                                                                </TableCell>
+                                                                                                                                <TableCell className="text-xs">
+                                                                                                                                    <Badge
+                                                                                                                                        variant="secondary"
+                                                                                                                                        className="text-xs"
+                                                                                                                                    >
+                                                                                                                                        {detail
+                                                                                                                                            .product
+                                                                                                                                            ?.subcategory
+                                                                                                                                            ?.name ||
+                                                                                                                                            "-"}
+                                                                                                                                    </Badge>
+                                                                                                                                </TableCell>
+                                                                                                                                <TableCell className="text-xs font-medium">
+                                                                                                                                    {detail
+                                                                                                                                        .product
+                                                                                                                                        ?.name ||
+                                                                                                                                        "-"}
+                                                                                                                                </TableCell>
+                                                                                                                                <TableCell className="text-xs">
+                                                                                                                                    <Badge
+                                                                                                                                        variant="outline"
+                                                                                                                                        className="text-xs"
+                                                                                                                                    >
+                                                                                                                                        {detail
+                                                                                                                                            .unit
+                                                                                                                                            ?.name ||
+                                                                                                                                            "-"}
+                                                                                                                                    </Badge>
+                                                                                                                                </TableCell>
+                                                                                                                                <TableCell className="text-xs font-medium">
+                                                                                                                                    {
+                                                                                                                                        detail.qty
+                                                                                                                                    }
+                                                                                                                                </TableCell>
+                                                                                                                                <TableCell className="text-xs">
+                                                                                                                                    {formatPrice(
+                                                                                                                                        detail.price
+                                                                                                                                    )}
+                                                                                                                                </TableCell>
+                                                                                                                                <TableCell className="text-xs font-semibold">
+                                                                                                                                    {formatPrice(
+                                                                                                                                        detail.qty *
+                                                                                                                                        detail.price
+                                                                                                                                    )}
+                                                                                                                                </TableCell>
+                                                                                                                            </TableRow>
+                                                                                                                        )
+                                                                                                                    )}
+                                                                                                                </TableBody>
+                                                                                                            </Table>
+                                                                                                        </div>
+                                                                                                    </div>
+                                                                                                )}
+                                                                                        </div>
+                                                                                    </TableCell>
+                                                                                </TableRow>
+                                                                            )}
                                                                     </React.Fragment>
                                                                 )
                                                             )}
@@ -1107,7 +1108,7 @@ export default function TransactionsShadcn({
                                     <div>
                                         {getStatusBadge(
                                             selectedTransaction.status ||
-                                                "completed"
+                                            "completed"
                                         )}
                                     </div>
                                 </div>
@@ -1242,7 +1243,7 @@ export default function TransactionsShadcn({
                                                                 <TableCell className="font-semibold">
                                                                     {formatPrice(
                                                                         detail.qty *
-                                                                            detail.price
+                                                                        detail.price
                                                                     )}
                                                                 </TableCell>
                                                             </TableRow>

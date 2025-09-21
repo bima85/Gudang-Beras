@@ -34,16 +34,16 @@ export default function Gudang({
     const locationText = location
         ? location
         : isGudang
-        ? "Gudang"
-        : roles[0]
-        ? roles[0].name
-        : "-";
+            ? "Gudang"
+            : roles[0]
+                ? roles[0].name
+                : "-";
 
     const preferredWarehouse =
         (warehouses || []).find((w) =>
             location
                 ? w.name &&
-                  w.name.toLowerCase().includes(location.toLowerCase())
+                w.name.toLowerCase().includes(location.toLowerCase())
                 : false
         ) ||
         (warehouses && warehouses[0]);
@@ -53,11 +53,11 @@ export default function Gudang({
         : null;
     const transactionsHref = preferredWarehouseId
         ? (route ? route("transactions.index") : "/dashboard/transactions") +
-          "?warehouse_id=" +
-          preferredWarehouseId
+        "?warehouse_id=" +
+        preferredWarehouseId
         : route
-        ? route("transactions.index")
-        : "/dashboard/transactions";
+            ? route("transactions.index")
+            : "/dashboard/transactions";
 
     const isTokoRoleOrLocation =
         (locationText && locationText.toLowerCase().includes("toko")) ||
@@ -272,22 +272,23 @@ export default function Gudang({
                                 <IconClock className="w-4 h-4" />
                                 <span>
                                     Update:{" "}
-                                    {lastUpdate.toLocaleTimeString("id-ID")}
+                                    {lastUpdate.toLocaleTimeString("id-ID", {
+                                        hour: "2-digit",
+                                        minute: "2-digit",
+                                    })}
                                 </span>
                             </div>
                             <button
                                 onClick={handleManualRefresh}
                                 disabled={isRefreshing}
-                                className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                                    isRefreshing
+                                className={`flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg border transition-colors ${isRefreshing
                                         ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                         : "bg-white text-gray-700 hover:bg-gray-50 border-gray-300"
-                                }`}
+                                    }`}
                             >
                                 <IconRefresh
-                                    className={`w-4 h-4 ${
-                                        isRefreshing ? "animate-spin" : ""
-                                    }`}
+                                    className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""
+                                        }`}
                                 />
                                 {isRefreshing ? "Memperbarui..." : "Refresh"}
                             </button>
@@ -307,7 +308,7 @@ export default function Gudang({
 
                     <div className="p-4 bg-white border rounded-lg shadow-sm">
                         {realtimeBarangMasuk &&
-                        realtimeBarangMasuk.length > 0 ? (
+                            realtimeBarangMasuk.length > 0 ? (
                             <div className="space-y-3">
                                 {realtimeBarangMasuk.map((barang, index) => (
                                     <div
@@ -413,7 +414,7 @@ export default function Gudang({
                                             (realtimeStokBerasGudang /
                                                 (realtimeStokBerasGudang +
                                                     realtimeStokBerasToko)) *
-                                                100
+                                            100
                                         )}%`,
                                     }}
                                 ></div>
@@ -454,7 +455,7 @@ export default function Gudang({
                                             (realtimeStokBerasToko /
                                                 (realtimeStokBerasGudang +
                                                     realtimeStokBerasToko)) *
-                                                100
+                                            100
                                         )}%`,
                                     }}
                                 ></div>

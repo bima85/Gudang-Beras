@@ -63,8 +63,11 @@ export default function List() {
                                     <td>
                                         {trx.created_at
                                             ? new Date(
-                                                  trx.created_at
-                                              ).toLocaleTimeString("id-ID")
+                                                trx.created_at
+                                            ).toLocaleTimeString("id-ID", {
+                                                hour: "2-digit",
+                                                minute: "2-digit",
+                                            })
                                             : "-"}
                                     </td>
                                     <td>{trx.customer?.name}</td>
@@ -100,7 +103,7 @@ export default function List() {
                                                 if (
                                                     trx.payment_method &&
                                                     trx.payment_method !==
-                                                        "tempo"
+                                                    "tempo"
                                                 )
                                                     return true;
                                                 const cash = parseFloat(
@@ -145,17 +148,17 @@ export default function List() {
                                                                 ) {
                                                                     alert(
                                                                         "Surat jalan dibuat: " +
-                                                                            (res
-                                                                                .data
-                                                                                .surat
-                                                                                .no_surat ||
-                                                                                "")
+                                                                        (res
+                                                                            .data
+                                                                            .surat
+                                                                            .no_surat ||
+                                                                            "")
                                                                     );
                                                                 } else {
                                                                     alert(
                                                                         res.data
                                                                             .message ||
-                                                                            "Gagal membuat surat jalan"
+                                                                        "Gagal membuat surat jalan"
                                                                     );
                                                                 }
                                                             })
@@ -165,7 +168,7 @@ export default function List() {
                                                                         ?.response
                                                                         ?.data
                                                                         ?.message ||
-                                                                        "Gagal membuat surat jalan"
+                                                                    "Gagal membuat surat jalan"
                                                                 );
                                                             });
                                                     }}

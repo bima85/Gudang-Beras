@@ -39,13 +39,28 @@ export default function Show({ auth, stockMovement }) {
         return labels[type] || type;
     };
 
+    const formatWeight = (weight) => {
+        const num = parseFloat(weight);
+
+        // Format number to show appropriate decimal places
+        if (num % 1 === 0) {
+            // Whole number, no decimals
+            return num.toString();
+        } else if (num * 2 % 1 === 0) {
+            // Ends with .5, show 1 decimal
+            return num.toFixed(1);
+        } else {
+            // Other decimals, show 2 decimals
+            return num.toFixed(2);
+        }
+    };
+
     const formatQuantity = (quantity) => {
         const isPositive = parseFloat(quantity) >= 0;
         return (
             <span
-                className={`flex items-center ${
-                    isPositive ? "text-green-600" : "text-red-600"
-                }`}
+                className={`flex items-center ${isPositive ? "text-green-600" : "text-red-600"
+                    }`}
             >
                 {isPositive ? (
                     <ArrowUp className="w-5 h-5 mr-2" />
@@ -53,7 +68,7 @@ export default function Show({ auth, stockMovement }) {
                     <ArrowDown className="w-5 h-5 mr-2" />
                 )}
                 <span className="text-2xl font-bold">
-                    {Math.abs(parseFloat(quantity)).toFixed(2)} kg
+                    {formatWeight(Math.abs(parseFloat(quantity)))} kg
                 </span>
             </span>
         );
@@ -205,7 +220,11 @@ export default function Show({ auth, stockMovement }) {
                                                         {new Date(
                                                             stockMovement.created_at
                                                         ).toLocaleTimeString(
-                                                            "id-ID"
+                                                            "id-ID",
+                                                            {
+                                                                hour: "2-digit",
+                                                                minute: "2-digit",
+                                                            }
                                                         )}
                                                     </div>
                                                 </div>
@@ -242,69 +261,69 @@ export default function Show({ auth, stockMovement }) {
                             {(stockMovement.description ||
                                 stockMovement.reference_type ||
                                 stockMovement.reference_id) && (
-                                <Card>
-                                    <CardHeader>
-                                        <CardTitle>
-                                            Keterangan & Referensi
-                                        </CardTitle>
-                                    </CardHeader>
-                                    <CardContent>
-                                        <div className="space-y-4">
-                                            {stockMovement.description && (
-                                                <div>
-                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                        Keterangan
-                                                    </label>
-                                                    <div className="flex items-start p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                                        <FileText className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
-                                                        <p className="text-gray-900 dark:text-gray-100">
-                                                            {
-                                                                stockMovement.description
-                                                            }
-                                                        </p>
+                                    <Card>
+                                        <CardHeader>
+                                            <CardTitle>
+                                                Keterangan & Referensi
+                                            </CardTitle>
+                                        </CardHeader>
+                                        <CardContent>
+                                            <div className="space-y-4">
+                                                {stockMovement.description && (
+                                                    <div>
+                                                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                            Keterangan
+                                                        </label>
+                                                        <div className="flex items-start p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                            <FileText className="w-5 h-5 text-gray-400 mr-3 mt-0.5" />
+                                                            <p className="text-gray-900 dark:text-gray-100">
+                                                                {
+                                                                    stockMovement.description
+                                                                }
+                                                            </p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            )}
+                                                )}
 
-                                            {(stockMovement.reference_type ||
-                                                stockMovement.reference_id) && (
-                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                    {stockMovement.reference_type && (
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                                Jenis Referensi
-                                                            </label>
-                                                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                                                <span className="text-gray-900 dark:text-gray-100 font-mono">
-                                                                    {
-                                                                        stockMovement.reference_type
-                                                                    }
-                                                                </span>
-                                                            </div>
+                                                {(stockMovement.reference_type ||
+                                                    stockMovement.reference_id) && (
+                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                            {stockMovement.reference_type && (
+                                                                <div>
+                                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                                        Jenis Referensi
+                                                                    </label>
+                                                                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                                        <span className="text-gray-900 dark:text-gray-100 font-mono">
+                                                                            {
+                                                                                stockMovement.reference_type
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
+
+                                                            {stockMovement.reference_id && (
+                                                                <div>
+                                                                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                                                                        ID Referensi
+                                                                    </label>
+                                                                    <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                                                                        <span className="text-gray-900 dark:text-gray-100 font-mono">
+                                                                            #
+                                                                            {
+                                                                                stockMovement.reference_id
+                                                                            }
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
-
-                                                    {stockMovement.reference_id && (
-                                                        <div>
-                                                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                                                                ID Referensi
-                                                            </label>
-                                                            <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                                                                <span className="text-gray-900 dark:text-gray-100 font-mono">
-                                                                    #
-                                                                    {
-                                                                        stockMovement.reference_id
-                                                                    }
-                                                                </span>
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            )}
+                                            </div>
+                                        </CardContent>
+                                    </Card>
+                                )}
                         </div>
 
                         {/* Stock Information Sidebar */}
@@ -334,9 +353,9 @@ export default function Show({ auth, stockMovement }) {
                                             </label>
                                             <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
                                                 <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">
-                                                    {parseFloat(
+                                                    {formatWeight(
                                                         stockMovement.balance_after
-                                                    ).toFixed(2)}{" "}
+                                                    )}{" "}
                                                     kg
                                                 </div>
                                             </div>

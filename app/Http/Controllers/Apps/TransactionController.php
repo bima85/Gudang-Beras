@@ -13,6 +13,8 @@ use App\Models\Product;
 use App\Models\Category;
 use App\Models\Customer;
 use App\Models\Transaction;
+use App\Models\DeliveryNote;
+use App\Models\Toko;
 use Illuminate\Support\Str;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -380,7 +382,14 @@ class TransactionController extends Controller
             return response()->json(['success' => false, 'message' => 'Product not found.'], 404);
         }
 
+        if (!$request->unit_id) {
+            return response()->json(['success' => false, 'message' => 'Unit harus dipilih.'], 422);
+        }
+
         $unit = Unit::find($request->unit_id);
+        if (!$unit) {
+            return response()->json(['success' => false, 'message' => 'Unit tidak valid.'], 422);
+        }
         $conversion = $unit ? floatval($unit->conversion_to_kg) : 1;
         // Ensure conversion is never 0, NaN or negative
         if (is_nan($conversion) || !is_finite($conversion) || $conversion <= 0) {
@@ -399,7 +408,7 @@ class TransactionController extends Controller
             'qty_in_kg' => $qtyInKg
         ]);
 
-        // Jika memakai stok toko, consume stok toko segera (buat entry stok_tokos out)
+        // Jika memakai stok toko, cek ketersediaan stok (jangan kurangi stok di sini)
         if ($request->has('pakaiStokToko') && $request->pakaiStokToko) {
             $tokoId = $request->toko_id ?? null;
 
@@ -412,13 +421,17 @@ class TransactionController extends Controller
                 return response()->json(['success' => false, 'message' => $msg], 422);
             }
 
+            // Initialize stock variables
+            $stockInsufficient = false;
+            $stockData = null;
+
             // hitung total tersedia di stok_tokos untuk product+toko (store_stocks tidak punya warehouse_id)
             $tokoQuery = \App\Models\StoreStock::where('product_id', $request->product_id)
                 ->where('toko_id', $tokoId);
             $tokoAvailable = (float) $tokoQuery->sum('qty_in_kg');
 
             // Debug logging untuk troubleshooting
-            Log::info('[addToCart] Store stock debug', [
+            Log::info('[addToCart] Store stock check', [
                 'product_id' => $request->product_id,
                 'request_toko_id' => $tokoId,
                 'requested_qty' => $qty,
@@ -428,94 +441,35 @@ class TransactionController extends Controller
             ]);
 
             if ($tokoAvailable < $qtyInKg) {
-                // jika stok toko kurang tetapi ada sebagian (>0), buat StockRequest + SuratJalan untuk pengambilan dari gudang
-                if ($tokoAvailable <= 0) {
-                    // stok toko benar-benar kosong, jangan lanjutkan
-                    $msg = 'Stok toko kosong. Pilih ambil dari gudang atau buat permintaan (Surat Jalan).';
-                    if ($request->header('X-Inertia')) {
-                        return redirect()->back()->with('error', $msg)->with('toko_available', $tokoAvailable);
-                    }
-                    return response()->json([
-                        'success' => false,
-                        'message' => $msg,
-                        'toko_available' => $tokoAvailable,
-                    ], 200);
-                }
-                // jika stok toko ada sebagian (kurang dari qty), lanjutkan dengan membuat StockRequest + SuratJalan
-                DB::beginTransaction();
-                try {
-                    // Note: StockRequest model expects 'requester_id' and 'to_toko_id'
-                    $stockReq = \App\Models\StockRequest::create([
-                        'requester_id' => $request->user()->id,
-                        'to_toko_id' => $tokoId,
-                        'product_id' => $request->product_id,
-                        'unit_id' => $request->unit_id,
-                        'qty' => $qty,
-                        'status' => 'pending',
-                    ]);
+                // Store stock is insufficient - block cart addition completely
+                Log::warning('[addToCart] Store stock insufficient - blocking cart addition', [
+                    'product_id' => $request->product_id,
+                    'toko_id' => $tokoId,
+                    'available' => $tokoAvailable,
+                    'requested' => $qtyInKg,
+                    'deficit' => $qtyInKg - $tokoAvailable
+                ]);
 
-                    // create simple SuratJalan record if model exists
-                    if (class_exists(\App\Models\SuratJalan::class)) {
-                        $sj = \App\Models\SuratJalan::create([
-                            'stock_request_id' => $stockReq->id,
-                            'toko_id' => $tokoId,
-                            'status' => 'pending',
-                        ]);
-                    } else {
-                        $sj = null;
-                    }
-
-                    DB::commit();
-                } catch (\Exception $e) {
-                    DB::rollBack();
-                    Log::error('[addToCart] failed to create StockRequest/SJ', ['error' => $e->getMessage()]);
-                    return response()->json(['success' => false, 'message' => 'Gagal membuat permintaan stok.'], 500);
-                }
-
-                $msg = 'Stok toko tidak cukup, dibuat permintaan pengambilan dari gudang.';
-                if ($request->header('X-Inertia')) {
-                    return redirect()->back()->with('error', $msg)->with('stock_request_id', $stockReq->id ?? null)->with('surat_jalan_id', $sj->id ?? null);
-                }
                 return response()->json([
                     'success' => false,
-                    'message' => $msg,
-                    'stock_request_id' => $stockReq->id ?? null,
-                    'surat_jalan_id' => $sj->id ?? null,
-                ], 200);
-            }
-
-            // jika cukup, buat entry StokToko out (kurangi stok toko)
-            // ambil current stock dari store_stocks (tidak ada sisa_stok atau unit_id di table ini)
-            $currentStoreStock = \App\Models\StoreStock::where('product_id', $request->product_id)
-                ->where('toko_id', $tokoId)
-                ->first();
-            $old_sisa = $currentStoreStock ? $currentStoreStock->qty_in_kg : 0;
-            $new_sisa = max(0, $old_sisa - $qtyInKg);
-            try {
-                // Update store stock directly - kurangi qty_in_kg
-                if ($currentStoreStock) {
-                    $currentStoreStock->qty_in_kg = $new_sisa;
-                    $currentStoreStock->updated_by = $request->user()->id;
-                    $currentStoreStock->save();
-
-                    Log::info('[addToCart] updated store stock', [
+                    'message' => 'Stok toko tidak mencukupi untuk jumlah yang diminta.',
+                    'stock_insufficient' => true,
+                    'stock_data' => [
+                        'toko_available' => $tokoAvailable,
+                        'requested_qty_kg' => $qtyInKg,
                         'product_id' => $request->product_id,
                         'toko_id' => $tokoId,
-                        'old_qty_kg' => $old_sisa,
-                        'consumed_qty_kg' => $qtyInKg,
-                        'new_qty_kg' => $new_sisa
-                    ]);
-                } else {
-                    Log::warning('[addToCart] No store stock record found to update', [
-                        'product_id' => $request->product_id,
-                        'toko_id' => $tokoId
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error('[addToCart] failed to consume stok_toko', ['error' => $e->getMessage()]);
-                // lanjutkan tanpa blocking, tapi beri tahu client
-                return response()->json(['success' => false, 'message' => 'Gagal mengurangi stok toko.'], 500);
+                        'warehouse_id' => $request->warehouse_id,
+                    ]
+                ], 422);
+            } else {
+                $stockInsufficient = false;
+                $stockData = null;
             }
+        } else {
+            // Not using store stock, so no stock insufficiency check needed
+            $stockInsufficient = false;
+            $stockData = null;
         }
 
         $cart = Cart::where('product_id', $request->product_id)
@@ -544,11 +498,8 @@ class TransactionController extends Controller
             if ($request->has('pakaiStokToko')) {
                 $cart->pakai_stok_toko = $request->pakaiStokToko ? true : false;
             }
-            // If we consumed toko in addToCart, mark it
-            if ($request->has('pakaiStokToko') && $request->pakaiStokToko) {
-                $cart->toko_consumed = true;
-            }
-            // Store stock updated directly, no stokTokoRow reference needed
+            // Don't mark as consumed during addToCart - will be consumed during transaction processing
+            $cart->toko_consumed = false;
             $cart->save();
         } else {
             $createData = [
@@ -561,9 +512,9 @@ class TransactionController extends Controller
                 'subcategory_id' => $product->subcategory_id,
                 'toko_id' => $request->toko_id ?? null,
                 'pakai_stok_toko' => $request->pakaiStokToko ? true : false,
-                'toko_consumed' => $request->has('pakaiStokToko') && $request->pakaiStokToko ? true : false,
+                // Don't mark as consumed during addToCart - will be consumed during transaction processing
+                'toko_consumed' => false,
             ];
-            // Store stock updated directly, no stokTokoRow reference needed
             Cart::create($createData);
         }
 
@@ -607,6 +558,8 @@ class TransactionController extends Controller
             'message' => 'Product Added Successfully!',
             'carts' => $cartsData,
             'carts_total' => $carts_total,
+            'stock_insufficient' => $stockInsufficient ?? false,
+            'stock_data' => $stockData,
         ]);
     }
 
@@ -763,27 +716,89 @@ class TransactionController extends Controller
             }
 
             // Validasi input
-            $validated = $request->validate([
-                'warehouse_id' => 'required|integer|exists:warehouses,id',
-                // allow nullable customer (frontend may send null for walk-in customers)
-                'customer_id' => 'nullable|integer|exists:customers,id',
-                'cash' => 'required|numeric|min:0',
-                'change' => 'required|numeric|min:0',
-                'discount' => 'nullable|numeric|min:0',
-                'grand_total' => 'required|numeric|min:0',
-                'payment_method' => 'required|in:cash,tempo,deposit',
-                'is_tempo' => 'nullable|boolean',
-                'tempo_due_date' => 'nullable|date|required_if:is_tempo,1',
-                'is_deposit' => 'nullable|boolean',
-                'deposit_amount' => 'nullable|numeric|min:0',
-                'add_change_to_deposit' => 'nullable|boolean',
-                'change_to_deposit_amount' => 'nullable|numeric|min:0',
-                'items' => 'required|array',
-                'items.*.product_id' => 'required|integer|exists:products,id',
-                'items.*.qty' => 'required|numeric|min:1',
-                'items.*.unit_id' => 'required|integer|exists:units,id',
-                'items.*.price' => 'required|numeric|min:0',
+            try {
+                $validated = $request->validate([
+                    'warehouse_id' => 'required|integer|exists:warehouses,id',
+                    // allow nullable customer (frontend may send null for walk-in customers)
+                    'customer_id' => 'nullable|integer|exists:customers,id',
+                    'cash' => 'required|numeric|min:0',
+                    'change' => 'required|numeric|min:0',
+                    'discount' => 'nullable|numeric|min:0',
+                    'grand_total' => 'required|numeric|min:0',
+                    'payment_method' => 'required|in:cash,tempo,deposit',
+                    'is_tempo' => 'nullable|boolean',
+                    'tempo_due_date' => 'nullable|date|required_if:is_tempo,1',
+                    'is_deposit' => 'nullable|boolean',
+                    'deposit_amount' => 'nullable|numeric|min:0',
+                    'add_change_to_deposit' => 'nullable|boolean',
+                    'change_to_deposit_amount' => 'nullable|numeric|min:0',
+                    'items' => 'required|array',
+                    'items.*.product_id' => 'required|integer|exists:products,id',
+                    'items.*.qty' => 'required|numeric|min:1',
+                    'items.*.unit_id' => 'required|integer|exists:units,id',
+                    'items.*.price' => 'required|numeric|min:0',
+                ]);
+            } catch (\Illuminate\Validation\ValidationException $e) {
+                Log::error('[TransactionController::store] Validation failed', [
+                    'errors' => $e->errors(),
+                    'request_data' => $request->all(),
+                ]);
+                return response()->json([
+                    'message' => 'Validasi gagal',
+                    'errors' => $e->errors()
+                ], 422);
+            }
+
+            // Log successful validation
+            Log::info('[TransactionController::store] Validation passed', [
+                'warehouse_id' => $validated['warehouse_id'],
+                'customer_id' => $validated['customer_id'],
+                'grand_total' => $validated['grand_total'],
+                'payment_method' => $validated['payment_method'],
+                'items_count' => count($validated['items']),
             ]);
+
+            // Check for pending delivery notes that need approval before allowing transaction
+            $pendingDeliveryNotes = [];
+            foreach ($request->items as $item) {
+                // Get toko_id for this item (use provided toko_id or default)
+                $tokoId = $item['toko_id'] ?? $request->toko_id ?? Toko::first()->id;
+
+                Log::info('[TransactionController::store] Checking delivery notes', [
+                    'product_id' => $item['product_id'],
+                    'toko_id' => $tokoId,
+                    'item_toko_id' => $item['toko_id'] ?? 'not provided',
+                    'request_toko_id' => $request->toko_id ?? 'not provided',
+                ]);
+
+                // Check if there are pending delivery notes for this product and toko
+                $pendingNotes = DeliveryNote::where('product_id', $item['product_id'])
+                    ->where('toko_id', $tokoId)
+                    ->where('status', 'pending')
+                    ->get();
+
+                if ($pendingNotes->count() > 0) {
+                    $pendingDeliveryNotes = array_merge($pendingDeliveryNotes, $pendingNotes->toArray());
+                    Log::info('[TransactionController::store] Found pending delivery notes', [
+                        'product_id' => $item['product_id'],
+                        'toko_id' => $tokoId,
+                        'pending_count' => $pendingNotes->count(),
+                    ]);
+                }
+            }
+
+            // If there are pending delivery notes, block the transaction
+            if (!empty($pendingDeliveryNotes)) {
+                $pendingNumbers = collect($pendingDeliveryNotes)->pluck('delivery_number')->join(', ');
+                Log::warning('[TransactionController::store] Transaction blocked by pending delivery notes', [
+                    'pending_numbers' => $pendingNumbers,
+                    'pending_count' => count($pendingDeliveryNotes),
+                ]);
+                return response()->json([
+                    'message' => 'Transaksi tidak dapat diproses karena ada surat jalan yang belum disetujui. Nomor surat jalan: ' . $pendingNumbers . '. Harap setujui surat jalan terlebih dahulu.',
+                    'pending_delivery_notes' => $pendingDeliveryNotes
+                ], 422);
+            }
 
             // Mulai transaksi database
             DB::beginTransaction();
@@ -1324,7 +1339,7 @@ class TransactionController extends Controller
 
                     // Check if user has toko_id in users table
                     if (isset($user->toko_id) && $user->toko_id) {
-                        $toko = \App\Models\Toko::find($user->toko_id);
+                        $toko = Toko::find($user->toko_id);
                     }
 
                     // Fallback to first toko
@@ -1535,6 +1550,40 @@ class TransactionController extends Controller
             'next_sequence' => $nextNumber,
             'date_pattern' => $datePattern,
             'preview_number' => $prefix . str_pad($nextNumber, 3, '0', STR_PAD_LEFT)
+        ]);
+    }
+
+    /**
+     * Return next transaction number for preview (without creating transaction)
+     * Used by frontend to display auto-generated transaction number on the Create form
+     */
+    public function nextTransactionNumber(Request $request)
+    {
+        // Use Asia/Jakarta timezone to match frontend behavior
+        $today = \Carbon\Carbon::now('Asia/Jakarta')->format('d/m/Y');
+        $prefix = "TRX-{$today}-";
+
+        // Find the last transaction number for today
+        $lastTransaction = Transaction::where('transaction_number', 'like', $prefix . '%')
+            ->orderBy('transaction_number', 'desc')
+            ->first();
+
+        if ($lastTransaction) {
+            // Extract the last number and increment
+            $lastNumber = (int) substr($lastTransaction->transaction_number, -3);
+            $nextNumber = $lastNumber + 1;
+        } else {
+            // First transaction of the day
+            $nextNumber = 1;
+        }
+
+        // Format with leading zeros (XXX)
+        $formattedNumber = str_pad($nextNumber, 3, '0', STR_PAD_LEFT);
+        $transactionNumber = $prefix . $formattedNumber;
+
+        return response()->json([
+            'transaction_number' => $transactionNumber,
+            'next_sequence' => $nextNumber,
         ]);
     }
 }

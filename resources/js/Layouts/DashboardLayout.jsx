@@ -14,7 +14,19 @@ export default function DashboardLayout({ children }) {
         return false;
     });
 
+    const [isMobile, setIsMobile] = useState(() => {
+        if (typeof window !== "undefined" && window.matchMedia) {
+            return window.matchMedia("(max-width: 767px)").matches;
+        }
+        return false;
+    });
+
     useEffect(() => {
+        const mm = window.matchMedia("(max-width: 767px)");
+        const handleMM = (e) => setIsMobile(e.matches);
+        handleMM(mm);
+        mm.addEventListener("change", handleMM);
+
         const handleResize = () => {
             if (window.innerWidth >= 768) {
                 setSidebarOpen(true);
@@ -24,7 +36,23 @@ export default function DashboardLayout({ children }) {
         };
         handleResize();
         window.addEventListener("resize", handleResize);
-        return () => window.removeEventListener("resize", handleResize);
+
+        // listen for requests to close the sidebar (dispatched by mobile drawer)
+        const onCloseSidebar = () => setSidebarOpen(false);
+        window.addEventListener("closeSidebar", onCloseSidebar);
+        // listen for mobile toggle event from hamburger
+        const onToggleMobileSidebar = () => {
+            if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
+                setSidebarOpen((v) => !v);
+            }
+        };
+        window.addEventListener("toggleSidebarMobile", onToggleMobileSidebar);
+
+        return () => {
+            mm.removeEventListener("change", handleMM);
+            window.removeEventListener("resize", handleResize);
+            window.removeEventListener("closeSidebar", onCloseSidebar);
+        };
     }, []);
 
     const toggleSidebar = () => {
@@ -38,10 +66,10 @@ export default function DashboardLayout({ children }) {
 
     return (
         <div className="min-h-screen flex flex-col sm:flex-row transition-all duration-200 relative">
-            {/* Overlay untuk mobile sidebar */}
-            {sidebarOpen && (
+            {/* Overlay untuk mobile sidebar (only when mobile) */}
+            {isMobile && sidebarOpen && (
                 <div
-                    className="fixed inset-0 bg-black/40 z-[45] sm:hidden"
+                    className="fixed inset-0 bg-black/40 z-[45] md:hidden"
                     onClick={() => setSidebarOpen(false)}
                     aria-label="Tutup Sidebar"
                 />
@@ -50,6 +78,7 @@ export default function DashboardLayout({ children }) {
                 <Sidebar
                     sidebarOpen={sidebarOpen}
                     setSidebarOpen={setSidebarOpen}
+                    isMobile={isMobile}
                     className="z-[50] min-h-screen"
                 />
             )}

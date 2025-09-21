@@ -21,6 +21,7 @@ import {
     Warehouse,
     ChevronLeft,
     ChevronRight,
+    X,
 } from "lucide-react";
 
 // Local permission check function to ensure always using current permissions prop
@@ -32,7 +33,7 @@ function hasAnyPermission(permissionsList, allPermissions) {
     return hasPermission;
 }
 
-export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
+export default function Sidebar({ sidebarOpen, setSidebarOpen, isMobile }) {
     const { auth } = usePage().props;
     const roles = auth?.user?.roles || [];
     const sharedLocation = usePage().props.location;
@@ -192,11 +193,11 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
         menuNavigation =
             transaksiDetails.length > 0
                 ? [
-                      {
-                          title: "Transaksi",
-                          details: transaksiDetails,
-                      },
-                  ]
+                    {
+                        title: "Transaksi",
+                        details: transaksiDetails,
+                    },
+                ]
                 : [];
     }
 
@@ -249,111 +250,99 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
     return (
         <>
-            {/* Removed duplicate overlay - handled by DashboardLayout */}
+            {/* Mobile drawer: show full Sidebar content as a drawer on small screens */}
+            {isMobile && (
+                <div
+                    className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"} fixed top-0 left-0 z-[60] w-full max-w-xs h-full bg-white dark:bg-gray-900 transition-transform duration-300 md:hidden`}
+                    aria-hidden={!sidebarOpen}
+                >
+                    <div className="flex flex-col h-full min-h-screen">
+                        {/* Mobile header with close button */}
+                        <div className="flex justify-between items-center px-4 py-3 h-16 border-b border-gray-200 dark:border-gray-800">
+                            <div className="text-xl font-bold">Toko 85</div>
+                            <button
+                                aria-label="Tutup sidebar"
+                                role="button"
+                                tabIndex={0}
+                                className="p-2 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-1 focus:ring-primary"
+                                onClick={() => setSidebarOpen(false)}
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+
+                        <div className={`w-full p-4 transition-all duration-300 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-700/50`}>
+                            <div className="flex items-center gap-3">
+                                <Avatar className="h-12 w-12">
+                                    <AvatarImage src={auth.user.avatar || `https://ui-avatars.com/api/?name=${auth.user.name}`} alt={auth.user.name} />
+                                    <AvatarFallback>{auth.user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+                                <div className="flex flex-col gap-0.5">
+                                    <div className="text-sm font-semibold text-foreground capitalize">{auth.user.name}</div>
+                                    <div className="text-xs text-muted-foreground">{auth.user.email}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <Separator />
+
+                        <ScrollArea className="flex-1">
+                            <div className="p-2">
+                                {normalizedMenu.map((item, index) => item.details.some((detail) => !!detail.permissions || (detail.subdetails && detail.subdetails.some((sub) => !!sub.permissions))) && (
+                                    <div key={index} className="mb-4">
+                                        <div className="text-gray-600 dark:text-gray-300 text-xs py-2 px-3 font-semibold uppercase tracking-wider">{item.title}</div>
+                                        {item.details.filter((detail) => detail.permissions === true).map((detail, indexDetail) => {
+                                            if (detail.hasOwnProperty('subdetails')) {
+                                                return (
+                                                    <LinkItemDropdown key={indexDetail} title={detail.title} icon={detail.icon} data={detail.subdetails} access={detail.permissions} sidebarOpen={true} onClick={() => setSidebarOpen(false)} />
+                                                );
+                                            }
+                                            return (
+                                                <LinkItem key={indexDetail} title={detail.title} icon={detail.icon} href={detail.href} access={detail.permissions} sidebarOpen={true} onClick={() => setSidebarOpen(false)} />
+                                            );
+                                        })}
+                                    </div>
+                                ))}
+                            </div>
+                        </ScrollArea>
+
+                        <Separator />
+
+                        <div className="w-full p-3 text-center border-t border-gray-100 dark:border-gray-700/50">
+                            <div className="text-xs text-gray-500 dark:text-gray-400">© 2025 Toko85</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Desktop sidebar (md and up) */}
             <div
-                className={`fixed md:static z-[50] top-0 left-0 h-full
-                    ${
-                        sidebarOpen
-                            ? "translate-x-0 opacity-100 visible"
-                            : "-translate-x-full opacity-0 invisible"
-                    }
-                    md:translate-x-0
-                    ${sidebarOpen ? "md:w-[260px]" : "md:w-[80px]"}
-                    w-[260px] min-h-screen bg-white dark:bg-gray-900 shadow-xl md:shadow-none border-r border-gray-200 dark:border-gray-800 transition-all duration-300 dark:shadow-2xl dark:shadow-black/10
-                `}
+                className={`hidden md:block md:fixed z-[50] top-0 left-0 h-full ${sidebarOpen ? "md:w-[260px]" : "md:w-[80px]"} min-h-screen bg-white dark:bg-gray-900 shadow-xl md:shadow-none border-r border-gray-200 dark:border-gray-800 transition-all duration-300 dark:shadow-2xl dark:shadow-black/10`}
+                style={{ position: "sticky", top: 0 }}
             >
                 <div className="flex flex-col h-full min-h-screen">
                     {/* Header/Logo Section */}
-                    <div
-                        className={`flex justify-center items-center px-6 py-4 h-16 transition-all duration-300 border-b border-gray-200 dark:border-gray-800 ${
-                            !sidebarOpen ? "md:px-2" : ""
-                        }`}
-                    >
-                        <div
-                            className={`text-2xl font-bold text-center leading-loose tracking-wider text-gray-900 dark:text-gray-100 transition-all duration-300 ${
-                                !sidebarOpen ? "md:text-lg md:px-0" : ""
-                            }`}
-                        >
-                            <span
-                                className={
-                                    sidebarOpen ? "inline" : "hidden md:inline"
-                                }
-                            >
-                                KASIR
-                            </span>
-                            <span
-                                className={
-                                    sidebarOpen ? "hidden" : "inline md:hidden"
-                                }
-                            >
-                                <IconBrandReact size={28} />
-                            </span>
+                    <div className={`flex justify-center items-center px-6 py-4 h-16 transition-all duration-300 border-b border-gray-200 dark:border-gray-800 ${!sidebarOpen ? "md:px-2" : ""}`}>
+                        <div className={`text-2xl font-bold text-center leading-loose tracking-wider text-gray-900 dark:text-gray-100 transition-all duration-300 ${!sidebarOpen ? "md:text-lg md:px-0" : ""}`}>
+                            <span className={sidebarOpen ? "inline" : "hidden md:inline"}>Toko 85</span>
+                            <span className={sidebarOpen ? "hidden" : "inline md:hidden"}><IconBrandReact size={28} /></span>
                         </div>
                     </div>
 
                     {/* User Profile Section */}
-                    <div
-                        className={`w-full p-4 transition-all duration-300 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-700/50 ${
-                            !sidebarOpen
-                                ? "md:p-2 md:justify-center md:flex-col"
-                                : ""
-                        }`}
-                    >
-                        <div
-                            className={`flex items-center gap-3 ${
-                                !sidebarOpen ? "md:flex-col md:gap-1" : ""
-                            }`}
-                        >
-                            <Avatar
-                                className={`flex-shrink-0 transition-all duration-300 ${
-                                    sidebarOpen
-                                        ? "h-12 w-12"
-                                        : "md:h-10 md:w-10"
-                                }`}
-                            >
-                                <AvatarImage
-                                    src={
-                                        auth.user.avatar ||
-                                        `https://ui-avatars.com/api/?name=${auth.user.name}`
-                                    }
-                                    alt={auth.user.name}
-                                />
-                                <AvatarFallback className="bg-primary text-primary-foreground font-medium">
-                                    {auth.user.name.charAt(0).toUpperCase()}
-                                </AvatarFallback>
+                    <div className={`w-full p-4 transition-all duration-300 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-700/50 ${!sidebarOpen ? "md:p-2 md:justify-center md:flex-col" : ""}`}>
+                        <div className={`flex items-center gap-3 ${!sidebarOpen ? "md:flex-col md:gap-1" : ""}`}>
+                            <Avatar className={`flex-shrink-0 transition-all duration-300 ${sidebarOpen ? "h-12 w-12" : "md:h-10 md:w-10"}`}>
+                                <AvatarImage src={auth.user.avatar || `https://ui-avatars.com/api/?name=${auth.user.name}`} alt={auth.user.name} />
+                                <AvatarFallback className="font-medium bg-primary text-primary-foreground">{auth.user.name.charAt(0).toUpperCase()}</AvatarFallback>
                             </Avatar>
 
-                            <div
-                                className={`flex flex-col gap-1 transition-all duration-300 ${
-                                    !sidebarOpen ? "md:hidden" : ""
-                                }`}
-                            >
-                                <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200">
-                                    <User className="w-3 h-3 text-gray-600 dark:text-gray-300" />
-                                    {auth.user.name}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                                    <Mail className="w-3 h-3" />
-                                    {auth.user.email}
-                                </div>
-                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300">
-                                    <MapPin className="w-3 h-3" />
-                                    <span className="font-medium">
-                                        {sharedLocation
-                                            ? sharedLocation
-                                            : primaryRole
-                                            ? roleInfo[primaryRole]
-                                                ? roleInfo[primaryRole].label
-                                                : primaryRole
-                                            : "-"}
-                                    </span>
-                                </div>
+                            <div className={`flex flex-col gap-1 transition-all duration-300 ${!sidebarOpen ? "md:hidden" : ""}`}>
+                                <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200"><User className="w-3 h-3 text-gray-600 dark:text-gray-300" />{auth.user.name}</div>
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><Mail className="w-3 h-3" />{auth.user.email}</div>
+                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><MapPin className="w-3 h-3" /><span className="font-medium">{sharedLocation ? sharedLocation : primaryRole ? roleInfo[primaryRole] ? roleInfo[primaryRole].label : primaryRole : "-"}</span></div>
 
-                                {roleBadges.length > 0 && (
-                                    <div className="flex items-center gap-1 mt-2 flex-wrap">
-                                        {roleBadges}
-                                    </div>
-                                )}
+                                {roleBadges.length > 0 && (<div className="flex flex-wrap items-center gap-1 mt-2">{roleBadges}</div>)}
                             </div>
                         </div>
                     </div>
@@ -363,150 +352,32 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                     {/* Menu Navigation */}
                     <ScrollArea className="flex-1">
                         <div className="p-2">
-                            {normalizedMenu.map(
-                                (item, index) =>
-                                    item.details.some(
-                                        (detail) =>
-                                            !!detail.permissions ||
-                                            (detail.subdetails &&
-                                                detail.subdetails.some(
-                                                    (sub) => !!sub.permissions
-                                                ))
-                                    ) && (
-                                        <div key={index} className="mb-4">
-                                            <div
-                                                className={`text-gray-600 dark:text-gray-300 text-xs py-2 px-3 font-semibold uppercase tracking-wider transition-all duration-300 ${
-                                                    !sidebarOpen
-                                                        ? "md:px-2 md:text-[10px] md:text-center"
-                                                        : ""
-                                                }`}
-                                            >
-                                                {sidebarOpen
-                                                    ? item.title
-                                                    : "•••"}
-                                            </div>
-                                            {item.dropdown ? (
-                                                <div className="space-y-1">
-                                                    <LinkItemDropdown
-                                                        title={item.title}
-                                                        icon={item.icon}
-                                                        data={item.details}
-                                                        access={true}
-                                                        sidebarOpen={
-                                                            sidebarOpen
-                                                        }
-                                                    />
-                                                </div>
-                                            ) : (
-                                                <div className="space-y-1">
-                                                    {item.details
-                                                        .filter(
-                                                            (detail) =>
-                                                                detail.permissions ===
-                                                                true
-                                                        )
-                                                        .map(
-                                                            (
-                                                                detail,
-                                                                indexDetail
-                                                            ) => {
-                                                                // If dropdown, build a dropdown badge if needed
-                                                                if (
-                                                                    detail.hasOwnProperty(
-                                                                        "subdetails"
-                                                                    )
-                                                                ) {
-                                                                    const dropdownBadge =
-                                                                        detail.title ===
-                                                                            "Transaksi" &&
-                                                                        isGudang ? (
-                                                                            <Badge className="ml-2 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800 text-xs">
-                                                                                <Warehouse className="w-3 h-3 mr-1" />
-                                                                                Gudang
-                                                                            </Badge>
-                                                                        ) : null;
-
-                                                                    return (
-                                                                        <LinkItemDropdown
-                                                                            key={
-                                                                                indexDetail
-                                                                            }
-                                                                            title={
-                                                                                detail.title
-                                                                            }
-                                                                            icon={
-                                                                                detail.icon
-                                                                            }
-                                                                            data={
-                                                                                detail.subdetails
-                                                                            }
-                                                                            access={
-                                                                                detail.permissions
-                                                                            }
-                                                                            sidebarOpen={
-                                                                                sidebarOpen
-                                                                            }
-                                                                            badge={
-                                                                                dropdownBadge
-                                                                            }
-                                                                        />
-                                                                    );
-                                                                }
-
-                                                                // Normal item
-                                                                const itemBadge =
-                                                                    detail.title ===
-                                                                        "Surat Jalan" &&
-                                                                    isGudang ? (
-                                                                        <Badge className="ml-2 bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 border-green-200 dark:border-green-800 text-xs">
-                                                                            <Warehouse className="w-3 h-3 mr-1" />
-                                                                            Gudang
-                                                                        </Badge>
-                                                                    ) : null;
-
-                                                                return (
-                                                                    <LinkItem
-                                                                        key={
-                                                                            indexDetail
-                                                                        }
-                                                                        title={
-                                                                            detail.title
-                                                                        }
-                                                                        icon={
-                                                                            detail.icon
-                                                                        }
-                                                                        href={
-                                                                            detail.href
-                                                                        }
-                                                                        access={
-                                                                            detail.permissions
-                                                                        }
-                                                                        sidebarOpen={
-                                                                            sidebarOpen
-                                                                        }
-                                                                        badge={
-                                                                            itemBadge
-                                                                        }
-                                                                    />
-                                                                );
-                                                            }
-                                                        )}
-                                                </div>
-                                            )}
+                            {normalizedMenu.map((item, index) => item.details.some((detail) => !!detail.permissions || (detail.subdetails && detail.subdetails.some((sub) => !!sub.permissions))) && (
+                                <div key={index} className="mb-4">
+                                    <div className={`text-gray-600 dark:text-gray-300 text-xs py-2 px-3 font-semibold uppercase tracking-wider transition-all duration-300 ${!sidebarOpen ? "md:px-2 md:text-[10px] md:text-center" : ""}`}>{sidebarOpen ? item.title : "•••"}</div>
+                                    {item.dropdown ? (
+                                        <div className="space-y-1"><LinkItemDropdown title={item.title} icon={item.icon} data={item.details} access={true} sidebarOpen={sidebarOpen} /></div>
+                                    ) : (
+                                        <div className="space-y-1">
+                                            {item.details.filter((detail) => detail.permissions === true).map((detail, indexDetail) => {
+                                                if (detail.hasOwnProperty('subdetails')) {
+                                                    const dropdownBadge = detail.title === 'Transaksi' && isGudang ? (<Badge className="ml-2 text-xs text-green-800 bg-green-100 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800"><Warehouse className="w-3 h-3 mr-1" />Gudang</Badge>) : null;
+                                                    return (<LinkItemDropdown key={indexDetail} title={detail.title} icon={detail.icon} data={detail.subdetails} access={detail.permissions} sidebarOpen={sidebarOpen} badge={dropdownBadge} />);
+                                                }
+                                                const itemBadge = detail.title === 'Surat Jalan' && isGudang ? (<Badge className="ml-2 text-xs text-green-800 bg-green-100 border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800"><Warehouse className="w-3 h-3 mr-1" />Gudang</Badge>) : null;
+                                                return (<LinkItem key={indexDetail} title={detail.title} icon={detail.icon} href={detail.href} access={detail.permissions} sidebarOpen={sidebarOpen} badge={itemBadge} />);
+                                            })}
                                         </div>
-                                    )
-                            )}
+                                    )}
+                                </div>
+                            ))}
                         </div>
                     </ScrollArea>
 
                     <Separator />
 
                     {/* Footer */}
-                    <div className="w-full p-3 text-center border-t border-gray-100 dark:border-gray-700/50">
-                        <div className="text-xs text-gray-500 dark:text-gray-400">
-                            © 2025 Toko_88
-                        </div>
-                    </div>
+                    <div className="w-full p-3 text-center border-t border-gray-100 dark:border-gray-700/50"><div className="text-xs text-gray-500 dark:text-gray-400">© 2025 Toko85</div></div>
                 </div>
             </div>
         </>

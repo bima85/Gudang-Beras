@@ -12,6 +12,7 @@ export default function LinkItemDropdown({
     access,
     sidebarOpen,
     badge = null,
+    onClick = undefined,
     ...props
 }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -74,7 +75,7 @@ export default function LinkItemDropdown({
                                     )}
                                     asChild
                                 >
-                                    <Link href={subitem.href}>
+                                    <Link href={subitem.href} onClick={onClick}>
                                         <CornerDownRight
                                             size={14}
                                             className="flex-shrink-0"

@@ -35,6 +35,8 @@ export default function PurchaseFormInfo({
     setManualSupplier,
     handleManualSupplierChange,
     handleManualSupplierSubmit,
+    manualSupplierErrors = {},
+    manualSupplierSubmitting = false,
     // Gudang
     showGudangModal,
     setShowGudangModal,
@@ -49,6 +51,59 @@ export default function PurchaseFormInfo({
             setData("toko_id", null);
         }
     }, [location]);
+
+    // Fetch next invoice number for given purchase_date
+    useEffect(() => {
+        const fetchNext = async () => {
+            if (!data.purchase_date) return;
+            try {
+                // use explicit dashboard-prefixed path to match routes group
+                const url =
+                    typeof route === "function" &&
+                        typeof route("purchases.next-invoice") === "string"
+                        ? route("purchases.next-invoice", {
+                            date: data.purchase_date,
+                        })
+                        : `/dashboard/purchases/next-invoice?date=${encodeURIComponent(
+                            data.purchase_date
+                        )}`;
+                const res = await fetch(url, {
+                    headers: {
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                    },
+                    // include credentials (cookies) to support authenticated dashboard routes
+                    credentials: "include",
+                    // avoid stale cache for diagnostic
+                    cache: "no-store",
+                });
+                console.debug("next-invoice fetch", url, "status", res.status);
+                if (res.status === 401) {
+                    console.warn(
+                        "next-invoice: 401 Unauthorized — session/cookie may be missing. Ensure you are logged in and assets are fresh."
+                    );
+                    return;
+                }
+                if (res.status === 404) {
+                    console.warn(
+                        "next-invoice: 404 Not Found — route may be unreachable. URL:",
+                        url
+                    );
+                    return;
+                }
+                if (!res.ok) return;
+                const json = await res.json();
+                if (json && json.invoice_number) {
+                    setData("invoice_number", json.invoice_number);
+                    // keep optional invoice_seq if needed elsewhere
+                    setData("invoice_seq", json.invoice_seq || "");
+                }
+            } catch (e) {
+                console.error("Failed to fetch next invoice:", e);
+            }
+        };
+        fetchNext();
+    }, [data.purchase_date]);
 
     return (
         <div className="grid grid-cols-1 gap-6">
@@ -104,25 +159,7 @@ export default function PurchaseFormInfo({
                             />
                         </div>
 
-                        <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700">
-                                No. Urut Invoice (3 digit)
-                            </label>
-                            <Input
-                                type="number"
-                                name="invoice_seq"
-                                value={data.invoice_seq}
-                                onChange={(e) => {
-                                    let v = e.target.value.replace(/\D/g, "");
-                                    if (v.length > 3) v = v.slice(0, 3);
-                                    setData("invoice_seq", v);
-                                }}
-                                className="text-base"
-                                min="1"
-                                max="999"
-                                required
-                            />
-                        </div>
+                        {/* No. urut invoice di-generate otomatis di backend; input manual dihapus */}
 
                         <div className="md:col-span-2">
                             <label className="block mb-2 text-sm font-medium text-gray-700">
@@ -280,9 +317,7 @@ export default function PurchaseFormInfo({
                             </div>
                             <Select
                                 key={`warehouse-select-${warehouses.length}`}
-                                value={
-                                    data.warehouse_id?.toString() || undefined
-                                }
+                                value={data.warehouse_id ? data.warehouse_id.toString() : ""}
                                 onValueChange={(value) => {
                                     const warehouseId = value
                                         ? parseInt(value)
@@ -376,6 +411,8 @@ export default function PurchaseFormInfo({
                 onSubmit={handleManualSupplierSubmit}
                 manualSupplier={manualSupplier}
                 onChange={handleManualSupplierChange}
+                errors={typeof manualSupplierErrors !== 'undefined' ? manualSupplierErrors : {}}
+                submitting={typeof manualSupplierSubmitting !== 'undefined' ? manualSupplierSubmitting : false}
             />
             <GudangManualModal
                 show={showGudangModal}

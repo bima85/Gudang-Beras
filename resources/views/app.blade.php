@@ -18,23 +18,43 @@
     @vite(['resources/js/app.jsx', "resources/js/Pages/{$page['component']}.jsx"])
     @inertiaHead
     <style>
-        body.dark {
+        html.dark body {
             background-color: rgb(3 7 18 / 0.9);
         }
     </style>
+    <script>
+        // Immediately apply initial theme to <html> to avoid FOUC/partial styling
+        (function() {
+            try {
+                var darkMode = localStorage.getItem('darkMode') === 'true';
+                var root = document.documentElement;
+                if (darkMode) {
+                    root.classList.add('dark');
+                    root.classList.remove('light');
+                } else {
+                    root.classList.remove('dark');
+                    root.classList.add('light');
+                }
+            } catch (e) {
+                console.warn('Could not apply initial theme:', e);
+            }
+        })();
+    </script>
 </head>
 
-<body class="font-sans antialiased bg-[#E9E9E9]" style="font-family: 'Jost', sans-serif;" onload="setInitialTheme()">
+<body class="font-sans antialiased bg-[#E9E9E9] dark:bg-gray-900 transition-colors"
+    style="font-family: 'Jost', sans-serif;" onload="setInitialTheme()">
     @inertia
     <script>
         function setInitialTheme() {
             const darkMode = localStorage.getItem('darkMode') === 'true';
+            const root = document.documentElement;
             if (darkMode) {
-                document.body.classList.add('dark');
-                document.body.classList.remove('light');
+                root.classList.add('dark');
+                root.classList.remove('light');
             } else {
-                document.body.classList.add('light');
-                document.body.classList.remove('dark');
+                root.classList.add('light');
+                root.classList.remove('dark');
             }
         }
     </script>

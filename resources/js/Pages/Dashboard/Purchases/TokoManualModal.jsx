@@ -1,4 +1,14 @@
 import React from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/Components/ui/dialog";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
 
 export default function TokoManualModal({
     show,
@@ -7,77 +17,66 @@ export default function TokoManualModal({
     manualToko,
     onChange,
 }) {
-    if (!show) return null;
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded shadow-lg p-6 w-full max-w-md relative">
-                <button
-                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                    onClick={onClose}
-                    type="button"
-                >
-                    &times;
-                </button>
-                <h3 className="text-lg font-semibold mb-4">
-                    Tambah Toko Manual
-                </h3>
+        <Dialog open={show} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Tambah Toko Manual</DialogTitle>
+                    <DialogDescription>
+                        Masukkan informasi toko yang akan ditambahkan secara
+                        manual.
+                    </DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
-                    <div>
-                        <label className="block mb-1 font-medium">
-                            Nama Toko
-                        </label>
-                        <input
+                    <div className="space-y-2">
+                        <Label htmlFor="toko-name">Nama Toko</Label>
+                        <Input
+                            id="toko-name"
                             type="text"
                             name="name"
                             value={manualToko.name}
                             onChange={onChange}
-                            className="form-input w-full"
+                            placeholder="Masukkan nama toko"
                             required
                         />
                     </div>
-                    <div>
-                        <label className="block mb-1 font-medium">
-                            Alamat Toko
-                        </label>
-                        <input
+                    <div className="space-y-2">
+                        <Label htmlFor="toko-address">Alamat Toko</Label>
+                        <Input
+                            id="toko-address"
                             type="text"
                             name="address"
                             value={manualToko.address}
                             onChange={onChange}
-                            className="form-input w-full"
+                            placeholder="Masukkan alamat toko"
                             required
                         />
                     </div>
-                    <div>
-                        <label className="block mb-1 font-medium">
-                            No. Telepon Toko
-                        </label>
-                        <input
+                    <div className="space-y-2">
+                        <Label htmlFor="toko-phone">No. Telepon Toko</Label>
+                        <Input
+                            id="toko-phone"
                             type="text"
                             name="phone"
                             value={manualToko.phone}
                             onChange={onChange}
-                            className="form-input w-full"
+                            placeholder="Masukkan nomor telepon"
                         />
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button
+                        <Button
                             type="button"
-                            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
+                            variant="outline"
                             onClick={onClose}
                         >
                             Batal
-                        </button>
-                        <button
-                            type="button"
-                            className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-                            onClick={onSubmit}
-                        >
+                        </Button>
+                        <Button type="button" onClick={onSubmit}>
                             Simpan
-                        </button>
+                        </Button>
                     </div>
                 </div>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }

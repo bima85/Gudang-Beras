@@ -88,22 +88,28 @@ export default function IndexShadcn() {
     const [transactionNumber, setTransactionNumber] = useState("");
     const [transactionSequence, setTransactionSequence] = useState("001");
     const [isLoadingSequence, setIsLoadingSequence] = useState(false);
+    const [selectedDate, setSelectedDate] = useState(new Date());
 
-    // Customer modal states
+    // Handle date change
+    const handleDateChange = (newDate) => {
+        setSelectedDate(newDate);
+    };
     const [showCustomerModal, setShowCustomerModal] = useState(false);
     const [newCustomerName, setNewCustomerName] = useState("");
     const [newCustomerPhone, setNewCustomerPhone] = useState("");
     const [newCustomerAddress, setNewCustomerAddress] = useState("");
 
     // Function to get next available sequence number
-    const getNextAvailableSequence = async () => {
-        console.log("[DEBUG] getNextAvailableSequence called");
+    const getNextAvailableSequence = async (date = null) => {
+        console.log("[DEBUG] getNextAvailableSequence called with date:", date);
         setIsLoadingSequence(true);
         try {
-            const today = new Date();
-            const day = today.getDate().toString().padStart(2, "0");
-            const month = (today.getMonth() + 1).toString().padStart(2, "0");
-            const year = today.getFullYear();
+            const targetDate = date || selectedDate;
+            const day = targetDate.getDate().toString().padStart(2, "0");
+            const month = (targetDate.getMonth() + 1)
+                .toString()
+                .padStart(2, "0");
+            const year = targetDate.getFullYear();
             const datePattern = `${day}/${month}/${year}`;
             console.log("[DEBUG] Date pattern:", datePattern);
 
@@ -150,11 +156,11 @@ export default function IndexShadcn() {
     };
 
     // Generate transaction number function
-    const generateTransactionNumber = (sequence = "001") => {
-        const today = new Date();
-        const day = today.getDate().toString().padStart(2, "0");
-        const month = (today.getMonth() + 1).toString().padStart(2, "0");
-        const year = today.getFullYear();
+    const generateTransactionNumber = (sequence = "001", date = null) => {
+        const targetDate = date || selectedDate;
+        const day = targetDate.getDate().toString().padStart(2, "0");
+        const month = (targetDate.getMonth() + 1).toString().padStart(2, "0");
+        const year = targetDate.getFullYear();
         return `TRX-${day}/${month}/${year}-${sequence}`;
     };
 
@@ -163,6 +169,14 @@ export default function IndexShadcn() {
         const generatedNumber = generateTransactionNumber(transactionSequence);
         setTransactionNumber(generatedNumber);
     }, [transactionSequence]);
+
+    // Update transaction number when date changes
+    useEffect(() => {
+        const updateTransactionNumber = async () => {
+            await getNextAvailableSequence(selectedDate);
+        };
+        updateTransactionNumber();
+    }, [selectedDate]);
 
     // Debug: Monitor transactionSequence changes
     useEffect(() => {
@@ -284,6 +298,11 @@ export default function IndexShadcn() {
                     };
                 });
 
+                // Auto-select unit if not already selected
+                if (!selectedUnit && response.data.product.selectedUnit) {
+                    setSelectedUnit(response.data.product.selectedUnit.id);
+                }
+
                 // Handle toko stock data
                 const rawTokoPerUnit =
                     response.data && response.data.stok_toko != null
@@ -333,15 +352,19 @@ export default function IndexShadcn() {
             toast.error("Masukkan qty yang valid");
             return;
         }
+        if (!selectedUnit && !product.selectedUnit && !product.unit_id) {
+            toast.error("Pilih unit satuan terlebih dahulu");
+            return;
+        }
 
         try {
             const payload = {
                 product_id: product.id,
                 sell_price: parseFloat(sellingPrice),
                 qty: parseInt(qty), // Use qty from state instead of default 1
-                unit_id: product.selectedUnit
+                unit_id: selectedUnit || (product.selectedUnit
                     ? product.selectedUnit.id
-                    : product.unit_id,
+                    : product.unit_id),
                 warehouse_id: selectedWarehouse,
                 subcategory_id: selectedSubcategory,
                 pakaiStokToko: pakaiStokToko,
@@ -355,7 +378,31 @@ export default function IndexShadcn() {
             );
 
             if (response.data && response.data.success) {
-                toast.success("Produk berhasil ditambahkan ke keranjang");
+                // Check if stock was insufficient but item was still added
+                if (response.data.stock_insufficient && response.data.stock_data) {
+                    const stockData = response.data.stock_data;
+                    const availableQty = stockData.toko_available;
+                    const requestedQty = stockData.requested_qty_kg;
+                    const productName = product.name || "Produk";
+
+                    Swal.fire({
+                        title: "Stok Toko Tidak Mencukupi",
+                        html: `
+                            <div class="text-left">
+                                <p class="mb-2"><strong>Produk:</strong> ${productName}</p>
+                                <p class="mb-2"><strong>Stok tersedia:</strong> ${availableQty} kg</p>
+                                <p class="mb-2"><strong>Jumlah diminta:</strong> ${requestedQty} kg</p>
+                                <p class="mb-4 text-red-600"><strong>Kekurangan:</strong> ${requestedQty - availableQty} kg</p>
+                                <p class="text-sm text-gray-600">Stok toko tidak mencukupi. Silakan gunakan stok gudang atau buat surat jalan untuk mengisi ulang stok toko.</p>
+                            </div>
+                        `,
+                        icon: "warning",
+                        confirmButtonText: "OK",
+                    });
+                } else {
+                    toast.success("Produk berhasil ditambahkan ke keranjang");
+                }
+
                 setBarcode("");
                 setProduct({});
                 setStokToko(null);
@@ -365,6 +412,115 @@ export default function IndexShadcn() {
                 setUseSuratJalan(false);
                 // Refresh page to update cart
                 router.reload({ only: ["carts", "carts_total"] });
+            } else if (response.data && response.data.stock_insufficient) {
+                // Store stock is insufficient - show alert and block cart addition
+                const stockData = response.data.stock_data;
+                const availableQty = stockData.toko_available;
+                const requestedQty = stockData.requested_qty_kg;
+                const productName = product.name || "Produk";
+
+                Swal.fire({
+                    title: "Stok Toko Tidak Mencukupi",
+                    html: `
+                        <div class="text-left">
+                            <p class="mb-2"><strong>Produk:</strong> ${productName}</p>
+                            <p class="mb-2"><strong>Stok tersedia:</strong> ${availableQty} kg</p>
+                            <p class="mb-2"><strong>Jumlah diminta:</strong> ${requestedQty} kg</p>
+                            <p class="mb-4 text-red-600"><strong>Kekurangan:</strong> ${requestedQty - availableQty} kg</p>
+                            <p class="text-sm text-gray-600">Stok toko tidak mencukupi. Silakan gunakan stok gudang atau buat surat jalan untuk mengisi ulang stok toko.</p>
+                        </div>
+                    `,
+                    icon: "warning",
+                    confirmButtonText: "OK",
+                });
+            } else if (response.data && response.data.redirect_to_delivery_notes) {
+                // Show button to redirect to delivery notes module
+                const stockData = response.data.stock_data;
+                const availableQty = stockData.toko_available;
+                const requestedQty = stockData.requested_qty_kg;
+                const productName = product.name || "Produk";
+                const pendingNotes = response.data.pending_delivery_notes || [];
+
+                if (pendingNotes.length > 0) {
+                    // There are pending delivery notes - redirect to index to approve them
+                    Swal.fire({
+                        title: "Surat Jalan Pending Approval",
+                        html: `
+                            <div class="text-left">
+                                <p class="mb-2"><strong>Produk:</strong> ${productName}</p>
+                                <p class="mb-2"><strong>Stok tersedia:</strong> ${availableQty} kg</p>
+                                <p class="mb-2"><strong>Jumlah diminta:</strong> ${requestedQty} kg</p>
+                                <p class="mb-4 text-red-600"><strong>Kekurangan:</strong> ${requestedQty - availableQty} kg</p>
+                                <p class="text-sm text-gray-600">Ada ${pendingNotes.length} surat jalan yang perlu disetujui sebelum dapat melanjutkan transaksi.</p>
+                            </div>
+                        `,
+                        icon: "info",
+                        showCancelButton: true,
+                        confirmButtonText: "Lihat Surat Jalan",
+                        cancelButtonText: "Batal",
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Redirect to delivery notes index page to approve pending notes
+                            window.location.href = '/dashboard/delivery-notes';
+                        }
+                    });
+                } else {
+                    // No pending delivery notes - suggest creating new one
+                    Swal.fire({
+                        title: "Stok Toko Tidak Mencukupi",
+                        html: `
+                            <div class="text-left">
+                                <p class="mb-2"><strong>Produk:</strong> ${productName}</p>
+                                <p class="mb-2"><strong>Stok tersedia:</strong> ${availableQty} kg</p>
+                                <p class="mb-2"><strong>Jumlah diminta:</strong> ${requestedQty} kg</p>
+                                <p class="mb-4 text-red-600"><strong>Kekurangan:</strong> ${requestedQty - availableQty} kg</p>
+                                <p class="text-sm text-gray-600">Untuk menggunakan surat jalan, silakan buat surat jalan otomatis terlebih dahulu.</p>
+                            </div>
+                        `,
+                        icon: "info",
+                        showCancelButton: true,
+                        confirmButtonText: "Buat Surat Jalan",
+                        cancelButtonText: "Batal",
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            // Redirect to delivery notes create page
+                            window.location.href = '/dashboard/delivery-notes/create';
+                        }
+                    });
+                }
+            } else if (response.data && response.data.stock_insufficient) {
+                // Fallback for old response format (shouldn't happen with new backend)
+                const availableQty = response.data.toko_available;
+                const requestedQty = response.data.requested_qty_kg;
+                const productName = product.name || "Produk";
+
+                Swal.fire({
+                    title: "Stok Toko Tidak Mencukupi",
+                    html: `
+                        <div class="text-left">
+                            <p class="mb-2"><strong>Produk:</strong> ${productName}</p>
+                            <p class="mb-2"><strong>Stok tersedia:</strong> ${availableQty} kg</p>
+                            <p class="mb-2"><strong>Jumlah diminta:</strong> ${requestedQty} kg</p>
+                            <p class="mb-4 text-red-600"><strong>Kekurangan:</strong> ${requestedQty - availableQty} kg</p>
+                            <p class="text-sm text-gray-600">Produk tetap ditambahkan ke keranjang. Stok akan diambil dari gudang saat memproses transaksi.</p>
+                        </div>
+                    `,
+                    icon: "warning",
+                    confirmButtonText: "OK, Lanjutkan",
+                    showCancelButton: false,
+                }).then(() => {
+                    // Still add to cart but with stock insufficiency flag
+                    toast.warning("Produk ditambahkan ke keranjang - stok akan diambil dari gudang saat transaksi");
+                    setBarcode("");
+                    setProduct({});
+                    setStokToko(null);
+                    setPakaiStokToko(false);
+                    setSellingPrice("");
+                    setQty("");
+                    setUseSuratJalan(false);
+                    // Refresh page to update cart
+                    router.reload({ only: ["carts", "carts_total"] });
+                });
             } else {
                 toast.error(
                     response.data.message || "Gagal menambah ke keranjang"
@@ -427,6 +583,11 @@ export default function IndexShadcn() {
             return;
         }
 
+        if (!selectedWarehouse) {
+            toast.error("Pilih gudang terlebih dahulu");
+            return;
+        }
+
         // Safe number parsing
         const total = isNaN(parseFloat(carts_total))
             ? 0
@@ -470,11 +631,20 @@ export default function IndexShadcn() {
 
         setIsProcessingTransaction(true);
         try {
+            // Validate all cart items have required data
+            const invalidItems = carts.filter(cart =>
+                !cart.product?.id || !cart.unit?.id || !cart.price || cart.qty <= 0
+            );
+            if (invalidItems.length > 0) {
+                toast.error("Ada item dalam keranjang yang tidak valid. Hapus dan tambahkan ulang.");
+                return;
+            }
+
             // Prepare transaction items from cart
             const items = carts.map((cart) => ({
-                product_id: cart.product?.id,
+                product_id: cart.product.id,
                 qty: cart.qty,
-                unit_id: cart.unit?.id,
+                unit_id: cart.unit.id,
                 price: cart.price,
             }));
 
@@ -501,24 +671,28 @@ export default function IndexShadcn() {
             const paymentMethod =
                 useDepositPayment && depositPayment > 0 ? "deposit" : "cash";
 
+            // Debug log the request data
+            const requestData = {
+                warehouse_id: selectedWarehouse,
+                customer_id: selectedCustomer,
+                cash: cashAmount,
+                change: finalChange,
+                discount: discountAmount,
+                grand_total: grandTotal,
+                payment_method: paymentMethod,
+                is_tempo: false,
+                is_deposit: useDepositPayment && depositPayment > 0,
+                deposit_amount: useDepositPayment ? depositPayment : 0,
+                add_change_to_deposit: useChangeAsDeposit,
+                change_to_deposit_amount: finalDepositAmount,
+                print: false, // Prevent auto redirect to print page
+                items: items,
+            };
+            console.log("[DEBUG] Request data:", requestData);
+
             const response = await axios.post(
                 "/dashboard/transactions/store",
-                {
-                    warehouse_id: selectedWarehouse,
-                    customer_id: selectedCustomer,
-                    cash: cashAmount,
-                    change: finalChange,
-                    discount: discountAmount,
-                    grand_total: grandTotal,
-                    payment_method: paymentMethod,
-                    is_tempo: false,
-                    is_deposit: useDepositPayment && depositPayment > 0,
-                    deposit_amount: useDepositPayment ? depositPayment : 0,
-                    add_change_to_deposit: useChangeAsDeposit,
-                    change_to_deposit_amount: finalDepositAmount,
-                    print: false, // Prevent auto redirect to print page
-                    items: items,
-                },
+                requestData,
                 {
                     headers: {
                         "Content-Type": "application/json",
@@ -573,6 +747,17 @@ export default function IndexShadcn() {
             console.error("Error response:", error.response?.data);
 
             if (error.response?.status === 422) {
+                // Handle stock insufficiency errors
+                if (error.response.data.stock_error) {
+                    Swal.fire({
+                        title: "Stok Tidak Mencukupi",
+                        html: error.response.data.message,
+                        icon: "warning",
+                        confirmButtonText: "OK",
+                    });
+                    return;
+                }
+
                 const errors = error.response.data.errors;
                 if (errors) {
                     const errorMessages = Object.values(errors)
@@ -684,7 +869,7 @@ export default function IndexShadcn() {
                     <CardContent>
                         <div className="space-y-4">
                             {/* Transaction Number Field */}
-                            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                            {/* <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                                 <div>
                                     <label className="block mb-2 text-sm font-medium text-foreground">
                                         No. Transaksi
@@ -724,7 +909,7 @@ export default function IndexShadcn() {
                                             title="Refresh nomor urut"
                                         >
                                             {isLoadingSequence ? (
-                                                <div className="w-4 h-4 border-2 border-gray-300 border-t-blue-600 rounded-full animate-spin"></div>
+                                                <div className="w-4 h-4 border-2 border-gray-300 rounded-full border-t-blue-600 animate-spin"></div>
                                             ) : (
                                                 <svg
                                                     className="w-4 h-4"
@@ -752,12 +937,16 @@ export default function IndexShadcn() {
                                         )}
                                     </p>
                                 </div>
-                            </div>
+                            </div> */}
 
                             {/* Original TransactionInfo Component */}
                             <TransactionInfo
                                 location={page.props.location}
                                 auth={auth}
+                                selectedDate={selectedDate}
+                                transactionNumber={transactionNumber}
+                                isLoadingSequence={isLoadingSequence}
+                                onDateChange={handleDateChange}
                             />
                         </div>
                     </CardContent>

@@ -125,8 +125,8 @@ export default function ProductForm({
     const unitConversion = Number(product.unit?.conversion_to_kg) || 1;
     const safeUnitConversion =
         isNaN(unitConversion) ||
-        !isFinite(unitConversion) ||
-        unitConversion <= 0
+            !isFinite(unitConversion) ||
+            unitConversion <= 0
             ? 1
             : unitConversion;
 
@@ -170,10 +170,10 @@ export default function ProductForm({
             <CardContent className="space-y-4">
                 {/* Barcode Search */}
                 <div className="space-y-2">
-                    <Label htmlFor="barcode" className="text-sm font-medium">
+                    <Label htmlFor="barcode" className="text-sm font-medium ">
                         Barcode / Nama Produk
                     </Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2  rounded w-fit py-1 px-2">
                         <Input
                             id="barcode"
                             type="text"
@@ -181,7 +181,7 @@ export default function ProductForm({
                             onChange={(e) => setBarcode(e.target.value)}
                             onKeyDown={handleBarcodeKeyDown}
                             placeholder="Scan barcode atau ketik nama produk..."
-                            className="flex-1"
+                            className="flex-1 bg-sky-500/10 focus:bg-sky-500/20 border-sky-500"
                             disabled={isLoadingProduct}
                         />
                         <Button
@@ -214,9 +214,12 @@ export default function ProductForm({
 
                     {/* Status Gudang & Toko */}
                     {(selectedWarehouse || selectedToko) && (
-                        <div className="flex flex-wrap gap-2 mt-2">
+                        <div className="flex flex-wrap gap-2 mt-3 ">
                             {selectedWarehouse && (
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge
+                                    variant="secondary"
+                                    className="text-sm shadow-sm mt-3 border-blue-600 text-blue-700 bg-blue-50/50"
+                                >
                                     📦 Gudang:{" "}
                                     {warehouses.find(
                                         (w) => w.id === selectedWarehouse
@@ -224,7 +227,10 @@ export default function ProductForm({
                                 </Badge>
                             )}
                             {selectedToko && (
-                                <Badge variant="secondary" className="text-xs">
+                                <Badge
+                                    variant="secondary"
+                                    className="text-sm shadow-sm mt-3 border-green-600 text-green-700 bg-green-50/50"
+                                >
                                     🏪 Toko: {selectedToko.name || "Default"}
                                 </Badge>
                             )}
@@ -248,7 +254,7 @@ export default function ProductForm({
                                 setSelectedSubcategory(null);
                             }}
                         >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-8/12 text-sm  py-1 px-2 text-gray-700 border-blue-400 border-2 hover:bg-blue-500 hover:text-white transition-colors duration-200 ease-in-out">
                                 <SelectValue placeholder="Pilih kategori" />
                             </SelectTrigger>
                             <SelectContent>
@@ -286,7 +292,7 @@ export default function ProductForm({
                             }
                             disabled={!selectedCategory}
                         >
-                            <SelectTrigger>
+                            <SelectTrigger className="w-8/12 text-sm  py-1 px-2 text-gray-700 border-blue-400 border-2 hover:bg-blue-500 hover:text-white transition-colors duration-200 ease-in-out">
                                 <SelectValue placeholder="Pilih sub kategori" />
                             </SelectTrigger>
                             <SelectContent>
@@ -329,7 +335,7 @@ export default function ProductForm({
                                     }
                                 }}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger className="w-8/12 text-sm  py-1 px-2 text-gray-700 border-blue-400 border-2 hover:bg-blue-500 hover:text-white transition-colors duration-200 ease-in-out">
                                     <SelectValue placeholder="Pilih produk dari daftar" />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -433,34 +439,6 @@ export default function ProductForm({
                     </div>
                 </div>
 
-                {/* Unit Selection */}
-                <div className="space-y-2">
-                    <Label className="text-sm font-medium">Unit Satuan</Label>
-                    <Select
-                        value={selectedUnit?.toString() || ""}
-                        onValueChange={(value) => {
-                            setSelectedUnit(value ? parseInt(value) : null);
-                        }}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Pilih unit satuan" />
-                        </SelectTrigger>
-                        <SelectContent>
-                            <SelectItem value="all">Semua Unit</SelectItem>
-                            {units.map((unit) => (
-                                <SelectItem
-                                    key={unit.id}
-                                    value={
-                                        unit.id?.toString() || `unit-${unit.id}`
-                                    }
-                                >
-                                    {unit.name}
-                                </SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
-                </div>
-
                 {/* Product Info */}
                 {product && Object.keys(product).length > 0 && (
                     <div className="p-4 space-y-4 border rounded-lg bg-muted/30">
@@ -513,11 +491,11 @@ export default function ProductForm({
                                             ).toLocaleString("id-ID")}
                                             {(!product.purchase_price ||
                                                 product.purchase_price <=
-                                                    0) && (
-                                                <span className="ml-1 text-xs">
-                                                    ⚠️
-                                                </span>
-                                            )}
+                                                0) && (
+                                                    <span className="ml-1 text-xs">
+                                                        ⚠️
+                                                    </span>
+                                                )}
                                         </span>
                                     </p>
                                     <p>
@@ -528,23 +506,23 @@ export default function ProductForm({
                                             className={cn(
                                                 "text-foreground",
                                                 warehouseStock <= 0 &&
-                                                    "text-destructive",
+                                                "text-destructive",
                                                 !pakaiStokToko &&
-                                                    "font-bold text-primary"
+                                                "font-bold text-primary"
                                             )}
                                         >
                                             {formatNumber(warehouseStock)}{" "}
                                             {product.unit?.name || "unit"}
                                             {Number(warehouseStockKg) !==
                                                 Number(warehouseStock) && (
-                                                <span className="ml-1 text-xs text-muted-foreground">
-                                                    (
-                                                    {formatNumber(
-                                                        warehouseStockKg
-                                                    )}{" "}
-                                                    kg)
-                                                </span>
-                                            )}
+                                                    <span className="ml-1 text-xs text-muted-foreground">
+                                                        (
+                                                        {formatNumber(
+                                                            warehouseStockKg
+                                                        )}{" "}
+                                                        kg)
+                                                    </span>
+                                                )}
                                             {warehouseStock <= 0 && (
                                                 <span className="ml-1 text-xs">
                                                     ⚠️
@@ -566,9 +544,9 @@ export default function ProductForm({
                                             className={cn(
                                                 "text-foreground",
                                                 storeStock <= 0 &&
-                                                    "text-destructive",
+                                                "text-destructive",
                                                 pakaiStokToko &&
-                                                    "font-bold text-primary"
+                                                "font-bold text-primary"
                                             )}
                                         >
                                             {formatNumber(storeStock)}{" "}
@@ -686,6 +664,40 @@ export default function ProductForm({
                                     Disarankan kelipatan 50 untuk efisiensi
                                 </span>
                             </div>
+                            {/* Unit Selection */}
+                            <div className="space-y-2">
+                                <Label className="text-sm font-medium">
+                                    Unit Satuan
+                                </Label>
+                                <Select
+                                    value={selectedUnit?.toString() || ""}
+                                    onValueChange={(value) => {
+                                        setSelectedUnit(
+                                            value ? parseInt(value) : null
+                                        );
+                                    }}
+                                >
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Pilih unit satuan" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">
+                                            Semua Unit
+                                        </SelectItem>
+                                        {units.map((unit) => (
+                                            <SelectItem
+                                                key={unit.id}
+                                                value={
+                                                    unit.id?.toString() ||
+                                                    `unit-${unit.id}`
+                                                }
+                                            >
+                                                {unit.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
                         </div>
 
                         {/* Stock Source Options */}
@@ -715,11 +727,11 @@ export default function ProductForm({
                                         {product.unit?.name || "unit"})
                                         {Number(storeStockKg) !==
                                             Number(storeStock) && (
-                                            <span className="ml-1 text-xs text-muted-foreground">
-                                                ({formatNumber(storeStockKg)}{" "}
-                                                kg)
-                                            </span>
-                                        )}
+                                                <span className="ml-1 text-xs text-muted-foreground">
+                                                    ({formatNumber(storeStockKg)}{" "}
+                                                    kg)
+                                                </span>
+                                            )}
                                         <span className="px-2 py-1 ml-2 text-xs rounded bg-primary text-primary-foreground">
                                             OTOMATIS
                                         </span>
@@ -776,14 +788,14 @@ export default function ProductForm({
                                             {product.unit?.name || "unit"})
                                             {warehouseStockKg !==
                                                 warehouseStock && (
-                                                <span className="ml-1 text-xs text-muted-foreground">
-                                                    (
-                                                    {formatNumber(
-                                                        warehouseStockKg
-                                                    )}{" "}
-                                                    kg)
-                                                </span>
-                                            )}
+                                                    <span className="ml-1 text-xs text-muted-foreground">
+                                                        (
+                                                        {formatNumber(
+                                                            warehouseStockKg
+                                                        )}{" "}
+                                                        kg)
+                                                    </span>
+                                                )}
                                             {!hasWarehouseStock && (
                                                 <span className="px-2 py-1 ml-2 text-xs rounded text-destructive bg-destructive/10">
                                                     HABIS
@@ -823,16 +835,16 @@ export default function ProductForm({
                                                 ? storeStockKg
                                                 : warehouseStockKg) !==
                                                 currentStock && (
-                                                <span className="ml-1 text-muted-foreground">
-                                                    ={" "}
-                                                    {formatNumber(
-                                                        pakaiStokToko
-                                                            ? storeStockKg
-                                                            : warehouseStockKg
-                                                    )}{" "}
-                                                    kg
-                                                </span>
-                                            )}
+                                                    <span className="ml-1 text-muted-foreground">
+                                                        ={" "}
+                                                        {formatNumber(
+                                                            pakaiStokToko
+                                                                ? storeStockKg
+                                                                : warehouseStockKg
+                                                        )}{" "}
+                                                        kg
+                                                    </span>
+                                                )}
                                         </span>
                                     </p>
                                 </div>
@@ -860,6 +872,23 @@ export default function ProductForm({
                                     Centang jika transaksi ini menggunakan surat
                                     jalan
                                 </p>
+
+                                {/* Delivery Order Button - Show when checkbox is checked */}
+                                {useSuratJalan && (
+                                    <div className="pl-8 pt-2">
+                                        <Button
+                                            onClick={() => window.open('/dashboard/delivery-notes', '_blank')}
+                                            variant="outline"
+                                            size="sm"
+                                            className="w-full sm:w-auto"
+                                        >
+                                            📋 Kelola Surat Jalan
+                                        </Button>
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                            Buka modul surat jalan otomatis untuk mengelola pengiriman
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
 
@@ -888,18 +917,18 @@ export default function ProductForm({
                                 <div className="space-y-1">
                                     {(!product.purchase_price ||
                                         product.purchase_price <= 0) && (
-                                        <p className="text-xs font-medium text-destructive">
-                                            ⚠️ Produk tidak memiliki harga
-                                            pembelian yang valid
-                                        </p>
-                                    )}
+                                            <p className="text-xs font-medium text-destructive">
+                                                ⚠️ Produk tidak memiliki harga
+                                                pembelian yang valid
+                                            </p>
+                                        )}
                                     {(!sellingPrice ||
                                         parseFloat(sellingPrice) <= 0) && (
-                                        <p className="text-xs font-medium text-destructive">
-                                            ⚠️ Harga jual harus diisi dan lebih
-                                            dari 0
-                                        </p>
-                                    )}
+                                            <p className="text-xs font-medium text-destructive">
+                                                ⚠️ Harga jual harus diisi dan lebih
+                                                dari 0
+                                            </p>
+                                        )}
                                     {(!qty || parseInt(qty) <= 0) && (
                                         <p className="text-xs font-medium text-destructive">
                                             ⚠️ Qty harus diisi dan lebih dari 0

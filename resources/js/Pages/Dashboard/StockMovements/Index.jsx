@@ -100,20 +100,38 @@ export default function Index({
         return labels[type] || type;
     };
 
+    const formatWeight = (weight) => {
+        const num = parseFloat(weight);
+
+        // Format number to show appropriate decimal places
+        if (num % 1 === 0) {
+            // Whole number, no decimals
+            return num.toString();
+        } else if (num * 2 % 1 === 0) {
+            // Ends with .5, show 1 decimal
+            return num.toFixed(1);
+        } else {
+            // Other decimals, show 2 decimals
+            return num.toFixed(2);
+        }
+    };
+
     const formatQuantity = (quantity) => {
-        const isPositive = parseFloat(quantity) >= 0;
+        const num = parseFloat(quantity);
+        const absNum = Math.abs(num);
+        const isPositive = num >= 0;
+
         return (
             <span
-                className={`flex items-center ${
-                    isPositive ? "text-green-600" : "text-red-600"
-                }`}
+                className={`flex items-center ${isPositive ? "text-green-600" : "text-red-600"
+                    }`}
             >
                 {isPositive ? (
                     <ArrowUp className="w-4 h-4 mr-1" />
                 ) : (
                     <ArrowDown className="w-4 h-4 mr-1" />
                 )}
-                {Math.abs(parseFloat(quantity)).toFixed(2)} kg
+                {formatWeight(absNum)} kg
             </span>
         );
     };
@@ -453,9 +471,9 @@ export default function Index({
                                                             )}
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-gray-100">
-                                                            {parseFloat(
+                                                            {formatWeight(
                                                                 movement.balance_after
-                                                            ).toFixed(2)}{" "}
+                                                            )}{" "}
                                                             kg
                                                         </td>
                                                         <td className="px-6 py-4 whitespace-nowrap">
@@ -530,13 +548,12 @@ export default function Index({
                                                         router.get(link.url)
                                                     }
                                                     disabled={!link.url}
-                                                    className={`px-3 py-1 text-sm rounded ${
-                                                        link.active
-                                                            ? "bg-blue-500 text-white"
-                                                            : link.url
+                                                    className={`px-3 py-1 text-sm rounded ${link.active
+                                                        ? "bg-blue-500 text-white"
+                                                        : link.url
                                                             ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
                                                             : "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                                    }`}
+                                                        }`}
                                                     dangerouslySetInnerHTML={{
                                                         __html: link.label,
                                                     }}

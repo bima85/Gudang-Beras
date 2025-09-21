@@ -136,7 +136,21 @@ class ProductController extends Controller
                 $productData['barcode'] = $request->barcode ?? 'BRC_' . Str::random(8);
                 $productData['category_id'] = $request->category_id;
                 $productData['subcategory_id'] = $request->subcategory_id;
-                $productData['unit_id'] = $request->unit_id ?? 1; // Default unit
+
+                // Only set unit_id if provided and valid, otherwise leave null
+                if ($request->unit_id) {
+                    $productData['unit_id'] = $request->unit_id;
+                } else {
+                    // Try to get the first available unit as fallback
+                    $firstUnit = \App\Models\Unit::first();
+                    if ($firstUnit) {
+                        $productData['unit_id'] = $firstUnit->id;
+                    } else {
+                        // If no units exist, we can't create product
+                        throw new \Exception('No units available. Please create a unit first.');
+                    }
+                }
+
                 $productData['min_stock'] = $request->min_stock ?? 0;
             } else {
                 // For form submissions
@@ -171,10 +185,26 @@ class ProductController extends Controller
 
             return to_route('products.index')->with('success', 'Data produk berhasil disimpan.');
         } catch (\Exception $e) {
-            Log::error('Gagal menyimpan produk:', ['message' => $e->getMessage()]);
+            Log::error('Gagal menyimpan produk:', [
+                'message' => $e->getMessage(),
+                'request_data' => $request->all(),
+                'user_id' => Auth::id(),
+                'trace' => $e->getTraceAsString()
+            ]);
 
             if ($request->expectsJson()) {
-                return response()->json(['message' => 'Failed to create product. Please try again.'], 500);
+                $errorMessage = 'Failed to create product. Please try again.';
+
+                // Provide more specific error messages for common issues
+                if (strpos($e->getMessage(), 'unit_id_foreign') !== false) {
+                    $errorMessage = 'Invalid unit selected. Please choose a valid unit.';
+                } elseif (strpos($e->getMessage(), 'category_id_foreign') !== false) {
+                    $errorMessage = 'Invalid category selected. Please choose a valid category.';
+                } elseif (strpos($e->getMessage(), 'subcategory_id_foreign') !== false) {
+                    $errorMessage = 'Invalid subcategory selected. Please choose a valid subcategory.';
+                }
+
+                return response()->json(['message' => $errorMessage], 500);
             }
 
             return back()->withErrors(['error' => 'Gagal menyimpan produk. Silakan coba lagi.']);

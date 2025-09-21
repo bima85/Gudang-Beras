@@ -1,4 +1,14 @@
 import React from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/Components/ui/dialog";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
 
 export default function SupplierManualModal({
     show,
@@ -6,78 +16,74 @@ export default function SupplierManualModal({
     onSubmit,
     manualSupplier,
     onChange,
+    errors = {},
+    submitting = false,
 }) {
-    if (!show) return null;
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-40">
-            <div className="bg-white rounded shadow-lg p-6 w-full max-w-md relative">
-                <button
-                    className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
-                    onClick={onClose}
-                    type="button"
-                >
-                    &times;
-                </button>
-                <h3 className="text-lg font-semibold mb-4">
-                    Tambah Supplier Manual
-                </h3>
+        <Dialog open={show} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                    <DialogTitle>Tambah Supplier Manual</DialogTitle>
+                    <DialogDescription>
+                        Masukkan informasi supplier yang akan ditambahkan secara
+                        manual.
+                    </DialogDescription>
+                </DialogHeader>
                 <div className="space-y-4">
-                    <div>
-                        <label className="block mb-1 font-medium">
-                            Nama Supplier
-                        </label>
-                        <input
+                    <div className="space-y-2">
+                        <Label htmlFor="supplier-name">Nama Supplier</Label>
+                        <Input
+                            id="supplier-name"
                             type="text"
                             name="name"
                             value={manualSupplier.name}
                             onChange={onChange}
-                            className="form-input w-full"
+                            placeholder="Masukkan nama supplier"
                             required
                         />
+                        {errors.name && (
+                            <p className="mt-1 text-sm text-red-600">{errors.name[0]}</p>
+                        )}
                     </div>
-                    <div>
-                        <label className="block mb-1 font-medium">
-                            Alamat Supplier
-                        </label>
-                        <input
+                    <div className="space-y-2">
+                        <Label htmlFor="supplier-address">Alamat Supplier</Label>
+                        <Input
+                            id="supplier-address"
                             type="text"
                             name="address"
                             value={manualSupplier.address}
                             onChange={onChange}
-                            className="form-input w-full"
+                            placeholder="Masukkan alamat supplier"
                             required
                         />
+                        {errors.address && (
+                            <p className="mt-1 text-sm text-red-600">{errors.address[0]}</p>
+                        )}
                     </div>
-                    <div>
-                        <label className="block mb-1 font-medium">
-                            No. Telepon Supplier
-                        </label>
-                        <input
+                    <div className="space-y-2">
+                        <Label htmlFor="supplier-phone">No. Telepon Supplier</Label>
+                        <Input
+                            id="supplier-phone"
                             type="text"
                             name="phone"
                             value={manualSupplier.phone}
                             onChange={onChange}
-                            className="form-input w-full"
+                            placeholder="Masukkan nomor telepon"
                         />
+                        {errors.phone && (
+                            <p className="mt-1 text-sm text-red-600">{errors.phone[0]}</p>
+                        )}
                     </div>
                     <div className="flex justify-end gap-2">
-                        <button
-                            type="button"
-                            className="px-3 py-1 rounded bg-gray-200 hover:bg-gray-300"
-                            onClick={onClose}
-                        >
+                        <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
                             Batal
-                        </button>
-                        <button
-                            type="button"
-                            className="px-3 py-1 rounded bg-blue-600 text-white hover:bg-blue-700"
-                            onClick={onSubmit}
-                        >
-                            Simpan
-                        </button>
+                        </Button>
+                        <Button type="button" onClick={onSubmit} disabled={submitting}>
+                            {submitting ? "Menyimpan..." : "Simpan"}
+                        </Button>
                     </div>
                 </div>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }

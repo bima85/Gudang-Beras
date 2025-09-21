@@ -8,6 +8,8 @@ use App\Models\Product;
 use App\Models\Customer;
 use App\Models\Category;
 use App\Models\TransactionDetail;
+use App\Models\Purchase;
+use App\Models\PurchaseItem;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Carbon\Carbon;
@@ -31,26 +33,47 @@ class DashboardController extends Controller
         if ($user && method_exists($user, 'hasRole') && $user->hasRole('super-admin')) {
             $today = Carbon::today();
 
+            // Force fresh data by using direct queries without caching
             $totalTransaksi = Transaction::whereDate('created_at', $today)->count();
             $totalOmzet = Transaction::whereDate('created_at', $today)->sum('grand_total');
             $totalPelanggan = Customer::count();
             $totalProduk = Product::count();
 
+            // Statistik pembelian - fresh data
+            $totalPembelianHariIni = Purchase::whereDate('purchase_date', $today)->count();
+            $totalNilaiPembelianHariIni = Purchase::whereDate('purchase_date', $today)->sum('total');
+            $totalPembelianBulanIni = Purchase::whereMonth('purchase_date', $today->month)
+                ->whereYear('purchase_date', $today->year)
+                ->sum('total');
+
+            // Fresh omzet data
             $omzet7Hari = Transaction::select(DB::raw('DATE(created_at) as tanggal'), DB::raw('SUM(grand_total) as omzet'))
                 ->where('created_at', '>=', Carbon::now()->subDays(6)->startOfDay())
                 ->groupBy(DB::raw('DATE(created_at)'))
                 ->orderBy('tanggal')
-                ->get();
+                ->get()
+                ->fresh(); // Ensure fresh data
 
+            // Fresh transaction data
             $transaksiTerakhir = Transaction::with(['cashier', 'customer'])
                 ->orderByDesc('created_at')
                 ->limit(10)
-                ->get();
+                ->get()
+                ->fresh();
 
+            // Fresh purchase data
+            $pembelianTerakhir = Purchase::with(['supplier', 'warehouse'])
+                ->orderByDesc('purchase_date')
+                ->limit(10)
+                ->get()
+                ->fresh();
+
+            // Fresh category data
             $kategoriProduk = [];
             $todayTrx = Transaction::with('details.product.category')
                 ->whereDate('created_at', now())
-                ->get();
+                ->get()
+                ->fresh();
             foreach ($todayTrx as $trx) {
                 foreach ($trx->details as $detail) {
                     $cat = $detail->product->category->name ?? '-';
@@ -65,9 +88,13 @@ class DashboardController extends Controller
                     'totalOmzet' => $totalOmzet,
                     'totalPelanggan' => $totalPelanggan,
                     'totalProduk' => $totalProduk,
+                    'totalPembelianHariIni' => $totalPembelianHariIni,
+                    'totalNilaiPembelianHariIni' => $totalNilaiPembelianHariIni,
+                    'totalPembelianBulanIni' => $totalPembelianBulanIni,
                 ],
                 'omzet7Hari' => $omzet7Hari,
                 'transaksiTerakhir' => $transaksiTerakhir,
+                'pembelianTerakhir' => $pembelianTerakhir,
                 'kategoriProduk' => $kategoriProduk,
                 'location' => $role,
                 'pageTitle' => 'Dashboard',
@@ -151,30 +178,47 @@ class DashboardController extends Controller
                 ]);
             }
 
-            // Toko: Full access to transactions and purchases
+            // Toko: Full access to transactions and purchases - fresh data
             $totalTransaksi = Transaction::whereDate('created_at', $today)->count();
             $totalOmzet = Transaction::whereDate('created_at', $today)->sum('grand_total');
             $totalPelanggan = Customer::count();
             $totalProduk = Product::count();
 
-            // 2. Grafik omzet 7 hari terakhir
+            // Statistik pembelian - fresh data
+            $totalPembelianHariIni = Purchase::whereDate('purchase_date', $today)->count();
+            $totalNilaiPembelianHariIni = Purchase::whereDate('purchase_date', $today)->sum('total');
+            $totalPembelianBulanIni = Purchase::whereMonth('purchase_date', $today->month)
+                ->whereYear('purchase_date', $today->year)
+                ->sum('total');
+
+            // 2. Grafik omzet 7 hari terakhir - fresh data
             $omzet7Hari = Transaction::select(DB::raw('DATE(created_at) as tanggal'), DB::raw('SUM(grand_total) as omzet'))
                 ->where('created_at', '>=', Carbon::now()->subDays(6)->startOfDay())
                 ->groupBy(DB::raw('DATE(created_at)'))
                 ->orderBy('tanggal')
-                ->get();
+                ->get()
+                ->fresh();
 
-            // 3. Transaksi terakhir
+            // 3. Transaksi terakhir - fresh data
             $transaksiTerakhir = Transaction::with(['cashier', 'customer'])
                 ->orderByDesc('created_at')
                 ->limit(10)
-                ->get();
+                ->get()
+                ->fresh();
 
-            // Kategori produk realtime: hitung jumlah produk per kategori dari transaksi hari ini
+            // Pembelian terakhir - fresh data
+            $pembelianTerakhir = Purchase::with(['supplier', 'warehouse'])
+                ->orderByDesc('purchase_date')
+                ->limit(10)
+                ->get()
+                ->fresh();
+
+            // Kategori produk realtime: hitung jumlah produk per kategori dari transaksi hari ini - fresh data
             $kategoriProduk = [];
             $todayTrx = Transaction::with('details.product.category')
                 ->whereDate('created_at', now())
-                ->get();
+                ->get()
+                ->fresh();
             foreach ($todayTrx as $trx) {
                 foreach ($trx->details as $detail) {
                     $cat = $detail->product->category->name ?? '-';
@@ -189,9 +233,13 @@ class DashboardController extends Controller
                     'totalOmzet' => $totalOmzet,
                     'totalPelanggan' => $totalPelanggan,
                     'totalProduk' => $totalProduk,
+                    'totalPembelianHariIni' => $totalPembelianHariIni,
+                    'totalNilaiPembelianHariIni' => $totalNilaiPembelianHariIni,
+                    'totalPembelianBulanIni' => $totalPembelianBulanIni,
                 ],
                 'omzet7Hari' => $omzet7Hari,
                 'transaksiTerakhir' => $transaksiTerakhir,
+                'pembelianTerakhir' => $pembelianTerakhir,
                 'kategoriProduk' => $kategoriProduk,
                 'location' => $role,
                 'pageTitle' => 'Dashboard Toko',

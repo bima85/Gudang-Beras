@@ -315,13 +315,12 @@ export default function Edit({
                                             </label>
                                             <div className="p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
                                                 <span
-                                                    className={`font-bold ${
-                                                        parseFloat(
-                                                            stockMovement.quantity_in_kg
-                                                        ) >= 0
+                                                    className={`font-bold ${parseFloat(
+                                                        stockMovement.quantity_in_kg
+                                                    ) >= 0
                                                             ? "text-green-600"
                                                             : "text-red-600"
-                                                    }`}
+                                                        }`}
                                                 >
                                                     {parseFloat(
                                                         stockMovement.quantity_in_kg
@@ -368,7 +367,11 @@ export default function Edit({
                                                     {new Date(
                                                         stockMovement.created_at
                                                     ).toLocaleTimeString(
-                                                        "id-ID"
+                                                        "id-ID",
+                                                        {
+                                                            hour: "2-digit",
+                                                            minute: "2-digit",
+                                                        }
                                                     )}
                                                 </div>
                                             </div>

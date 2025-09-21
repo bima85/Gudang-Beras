@@ -21,6 +21,8 @@ export default function Create({ categories, units, subcategories }) {
         description: "",
     });
 
+    const [barcodeTouched, setBarcodeTouched] = useState(false);
+
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [filteredSubcategories, setFilteredSubcategories] = useState([]);
     const [selectedSubcategory, setSelectedSubcategory] = useState(null);
@@ -43,6 +45,56 @@ export default function Create({ categories, units, subcategories }) {
         }
     }, [selectedCategory, subcategories]);
 
+    // Auto-generate barcode when category, subcategory, or product name changes
+    useEffect(() => {
+        if (barcodeTouched) return;
+
+        if (selectedCategory && selectedSubcategory) {
+            const getCode = (item) => {
+                if (!item) return "";
+                if (item.code && String(item.code).trim().length > 0)
+                    return String(item.code).toUpperCase();
+
+                const name = String(item.name || "").trim();
+                if (name.length === 0) return "";
+
+                if (!/\s+/.test(name)) {
+                    const alnum = name.replace(/[^a-z0-9]/gi, "");
+                    return alnum.toUpperCase().slice(0, 3);
+                }
+
+                return name
+                    .split(/\s+/)
+                    .map((w) => w.charAt(0))
+                    .join("")
+                    .toUpperCase()
+                    .slice(0, 3);
+            };
+
+            const sanitizeProductName = (n) => {
+                if (!n) return "";
+                // remove non-alphanum, collapse spaces, capitalize first letters
+                const cleaned = String(n)
+                    .replace(/[^a-z0-9\s]/gi, " ")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                if (cleaned.length === 0) return "";
+                // join words without spaces, capitalize first letter of each word
+                return cleaned
+                    .split(/\s+/)
+                    .map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w.charAt(0).toUpperCase() + w.slice(1)))
+                    .join("");
+            };
+
+            const catCode = getCode(selectedCategory);
+            const subCode = getCode(selectedSubcategory);
+            const namePart = sanitizeProductName(data.name).replace(/\s+/g, "");
+
+            const generated = `${catCode}${subCode}${namePart}`;
+            setData("barcode", generated);
+        }
+    }, [selectedCategory, selectedSubcategory, data.name, barcodeTouched, setData]);
+
     const setSelectedCategoryHandler = (value) => {
         setSelectedCategory(value);
         setData("category_id", value ? Number(value.id) : "");
@@ -51,6 +103,12 @@ export default function Create({ categories, units, subcategories }) {
     const setSelectedSubcategoryHandler = (value) => {
         setSelectedSubcategory(value);
         setData("subcategory_id", value ? Number(value.id) : "");
+    };
+
+    // Track manual edits to barcode so auto-generation won't override
+    const handleBarcodeChange = (val) => {
+        setBarcodeTouched(true);
+        setData("barcode", val);
     };
 
     const submit = (e) => {
@@ -167,7 +225,7 @@ export default function Create({ categories, units, subcategories }) {
                             type="text"
                             label="Kode Produk/Barcode"
                             value={data.barcode}
-                            onChange={(e) => setData("barcode", e.target.value)}
+                            onChange={(e) => handleBarcodeChange(e.target.value)}
                             error={errors.barcode}
                             placeholder="Barcode"
                         />

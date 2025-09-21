@@ -18,6 +18,7 @@ export default function AuthDropdown({ auth, isMobile }) {
     const [isOpen, setIsOpen] = useState(false);
     // define ref dropdown
     const dropdownRef = useRef(null);
+    const overlayRef = useRef(null);
 
     // define method handleClickOutside
     const handleClickOutside = (event) => {
@@ -42,6 +43,32 @@ export default function AuthDropdown({ auth, isMobile }) {
             window.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
+
+    // Listen for a global mobile toggle event (dispatched from Navbar hamburger)
+    useEffect(() => {
+        const onToggleMobile = () => setIsToggle((v) => !v);
+        window.addEventListener("toggleMobileMenu", onToggleMobile);
+        return () => window.removeEventListener("toggleMobileMenu", onToggleMobile);
+    }, []);
+
+    // Prevent body scroll when mobile drawer is open and handle Escape key
+    useEffect(() => {
+        const onKey = (e) => {
+            if (e.key === "Escape") setIsToggle(false);
+        };
+        if (isToggle) {
+            document.body.style.overflow = "hidden";
+            window.addEventListener("keydown", onKey);
+        } else {
+            document.body.style.overflow = "";
+            window.removeEventListener("keydown", onKey);
+        }
+
+        return () => {
+            document.body.style.overflow = "";
+            window.removeEventListener("keydown", onKey);
+        };
+    }, [isToggle]);
 
     // define function logout
     const logout = async (e) => {
@@ -74,7 +101,7 @@ export default function AuthDropdown({ auth, isMobile }) {
                         leaveFrom="transform scale-100 opacity-100"
                         leaveTo="transform scale-95 opacity-0"
                     >
-                        <Menu.Items className="absolute rounded-lg w-48 border mt-2 py-2 right-0 z-[100] bg-white dark:bg-gray-950 dark:border-gray-900">
+                        <Menu.Items className="absolute rounded-lg w-48 border mt-2 py-2 right-0 z-[100] bg-popover border-border">
                             <div className="flex flex-col gap-1.5 divide-y divide-gray-100 dark:divide-gray-900">
                                 {/* <Menu.Item>
                                     <Link href="/apps/profile" className='px-3 py-1.5 text-sm flex items-center gap-2 text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-gray-200'>
@@ -101,7 +128,20 @@ export default function AuthDropdown({ auth, isMobile }) {
                 <div ref={dropdownRef}>
                     <button
                         className="flex items-center group"
-                        onClick={() => setIsToggle(!isToggle)}
+                        onClick={() => {
+                            const next = !isToggle;
+                            setIsToggle(next);
+                            // only request sidebar close when opening drawer on small screens
+                            if (next && window.matchMedia && window.matchMedia('(max-width: 767px)').matches) {
+                                try {
+                                    window.dispatchEvent(new CustomEvent('closeSidebar'));
+                                } catch (e) {
+                                    const ev = document.createEvent('Event');
+                                    ev.initEvent('closeSidebar', true, true);
+                                    window.dispatchEvent(ev);
+                                }
+                            }
+                        }}
                     >
                         <img
                             src={
@@ -114,19 +154,30 @@ export default function AuthDropdown({ auth, isMobile }) {
                             className="w-10 h-10 rounded-full"
                         />
                     </button>
-                    <div
-                        className={`${
-                            isToggle
-                                ? "translate-x-0 opacity-100"
-                                : "-translate-x-full"
-                        } fixed top-0 left-0 z-50 w-[300px] h-full transition-all duration-300 transform border-r bg-white dark:bg-gray-950 dark:border-gray-900`}
-                    >
-                        <div className="flex justify-center items-center px-6 py-2 h-16">
-                            <div className="text-2xl font-bold text-center leading-loose tracking-wider text-gray-900 dark:text-gray-200">
+                        {/* Overlay behind drawer (mobile only) */}
+                        <div
+                            ref={overlayRef}
+                            onClick={() => setIsToggle(false)}
+                            className={`${
+                                isToggle ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                            } fixed inset-0 bg-black/40 z-40 transition-opacity duration-200 md:hidden`}
+                            aria-hidden={isToggle ? "false" : "true"}
+                        />
+
+                        <div
+                            role="dialog"
+                            aria-modal="true"
+                            aria-label="User menu"
+                            className={`${
+                                isToggle ? "translate-x-0 opacity-100" : "-translate-x-full"
+                            } fixed top-0 left-0 z-50 w-full max-w-xs h-full transition-all duration-300 transform border-r bg-popover border-border md:hidden`}
+                        >
+                        <div className="flex items-center justify-center h-16 px-6 py-2">
+                            <div className="text-2xl font-bold leading-loose tracking-wider text-center text-foreground">
                                 KASIR
                             </div>
                         </div>
-                        <div className="w-full p-3 flex items-center gap-4 border-b border-t dark:bg-gray-950/50 dark:border-gray-900">
+                        <div className="flex items-center w-full gap-4 p-3 border-t border-b bg-popover/70 border-border">
                             <img
                                 src={
                                     auth.user.avatar
@@ -134,25 +185,26 @@ export default function AuthDropdown({ auth, isMobile }) {
                                         : "https://ui-avatars.com/api/?name=" +
                                           auth.user.name
                                 }
+                                alt={auth.user.name}
                                 className="w-12 h-12 rounded-full"
                             />
                             <div className="flex flex-col gap-0.5">
-                                <div className="text-sm font-semibold capitalize text-gray-700 dark:text-gray-50">
+                                <div className="text-sm font-semibold text-foreground capitalize">
                                     {auth.user.name}
                                 </div>
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                <div className="text-xs text-muted-foreground">
                                     {auth.user.email}
                                 </div>
                             </div>
                         </div>
-                        <div className="w-full flex flex-col overflow-y-auto">
+                        <div className="flex flex-col w-full overflow-y-auto touch-pan-y">
                             {menuNavigation.map(
                                 (item, index) =>
                                     item.details.some(
                                         (detail) => detail.permissions === true
                                     ) && (
                                         <div key={index}>
-                                            <div className="text-gray-500 text-xs py-3 px-4 font-bold uppercase">
+                                            <div className="px-4 py-3 text-xs font-bold text-gray-500 uppercase">
                                                 {item.title}
                                             </div>
                                             {item.details.map(

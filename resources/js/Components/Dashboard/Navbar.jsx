@@ -43,14 +43,23 @@ export default function Navbar({ toggleSidebar, themeSwitcher, darkMode }) {
     });
 
     return (
-        <div className="py-4 px-4 md:px-6 flex justify-between items-center min-w-full sticky top-0 z-[30] h-16 border-b bg-white/95 backdrop-blur-sm dark:border-gray-900 dark:bg-gray-950/95 shadow-sm">
+        <div className="py-4 px-4 md:px-6 flex justify-between items-center min-w-full sticky top-0 z-[30] h-16 border-b border-border bg-card/95 backdrop-blur-sm shadow-sm">
             <div className="flex items-center gap-4">
                 {/* Hamburger menu for mobile & desktop */}
                 <Button
                     variant="ghost"
                     size="sm"
                     className="text-gray-700 dark:text-gray-400 p-2 md:hidden"
-                    onClick={toggleSidebar}
+                    onClick={() => {
+                        // On mobile, request the layout to toggle the sidebar drawer
+                        try {
+                            window.dispatchEvent(new CustomEvent('toggleSidebarMobile'));
+                        } catch (e) {
+                            const ev = document.createEvent('Event');
+                            ev.initEvent('toggleSidebarMobile', true, true);
+                            window.dispatchEvent(ev);
+                        }
+                    }}
                     aria-label="Buka sidebar"
                 >
                     <Menu size={24} />
@@ -64,7 +73,7 @@ export default function Navbar({ toggleSidebar, themeSwitcher, darkMode }) {
                 >
                     <Menu size={20} />
                 </Button>
-                <div className="flex flex-row items-center gap-1 md:border-l-2 md:border-double md:px-4 dark:border-gray-700">
+                <div className="flex flex-row items-center gap-1 md:border-l-2 md:border-double md:px-4 border-border">
                     {/* {links.map((link, i) => (
                         link.hasOwnProperty('subdetails') ?
                             sublinks.map((sublink, x) => sublink.active === true && <span className='font-semibold text-sm md:text-base text-gray-700 dark:text-gray-400' key={x}>{sublink.title}</span>)
@@ -96,7 +105,7 @@ export default function Navbar({ toggleSidebar, themeSwitcher, darkMode }) {
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                <div className="flex flex-row items-center gap-1 border-r-2 border-double px-4 dark:border-gray-700">
+                <div className="flex flex-row items-center gap-1 border-r-2 border-double px-4 border-border">
                     <div className="flex flex-row gap-2">
                         <Button
                             variant="ghost"

@@ -18,6 +18,7 @@ export default function Dashboard({
     summary = {},
     omzet7Hari = [],
     transaksiTerakhir = [],
+    pembelianTerakhir = [],
     kategoriProduk = {},
     pageTitle = "Dashboard",
 }) {
@@ -29,12 +30,17 @@ export default function Dashboard({
     const locationText = location
         ? location
         : isGudang
-        ? "Gudang"
-        : roles[0]
-        ? roles[0].name
-        : "-";
+            ? "Gudang"
+            : roles[0]
+                ? roles[0].name
+                : "-";
 
-    const formatPrice = (num) => "Rp " + (num || 0).toLocaleString("id-ID");
+    const formatPrice = (price) => {
+        return new Intl.NumberFormat("id-ID", {
+            style: "currency",
+            currency: "IDR",
+        }).format(price || 0);
+    };
 
     const chartData = {
         labels: Array.isArray(omzet7Hari)
@@ -77,40 +83,15 @@ export default function Dashboard({
             </div>
 
             <div className="grid grid-cols-1 gap-4 mb-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                {/* Card Penjualan */}
                 <Card>
                     <CardContent className="flex items-center justify-between">
                         <div>
                             <div className="text-sm font-semibold text-gray-500">
-                                Kategori
+                                Transaksi Hari Ini
                             </div>
                             <div className="text-2xl font-extrabold text-gray-800">
-                                {summary.totalKategori}
-                            </div>
-                        </div>
-                        <IconCategory size={28} />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center justify-between">
-                        <div>
-                            <div className="text-sm font-semibold text-gray-500">
-                                Produk
-                            </div>
-                            <div className="text-2xl font-extrabold text-gray-800">
-                                {summary.totalProduk}
-                            </div>
-                        </div>
-                        <IconBox size={28} />
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardContent className="flex items-center justify-between">
-                        <div>
-                            <div className="text-sm font-semibold text-gray-500">
-                                Transaksi
-                            </div>
-                            <div className="text-2xl font-extrabold text-gray-800">
-                                {summary.totalTransaksi}
+                                {summary.totalTransaksi || 0}
                             </div>
                         </div>
                         <IconMoneybag size={28} />
@@ -120,10 +101,66 @@ export default function Dashboard({
                     <CardContent className="flex items-center justify-between">
                         <div>
                             <div className="text-sm font-semibold text-gray-500">
-                                Pengguna
+                                Omzet Hari Ini
+                            </div>
+                            <div className="text-lg font-extrabold text-gray-800">
+                                {formatPrice(summary.totalOmzet || 0)}
+                            </div>
+                        </div>
+                        <IconMoneybag size={28} className="text-green-600" />
+                    </CardContent>
+                </Card>
+
+                {/* Card Pembelian */}
+                <Card>
+                    <CardContent className="flex items-center justify-between">
+                        <div>
+                            <div className="text-sm font-semibold text-gray-500">
+                                Pembelian Hari Ini
                             </div>
                             <div className="text-2xl font-extrabold text-gray-800">
-                                {summary.totalPelanggan}
+                                {summary.totalPembelianHariIni || 0}
+                            </div>
+                        </div>
+                        <IconBox size={28} className="text-blue-600" />
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="flex items-center justify-between">
+                        <div>
+                            <div className="text-sm font-semibold text-gray-500">
+                                Nilai Pembelian Hari Ini
+                            </div>
+                            <div className="text-lg font-extrabold text-gray-800">
+                                {formatPrice(summary.totalNilaiPembelianHariIni || 0)}
+                            </div>
+                        </div>
+                        <IconBox size={28} className="text-orange-600" />
+                    </CardContent>
+                </Card>
+
+                {/* Card Master Data */}
+                <Card>
+                    <CardContent className="flex items-center justify-between">
+                        <div>
+                            <div className="text-sm font-semibold text-gray-500">
+                                Produk
+                            </div>
+                            <div className="text-2xl font-extrabold text-gray-800">
+                                {summary.totalProduk || 0}
+                            </div>
+                        </div>
+                        <IconCategory size={28} />
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="flex items-center justify-between">
+                        <div>
+                            <div className="text-sm font-semibold text-gray-500">
+                                Pelanggan
+                            </div>
+                            <div className="text-2xl font-extrabold text-gray-800">
+                                {summary.totalPelanggan || 0}
                             </div>
                         </div>
                         <IconUsers size={28} />
@@ -140,7 +177,7 @@ export default function Dashboard({
                 </div>
             </div>
 
-            <div className="p-4 overflow-x-auto bg-white rounded shadow">
+            {/* <div className="p-4 overflow-x-auto bg-white rounded shadow">
                 <div className="mb-2 text-lg font-bold text-blue-800">
                     10 Transaksi Terakhir
                 </div>
@@ -192,9 +229,64 @@ export default function Dashboard({
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div> */}
 
-            <div className="p-4 mt-6 mb-6 overflow-x-auto bg-white rounded shadow">
+            {/* Tabel Pembelian Terakhir */}
+            {/* <div className="p-4 mb-6 overflow-x-auto bg-white rounded shadow">
+                <div className="mb-2 text-lg font-bold text-blue-800">
+                    10 Pembelian Terakhir
+                </div>
+                <div className="w-full min-w-[300px]">
+                    <table className="min-w-[300px] w-full text-sm font-inter text-gray-700">
+                        <thead>
+                            <tr className="text-base font-semibold text-blue-800 bg-blue-50">
+                                <th className="p-2">Tanggal</th>
+                                <th className="p-2">Invoice</th>
+                                <th className="p-2">Supplier</th>
+                                <th className="p-2">Gudang</th>
+                                <th className="p-2">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {(!pembelianTerakhir || pembelianTerakhir.length === 0) ? (
+                                <tr>
+                                    <td
+                                        colSpan={5}
+                                        className="py-4 font-normal text-center text-gray-400"
+                                    >
+                                        Tidak ada data pembelian
+                                    </td>
+                                </tr>
+                            ) : (
+                                pembelianTerakhir.map((p, i) => (
+                                    <tr
+                                        key={i}
+                                        className="text-base font-medium border-b hover:bg-blue-50"
+                                    >
+                                        <td className="p-2 whitespace-nowrap">
+                                            {p.purchase_date?.slice(0, 10)}
+                                        </td>
+                                        <td className="p-2 font-mono text-xs">
+                                            {p.invoice_number}
+                                        </td>
+                                        <td className="p-2">
+                                            {p.supplier?.name || "-"}
+                                        </td>
+                                        <td className="p-2">
+                                            {p.warehouse?.name || "-"}
+                                        </td>
+                                        <td className="p-2 text-right">
+                                            {formatPrice(p.total)}
+                                        </td>
+                                    </tr>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+            </div> */}
+
+            {/* <div className="p-4 mt-6 mb-6 overflow-x-auto bg-white rounded shadow">
                 <div className="mb-2 text-lg font-bold text-blue-800">
                     Rekap Kategori Produk Transaksi Hari Ini (Realtime)
                 </div>
@@ -234,7 +326,7 @@ export default function Dashboard({
                         </tbody>
                     </table>
                 </div>
-            </div>
+            </div> */}
         </>
     );
 }

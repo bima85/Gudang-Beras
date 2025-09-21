@@ -355,6 +355,64 @@ class DeliveryNoteController extends Controller
     }
 
     /**
+     * Tambah stok toko saja (untuk delivery note otomatis yang warehouse stock sudah dikurangi saat transaksi)
+     * Hanya tambah stok toko tanpa mengurangi stok gudang
+     */
+    private function addStoreStockOnly($productId, $tokoId, $qtyKg, $userId, $deliveryNoteId)
+    {
+        // 1. Tambah stok toko
+        $storeStock = StoreStock::addStock($productId, $tokoId, $qtyKg, $userId);
+        if (!$storeStock) {
+            throw new \Exception('Gagal menambah stok toko');
+        }
+
+        // 2. Record Stock Movement untuk Toko (IN)
+        try {
+            StockMovement::recordTokoMovement(
+                $productId,
+                $tokoId,
+                'transfer_in', // type: transfer masuk ke toko
+                $qtyKg, // positive karena penambahan
+                'DeliveryNote', // reference type
+                $deliveryNoteId, // reference id
+                "Transfer dari gudang via surat jalan otomatis #{$deliveryNoteId}",
+                $userId
+            );
+        } catch (\Exception $e) {
+            Log::error('[DeliveryNoteController] Failed to record toko stock movement for automatic delivery', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'toko_id' => $tokoId,
+                'delivery_note_id' => $deliveryNoteId
+            ]);
+            // Continue execution, don't throw error for stock movement failure
+        }
+
+        // 3. Record Stock Card untuk Toko (IN) - tracking detail transaksi
+        try {
+            $this->createStockCardForToko($productId, $tokoId, $qtyKg, $deliveryNoteId, $userId, 'in');
+        } catch (\Exception $e) {
+            Log::error('[DeliveryNoteController] Failed to record toko stock card for automatic delivery', [
+                'error' => $e->getMessage(),
+                'product_id' => $productId,
+                'toko_id' => $tokoId,
+                'delivery_note_id' => $deliveryNoteId
+            ]);
+            // Continue execution
+        }
+
+        Log::info('[DeliveryNoteController] Store stock added for automatic delivery note', [
+            'delivery_note_id' => $deliveryNoteId,
+            'product_id' => $productId,
+            'toko_id' => $tokoId,
+            'qty_kg' => $qtyKg,
+            'store_stock_after' => $storeStock->qty_in_kg,
+        ]);
+
+        return true;
+    }
+
+    /**
      * Menampilkan detail surat jalan
      */
     public function show(Request $request, DeliveryNote $deliveryNote)
@@ -456,6 +514,63 @@ class DeliveryNoteController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
+        $oldStatus = $deliveryNote->status;
+        $newStatus = $request->status;
+
+        // Jika status diubah ke delivered dari status sebelumnya yang bukan delivered
+        if ($newStatus === 'delivered' && $oldStatus !== 'delivered') {
+            // Lakukan transfer stok dari gudang ke toko
+            DB::beginTransaction();
+            try {
+                // Untuk delivery note otomatis (dari transaksi), warehouse stock sudah dikurangi saat transaksi
+                // Jadi hanya perlu menambah stok toko
+                if ($deliveryNote->transaction_id) {
+                    // Delivery note otomatis - hanya tambah stok toko
+                    $this->addStoreStockOnly(
+                        $deliveryNote->product_id,
+                        $deliveryNote->toko_id,
+                        $deliveryNote->qty_kg,
+                        $user->id,
+                        $deliveryNote->id
+                    );
+                } else {
+                    // Delivery note manual - lakukan transfer penuh (kurangi gudang, tambah toko)
+                    $this->updateStockForDelivery(
+                        $deliveryNote->product_id,
+                        $deliveryNote->warehouse_id,
+                        $deliveryNote->toko_id,
+                        $deliveryNote->qty_kg,
+                        $user->id,
+                        $deliveryNote->id
+                    );
+                }
+
+                DB::commit();
+
+                Log::info('[DeliveryNoteController] Stock transfer completed on status update to delivered', [
+                    'delivery_note_id' => $deliveryNote->id,
+                    'is_automatic' => $deliveryNote->transaction_id ? true : false,
+                    'product_id' => $deliveryNote->product_id,
+                    'warehouse_id' => $deliveryNote->warehouse_id,
+                    'toko_id' => $deliveryNote->toko_id,
+                    'qty_kg' => $deliveryNote->qty_kg,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus
+                ]);
+            } catch (\Exception $e) {
+                DB::rollback();
+                Log::error('[DeliveryNoteController] Failed to transfer stock on status update', [
+                    'error' => $e->getMessage(),
+                    'delivery_note_id' => $deliveryNote->id,
+                    'old_status' => $oldStatus,
+                    'new_status' => $newStatus
+                ]);
+                return back()->withErrors([
+                    'error' => 'Gagal memperbarui status: ' . $e->getMessage()
+                ]);
+            }
+        }
+
         $updateData = [
             'status' => $request->status,
         ];
@@ -490,6 +605,60 @@ class DeliveryNoteController extends Controller
         $request->validate([
             'notes' => 'nullable|string|max:1000',
         ]);
+
+        $oldStatus = $deliveryNote->status;
+
+        // Jika status saat ini bukan delivered, lakukan transfer stok
+        if ($oldStatus !== 'delivered') {
+            DB::beginTransaction();
+            try {
+                // Untuk delivery note otomatis (dari transaksi), warehouse stock sudah dikurangi saat transaksi
+                // Jadi hanya perlu menambah stok toko
+                if ($deliveryNote->transaction_id) {
+                    // Delivery note otomatis - hanya tambah stok toko
+                    $this->addStoreStockOnly(
+                        $deliveryNote->product_id,
+                        $deliveryNote->toko_id,
+                        $deliveryNote->qty_kg,
+                        $user->id,
+                        $deliveryNote->id
+                    );
+                } else {
+                    // Delivery note manual - lakukan transfer penuh (kurangi gudang, tambah toko)
+                    $this->updateStockForDelivery(
+                        $deliveryNote->product_id,
+                        $deliveryNote->warehouse_id,
+                        $deliveryNote->toko_id,
+                        $deliveryNote->qty_kg,
+                        $user->id,
+                        $deliveryNote->id
+                    );
+                }
+
+                DB::commit();
+
+                Log::info('[DeliveryNoteController] Stock transfer completed on markAsDelivered', [
+                    'delivery_note_id' => $deliveryNote->id,
+                    'is_automatic' => $deliveryNote->transaction_id ? true : false,
+                    'product_id' => $deliveryNote->product_id,
+                    'warehouse_id' => $deliveryNote->warehouse_id,
+                    'toko_id' => $deliveryNote->toko_id,
+                    'qty_kg' => $deliveryNote->qty_kg,
+                    'old_status' => $oldStatus,
+                    'new_status' => 'delivered'
+                ]);
+            } catch (\Exception $e) {
+                DB::rollback();
+                Log::error('[DeliveryNoteController] Failed to transfer stock on markAsDelivered', [
+                    'error' => $e->getMessage(),
+                    'delivery_note_id' => $deliveryNote->id,
+                    'old_status' => $oldStatus
+                ]);
+                return back()->withErrors([
+                    'error' => 'Gagal menandai sebagai terkirim: ' . $e->getMessage()
+                ]);
+            }
+        }
 
         $deliveryNote->markAsDelivered($request->notes);
 

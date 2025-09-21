@@ -35,16 +35,16 @@ class BasicDataSeeder extends Seeder
 
             // 3. Create Warehouses
             $warehouse = Warehouse::firstOrCreate([
-                'name' => 'Gudang Utama',
-                'address' => 'Jl. Industri No. 45, Jakarta Utara',
-                'phone' => '021-12345678'
+                'name' => 'Gudang 1',
+                'address' => 'Jl.Jebres, Solo',
+                'phone' => '0271-12345678'
             ]);
 
             // 4. Create Tokos
             $toko = Toko::firstOrCreate([
-                'name' => 'Toko Beras Sejahtera',
-                'address' => 'Jl. Pasar Raya No. 12, Jakarta Selatan',
-                'phone' => '021-87654321'
+                'name' => 'Toko85',
+                'address' => 'Widuran, Solo',
+                'phone' => '0271-87654321'
             ]);
 
             // 5. Create Products

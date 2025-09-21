@@ -11,6 +11,7 @@ export default function LinkItem({
     title,
     sidebarOpen,
     badge = null,
+    onClick = undefined,
     ...props
 }) {
     const { url } = usePage();
@@ -54,32 +55,32 @@ export default function LinkItem({
 
     if (auth && auth.super === true) {
         return (
-            <Button
-                variant="ghost"
-                className={baseClassName}
-                asChild
-                {...props}
-            >
-                <Link href={href} title={!sidebarOpen ? title : undefined}>
-                    {sidebarOpen ? contentOpen : contentCollapsed}
-                </Link>
-            </Button>
+                <Button
+                    variant="ghost"
+                    className={baseClassName}
+                    asChild
+                    {...props}
+                >
+                    <Link href={href} title={!sidebarOpen ? title : undefined} onClick={onClick}>
+                        {sidebarOpen ? contentOpen : contentCollapsed}
+                    </Link>
+                </Button>
         );
     }
 
     // Non-super users: check access
     if (access === true) {
         return (
-            <Button
-                variant="ghost"
-                className={baseClassName}
-                asChild
-                {...props}
-            >
-                <Link href={href} title={!sidebarOpen ? title : undefined}>
-                    {sidebarOpen ? contentOpen : contentCollapsed}
-                </Link>
-            </Button>
+                <Button
+                    variant="ghost"
+                    className={baseClassName}
+                    asChild
+                    {...props}
+                >
+                    <Link href={href} title={!sidebarOpen ? title : undefined} onClick={onClick}>
+                        {sidebarOpen ? contentOpen : contentCollapsed}
+                    </Link>
+                </Button>
         );
     }
 

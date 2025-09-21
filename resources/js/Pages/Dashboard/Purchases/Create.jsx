@@ -10,17 +10,19 @@ import TokoManualModal from "./TokoManualModal";
 import SupplierManualModal from "./SupplierManualModal";
 import GudangManualModal from "./GudangManualModal";
 import ProductQuickModal from "./ProductQuickModal";
+import UnitManualModal from "./UnitManualModal";
 import BackToDashboard from "@/Components/Dashboard/BackToDashboard";
-
+import { Clock } from "lucide-react";
+import { Card } from "@/Components/ui/card";
+import { CardHeader, CardTitle } from "@/Components/ui/card";
 export default function Create(props) {
     const [timbanganGlobal, setTimbanganGlobal] = useState(0);
     // Realtime clock for the form
     const [currentTime, setCurrentTime] = useState(new Date());
-    React.useEffect(() => {
-        const id = setInterval(() => setCurrentTime(new Date()), 1000);
-        return () => clearInterval(id);
-    }, []);
-
+    const formattedTime = currentTime.toLocaleTimeString("id-ID", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
     // Only log when timbanganGlobal actually changes to avoid spamming the console
     React.useEffect(() => {
         console.debug("Nilai timbangan:", timbanganGlobal);
@@ -34,6 +36,7 @@ export default function Create(props) {
         subcategories = [],
         tokos: tokosProp = [],
         lastPurchaseId,
+        successMessage,
     } = props;
 
     // local state for categories so we can append new ones live
@@ -41,6 +44,7 @@ export default function Create(props) {
     // local state for subcategories and products so we can append new ones live
     const [subcategoriesState, setSubcategoriesState] = useState(subcategories);
     const [productsState, setProductsState] = useState(products);
+    const [unitsState, setUnitsState] = useState(units);
     // product quick-create modal state
     const [showProductQuickModal, setShowProductQuickModal] = useState(false);
     const [productQuickInitial, setProductQuickInitial] = useState(null);
@@ -72,6 +76,71 @@ export default function Create(props) {
             window.location.reload();
         }
     }, []);
+
+    // Show success message if present
+    React.useEffect(() => {
+        if (successMessage) {
+            // Clear localStorage to ensure clean state
+            localStorage.removeItem("purchase_draft_item");
+            localStorage.removeItem("purchase_items_table");
+
+            // Reset all form data manually to ensure clean state
+            setData({
+                invoice_number: "",
+                supplier_name: "",
+                toko_id: "",
+                toko_name: "",
+                toko_address: "",
+                toko_phone: "",
+                warehouse_id: "",
+                warehouse_name: "",
+                warehouse_address: "",
+                warehouse_phone: "",
+                purchase_date: "",
+                phone: "",
+                address: "",
+                items: [{
+                    product_id: "",
+                    unit_id: "",
+                    category_id: "",
+                    subcategory_id: "",
+                    qty: 1,
+                    qty_gudang: 0,
+                    qty_toko: 0,
+                    harga_pembelian: 0,
+                    kuli_fee: 0,
+                }],
+            });
+
+            // Reset semua state tambahan
+            setTimbanganGlobal(0);
+
+            // Reset modal states
+            setShowTokoModal(false);
+            setShowSupplierModal(false);
+            setShowGudangModal(false);
+
+            // Reset manual forms
+            setManualToko({ name: "", address: "", phone: "" });
+            setManualSupplier({ name: "", address: "", phone: "" });
+            setManualGudang({ name: "", address: "", phone: "" });
+
+            // Reset state arrays to original props
+            setTokos(tokosProp);
+            setSuppliersState(suppliers);
+            setWarehousesState(warehouses);
+
+            // Show success message
+            Swal.fire({
+                title: "Berhasil!",
+                text: successMessage,
+                icon: "success",
+                confirmButtonText: "OK",
+                timer: 5000,
+                timerProgressBar: true,
+            });
+        }
+    }, [successMessage]);
 
     // helper: generate short code from name for backend 'code' field
     const genCode = (str, prefix = "GEN_") =>
@@ -119,9 +188,12 @@ export default function Create(props) {
                         ? Number(item.harga_pembelian)
                         : 0,
                     kuli_fee: item.kuli_fee ? Number(item.kuli_fee) : 0,
+                    _kuli_manual: item._kuli_manual
+                        ? Boolean(item._kuli_manual)
+                        : false,
                 };
             }
-        } catch {}
+        } catch { }
         return {
             product_id: "",
             unit_id: "",
@@ -132,6 +204,7 @@ export default function Create(props) {
             qty_toko: 0,
             harga_pembelian: 0,
             kuli_fee: 0,
+            _kuli_manual: false,
         };
     })();
 
@@ -159,7 +232,7 @@ export default function Create(props) {
                     kuli_fee: item.kuli_fee ? Number(item.kuli_fee) : 0,
                 }));
             }
-        } catch {}
+        } catch { }
         return [];
     })();
 
@@ -183,7 +256,6 @@ export default function Create(props) {
 
     const { data, setData, post, processing, errors, reset } = useForm({
         invoice_number: "",
-        invoice_seq: "",
         supplier_name: "",
         toko_id: "",
         toko_name: "",
@@ -198,20 +270,6 @@ export default function Create(props) {
         address: "",
         items: itemsInit,
     });
-
-    // Generate invoice_number otomatis
-    React.useEffect(() => {
-        if (!data.purchase_date || !data.invoice_seq) {
-            setData("invoice_number", "");
-            return;
-        }
-        const date = new Date(data.purchase_date);
-        const yyyy = date.getFullYear();
-        const mm = String(date.getMonth() + 1).padStart(2, "0");
-        const dd = String(date.getDate()).padStart(2, "0");
-        const seq = String(data.invoice_seq).padStart(3, "0");
-        setData("invoice_number", `PB-${yyyy}/${mm}/${dd}-${seq}`);
-    }, [data.purchase_date, data.invoice_seq]);
 
     // State untuk modal tambah toko manual
     const [showTokoModal, setShowTokoModal] = useState(false);
@@ -247,6 +305,7 @@ export default function Create(props) {
                 typeof route === "function" ? route("tokos.store") : "/tokos";
             const response = await fetch(tokoStoreUrl, {
                 method: "POST",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -264,7 +323,7 @@ export default function Create(props) {
                 try {
                     const errJson = await response.json();
                     msg += ": " + (errJson.message || JSON.stringify(errJson));
-                } catch {}
+                } catch { }
                 throw new Error(msg);
             }
             const newToko = await response.json();
@@ -287,6 +346,8 @@ export default function Create(props) {
         address: "",
         phone: "",
     });
+    const [manualSupplierErrors, setManualSupplierErrors] = useState({});
+    const [manualSupplierSubmitting, setManualSupplierSubmitting] = useState(false);
     const [suppliersState, setSuppliersState] = useState(suppliers);
     const handleManualSupplierChange = (e) => {
         setManualSupplier({
@@ -296,6 +357,8 @@ export default function Create(props) {
     };
     const handleManualSupplierSubmit = async (e) => {
         e.preventDefault();
+        setManualSupplierSubmitting(true);
+        setManualSupplierErrors({});
         try {
             const supplierStoreUrl =
                 typeof route === "function"
@@ -310,6 +373,7 @@ export default function Create(props) {
             }
             const response = await fetch(supplierStoreUrl, {
                 method: "POST",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -327,14 +391,12 @@ export default function Create(props) {
                 try {
                     const errJson = await response.json();
                     if (errJson.errors) {
-                        // Handle validation errors
-                        const errorMessages = Object.values(
-                            errJson.errors
-                        ).flat();
+                        // Handle validation errors: set state for inline display
+                        setManualSupplierErrors(errJson.errors || {});
+                        const errorMessages = Object.values(errJson.errors).flat();
                         msg += ": " + errorMessages.join(", ");
                     } else {
-                        msg +=
-                            ": " + (errJson.message || JSON.stringify(errJson));
+                        msg += ": " + (errJson.message || JSON.stringify(errJson));
                     }
                 } catch (parseError) {
                     msg += ": Server returned non-JSON response";
@@ -353,6 +415,7 @@ export default function Create(props) {
                 address: "",
                 phone: "",
             });
+            setManualSupplierErrors({});
             // Show success message
             Swal.fire({
                 title: "Berhasil!",
@@ -369,6 +432,8 @@ export default function Create(props) {
                 icon: "error",
                 confirmButtonText: "OK",
             });
+        } finally {
+            setManualSupplierSubmitting(false);
         }
     };
 
@@ -402,6 +467,7 @@ export default function Create(props) {
             }
             const response = await fetch(warehouseStoreUrl, {
                 method: "POST",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -414,9 +480,9 @@ export default function Create(props) {
                     phone: manualGudang.phone,
                     code: manualGudang.name
                         ? manualGudang.name
-                              .replace(/\s+/g, "_")
-                              .toUpperCase()
-                              .slice(0, 20)
+                            .replace(/\s+/g, "_")
+                            .toUpperCase()
+                            .slice(0, 20)
                         : `GDG_${Date.now()}`,
                 }),
             });
@@ -425,7 +491,7 @@ export default function Create(props) {
                 try {
                     const errJson = await response.json();
                     msg += ": " + (errJson.message || JSON.stringify(errJson));
-                } catch {}
+                } catch { }
                 throw new Error(msg);
             }
             const newWarehouse = await response.json();
@@ -439,6 +505,105 @@ export default function Create(props) {
         } catch (err) {
             console.error("Error tambah gudang manual:", err);
             alert("Gagal menambah gudang: " + err.message);
+        }
+    };
+
+    // State untuk modal tambah unit manual
+    const [showUnitModal, setShowUnitModal] = useState(false);
+    const [manualUnit, setManualUnit] = useState({
+        name: "",
+        conversion_to_kg: "",
+    });
+    const [isUnitLoading, setIsUnitLoading] = useState(false);
+
+    const handleManualUnitChange = (e) => {
+        setManualUnit({
+            ...manualUnit,
+            [e.target.name]: e.target.value,
+        });
+    };
+
+    const handleManualUnitSubmit = async () => {
+        if (!manualUnit.name.trim() || !manualUnit.conversion_to_kg) {
+            alert("Nama unit dan konversi ke kilogram harus diisi");
+            return;
+        }
+
+        setIsUnitLoading(true);
+        try {
+            const url =
+                typeof route === "function"
+                    ? route("units.store")
+                    : "/dashboard/units";
+            const csrfToken = await getCsrfToken();
+
+            const response = await fetch(url, {
+                method: "POST",
+                credentials: "same-origin",
+                headers: {
+                    "Content-Type": "application/json",
+                    Accept: "application/json",
+                    "X-Requested-With": "XMLHttpRequest",
+                    "X-CSRF-TOKEN": csrfToken,
+                },
+                body: JSON.stringify({
+                    name: manualUnit.name.trim(),
+                    conversion_to_kg:
+                        parseFloat(manualUnit.conversion_to_kg) || 1.0,
+                }),
+            });
+
+            if (!response.ok) {
+                let msg = "Gagal menambah unit";
+                try {
+                    const errJson = await response.json();
+                    msg += ": " + (errJson.message || JSON.stringify(errJson));
+                } catch { }
+                throw new Error(msg);
+            }
+
+            const newUnit = await response.json();
+            setUnitsState((prev) => [...prev, newUnit]);
+
+            // Set to current draft item
+            try {
+                const items = [...data.items];
+                if (items.length) {
+                    items[items.length - 1].unit_id = String(newUnit.id);
+                    setData("items", items);
+                }
+            } catch (e) { }
+
+            // Close modal and reset form
+            setShowUnitModal(false);
+            setManualUnit({
+                name: "",
+                conversion_to_kg: "",
+            });
+
+            // Show success message
+            Swal.fire({
+                title: "Berhasil!",
+                text: "Unit baru berhasil ditambahkan",
+                icon: "success",
+                timer: 2000,
+                showConfirmButton: false,
+            });
+
+            // Dispatch event for any listeners
+            window.dispatchEvent(
+                new CustomEvent("purchase:unit-created", { detail: newUnit })
+            );
+        } catch (err) {
+            console.error("Error tambah unit manual:", err);
+            Swal.fire({
+                title: "Gagal!",
+                text: "Gagal menambah unit: " + err.message,
+                icon: "error",
+                confirmButtonText: "OK",
+            });
+        } finally {
+            setIsUnitLoading(false);
         }
     };
 
@@ -512,13 +677,14 @@ export default function Create(props) {
                     "Deskripsi kategori (wajib jika diminta):",
                     ""
                 );
-            } catch (e) {}
+            } catch (e) { }
             if (!categoryDescription || !String(categoryDescription).trim()) {
                 categoryDescription = categoryName.trim();
             }
 
-            const response = await fetch(url, {
+            const fetchOptions = {
                 method: "POST",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -530,14 +696,42 @@ export default function Create(props) {
                     code: genCode(categoryName, "CAT_"),
                     description: String(categoryDescription).trim(),
                 }),
-            });
+            };
+
+            console.debug("POSTing new category to", url, fetchOptions);
+
+            const response = await fetch(url, fetchOptions);
 
             if (!response.ok) {
+                console.error("Failed to add category", {
+                    url,
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Array.from(response.headers.entries()),
+                });
+
+                // Try to capture body text and JSON for clearer error
+                let bodyText = "";
+                try {
+                    const clone = response.clone();
+                    bodyText = await clone.text();
+                    console.error("Response body:", bodyText);
+                } catch (e) {
+                    console.error("Failed to read response body text", e);
+                }
+
                 let msg = "Gagal menambah kategori";
                 try {
-                    const errJson = await response.json();
-                    msg += ": " + (errJson.message || JSON.stringify(errJson));
-                } catch {}
+                    const parsed = bodyText ? JSON.parse(bodyText) : null;
+                    if (parsed && parsed.message) {
+                        msg += ": " + parsed.message;
+                    } else if (bodyText) {
+                        msg += ": " + bodyText;
+                    }
+                } catch (e) {
+                    if (bodyText) msg += ": " + bodyText;
+                }
+
                 throw new Error(msg);
             }
 
@@ -551,7 +745,7 @@ export default function Create(props) {
                     items[items.length - 1].category_id = String(newCat.id);
                     setData("items", items);
                 }
-            } catch (e) {}
+            } catch (e) { }
 
             window.dispatchEvent(
                 new CustomEvent("purchase:category-created", { detail: newCat })
@@ -599,13 +793,14 @@ export default function Create(props) {
                     "Deskripsi subkategori (opsional jika tidak diperlukan):",
                     ""
                 );
-            } catch (e) {}
+            } catch (e) { }
             if (!subDescription || !String(subDescription).trim()) {
                 subDescription = subName.trim();
             }
 
             const response = await fetch(url, {
                 method: "POST",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -660,7 +855,7 @@ export default function Create(props) {
                     items[items.length - 1].subcategory_id = String(newSub.id);
                     setData("items", items);
                 }
-            } catch (e) {}
+            } catch (e) { }
 
             window.dispatchEvent(
                 new CustomEvent("purchase:subcategory-created", {
@@ -713,13 +908,14 @@ export default function Create(props) {
                     "Deskripsi produk (opsional):",
                     ""
                 );
-            } catch (e) {}
+            } catch (e) { }
             if (!prodDescription || !String(prodDescription).trim()) {
                 prodDescription = name.trim();
             }
 
-            const response = await fetch(url, {
+            const fetchOptions = {
                 method: "POST",
+                credentials: "same-origin",
                 headers: {
                     "Content-Type": "application/json",
                     Accept: "application/json",
@@ -732,14 +928,42 @@ export default function Create(props) {
                     barcode:
                         "BRC_" + Date.now() + Math.floor(Math.random() * 1000),
                 }),
-            });
+            };
+
+            console.debug("POSTing new product to", url, fetchOptions);
+
+            const response = await fetch(url, fetchOptions);
 
             if (!response.ok) {
+                console.error("Failed to add product", {
+                    url,
+                    status: response.status,
+                    statusText: response.statusText,
+                    headers: Array.from(response.headers.entries()),
+                });
+
+                // Try to capture body text and JSON for clearer error
+                let bodyText = "";
+                try {
+                    const clone = response.clone();
+                    bodyText = await clone.text();
+                    console.error("Response body:", bodyText);
+                } catch (e) {
+                    console.error("Failed to read response body text", e);
+                }
+
                 let msg = "Gagal menambah produk";
                 try {
-                    const errJson = await response.json();
-                    msg += ": " + (errJson.message || JSON.stringify(errJson));
-                } catch {}
+                    const parsed = bodyText ? JSON.parse(bodyText) : null;
+                    if (parsed && parsed.message) {
+                        msg += ": " + parsed.message;
+                    } else if (bodyText) {
+                        msg += ": " + bodyText;
+                    }
+                } catch (e) {
+                    if (bodyText) msg += ": " + bodyText;
+                }
+
                 throw new Error(msg);
             }
 
@@ -753,7 +977,7 @@ export default function Create(props) {
                     items[items.length - 1].product_id = String(newProd.id);
                     setData("items", items);
                 }
-            } catch (e) {}
+            } catch (e) { }
 
             window.dispatchEvent(
                 new CustomEvent("purchase:product-created", { detail: newProd })
@@ -771,6 +995,75 @@ export default function Create(props) {
                 alert("Gagal menambah produk: " + err.message);
             }
         }
+    };
+
+    const handleAddUnit = async (name = null) => {
+        console.debug("handleAddUnit called with name:", name);
+
+        // If name is provided (for backward compatibility), use the old method
+        if (name && name.trim()) {
+            try {
+                const url =
+                    typeof route === "function"
+                        ? route("units.store")
+                        : "/dashboard/units";
+                const csrfToken = await getCsrfToken();
+
+                const response = await fetch(url, {
+                    method: "POST",
+                    credentials: "same-origin",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Accept: "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "X-CSRF-TOKEN": csrfToken,
+                    },
+                    body: JSON.stringify({ name: name.trim() }),
+                });
+
+                if (!response.ok) {
+                    let msg = "Gagal menambah unit";
+                    try {
+                        const errJson = await response.json();
+                        msg +=
+                            ": " + (errJson.message || JSON.stringify(errJson));
+                    } catch { }
+                    throw new Error(msg);
+                }
+
+                const newUnit = await response.json();
+                setUnitsState((prev) => [...prev, newUnit]);
+
+                // Set to draft item last
+                try {
+                    const items = [...data.items];
+                    if (items.length) {
+                        items[items.length - 1].unit_id = String(newUnit.id);
+                        setData("items", items);
+                    }
+                } catch (e) { }
+
+                window.dispatchEvent(
+                    new CustomEvent("purchase:unit-created", {
+                        detail: newUnit,
+                    })
+                );
+                return;
+            } catch (err) {
+                console.error("Error tambah unit:", err);
+                Swal.fire({
+                    title: "Gagal!",
+                    text: "Gagal menambah unit: " + err.message,
+                    icon: "error",
+                    confirmButtonText: "OK",
+                });
+                return;
+            }
+        }
+
+        // Otherwise, show the modal
+        console.debug("Opening unit modal");
+        setShowUnitModal(true);
     };
 
     // Handler perubahan field utama
@@ -819,20 +1112,27 @@ export default function Create(props) {
         const items = [...data.items];
         // handle both synthetic events and direct value updates
         const name = e && e.target && e.target.name ? e.target.name : null;
-        const value =
+        let value =
             e && e.target && e.target.value !== undefined ? e.target.value : e;
+        // Coerce types for known fields
+        if (
+            name === "kuli_fee" ||
+            name === "harga_pembelian" ||
+            name === "qty" ||
+            name === "qty_gudang" ||
+            name === "qty_toko"
+        ) {
+            value =
+                value === null || value === undefined || value === ""
+                    ? 0
+                    : Number(value);
+        }
+        if (name === "_kuli_manual") {
+            value = Boolean(value);
+        }
         if (name) {
             items[idx][name] = value;
         }
-
-        // Jika yang berubah adalah qty, otomatis bagi ke toko/gudang
-        try {
-            const qtyVal = Number(items[idx].qty) || 0;
-            const tokoShare = Math.floor(qtyVal / 2); // separuh untuk toko
-            const gudangShare = qtyVal - tokoShare; // sisanya ke gudang
-            items[idx].qty_toko = tokoShare;
-            items[idx].qty_gudang = gudangShare;
-        } catch (err) {}
 
         setData("items", items);
         if (idx === data.items.length - 1) {
@@ -857,6 +1157,7 @@ export default function Create(props) {
                 qty_toko: 0,
                 harga_pembelian: 0,
                 kuli_fee: 0,
+                _kuli_manual: false,
             },
         ];
         setData("items", newItems);
@@ -965,8 +1266,37 @@ export default function Create(props) {
             // User confirmed, submit via Inertia post
             post(route("purchases.store"), payload, {
                 onSuccess: (page) => {
-                    // Reset semua form data
-                    reset();
+                    // Clear localStorage first
+                    localStorage.removeItem("purchase_draft_item");
+                    localStorage.removeItem("purchase_items_table");
+
+                    // Reset all form data manually to ensure clean state
+                    setData({
+                        invoice_number: "",
+                        supplier_name: "",
+                        toko_id: "",
+                        toko_name: "",
+                        toko_address: "",
+                        toko_phone: "",
+                        warehouse_id: "",
+                        warehouse_name: "",
+                        warehouse_address: "",
+                        warehouse_phone: "",
+                        purchase_date: "",
+                        phone: "",
+                        address: "",
+                        items: [{
+                            product_id: "",
+                            unit_id: "",
+                            category_id: "",
+                            subcategory_id: "",
+                            qty: 1,
+                            qty_gudang: 0,
+                            qty_toko: 0,
+                            harga_pembelian: 0,
+                            kuli_fee: 0,
+                        }],
+                    });
 
                     // Reset semua state tambahan
                     setTimbanganGlobal(0);
@@ -986,44 +1316,8 @@ export default function Create(props) {
                     setSuppliersState(suppliers);
                     setWarehousesState(warehouses);
 
-                    // Clear localStorage
-                    localStorage.removeItem("purchase_draft_item");
-                    localStorage.removeItem("purchase_items_table");
-
-                    // determine lastPurchaseId if provided by backend
-                    let lastId = null;
-                    if (page && page.props && page.props.lastPurchaseId) {
-                        lastId = page.props.lastPurchaseId;
-                    } else if (page && page.lastPurchaseId) {
-                        lastId = page.lastPurchaseId;
-                    }
-
-                    // Show success message and redirect
-                    try {
-                        Swal.fire({
-                            title: "Berhasil!",
-                            text: "Pembelian berhasil disimpan. Semua data telah direset untuk transaksi baru.",
-                            icon: "success",
-                            confirmButtonText: "OK",
-                            timer: 3000,
-                            timerProgressBar: true,
-                        }).then(() => {
-                            // Redirect dengan force reload untuk memastikan fresh state
-                            const createUrl =
-                                typeof route === "function"
-                                    ? route("purchases.create")
-                                    : "/dashboard/purchases/create";
-                            window.location.href = createUrl;
-                        });
-                    } catch (err) {
-                        console.log("Swal show error:", err);
-                        // Fallback redirect
-                        const createUrl =
-                            typeof route === "function"
-                                ? route("purchases.create")
-                                : "/dashboard/purchases/create";
-                        window.location.href = createUrl;
-                    }
+                    // Success message will be shown by the useEffect when successMessage prop is received
+                    // No need to manually show Swal here as the backend handles it
                 },
                 onError: (errors) => {
                     // Normalize various error shapes and always show a Swal toast
@@ -1072,7 +1366,7 @@ export default function Create(props) {
                                             message = vals.join(" \n");
                                     }
                                 }
-                            } catch (e) {}
+                            } catch (e) { }
                         }
 
                         if (!message)
@@ -1096,32 +1390,39 @@ export default function Create(props) {
         });
     };
 
-    // Hitung total harga pembelian (subtotal per item: qty * unit_conversion * harga_pembelian + kuli_fee)
+
+    // Hitung total harga pembelian (subtotal per item: qty * unit_conversion * harga_pembelian + kuli_fee + timbangan)
     // Hitung total harga pembelian dari semua item (kecuali baris input draft terakhir)
-    const totalHarga = data.items.slice(0, -1).reduce((sum, item) => {
-        // Ambil harga pembelian per item, jika kosong dianggap 0
-        const harga = parseFloat(item.harga_pembelian) || 0;
-        // Ambil jumlah (qty) item, jika kosong dianggap 0
-        const qty = parseFloat(item.qty) || 0;
-        // Ambil fee kuli per item, jika kosong dianggap 0
-        const kuli = parseFloat(item.kuli_fee) || 0;
-        // Default konversi unit ke kg adalah 1
-        let unitConversion = 1;
-        // Jika unit_id ada dan daftar units berupa array
-        if (item.unit_id && Array.isArray(units)) {
-            // Cari object unit yang sesuai dengan unit_id pada daftar units
-            const unitObj = units.find(
-                (u) => String(u.id) === String(item.unit_id)
-            );
-            // Jika unit ditemukan dan punya field conversion_to_kg, gunakan nilainya
-            if (unitObj && unitObj.conversion_to_kg) {
-                unitConversion = parseFloat(unitObj.conversion_to_kg) || 1;
+    const totalHarga = (() => {
+        const itemsArr = data.items.slice(0, -1);
+        let subtotalSum = 0;
+        let kuliSum = 0;
+        let timbanganSum = 0;
+        itemsArr.forEach((item) => {
+            const harga = parseFloat(item.harga_pembelian) || 0;
+            const qty = parseFloat(item.qty) || 0;
+            const qtyTimbangan = parseFloat(item.qty_timbangan) || qty;
+            let unitConversion = 1;
+            if (item.unit_id && Array.isArray(units)) {
+                const unitObj = units.find(
+                    (u) => String(u.id) === String(item.unit_id)
+                );
+                if (unitObj && unitObj.conversion_to_kg) {
+                    unitConversion = parseFloat(unitObj.conversion_to_kg) || 1;
+                }
             }
-        }
-        // Rumus subtotal per item: qty * konversi unit * harga - fee kuli
-        // Akumulasi ke total
-        return sum + (qty * unitConversion * harga - kuli);
-    }, 0);
+            const subtotal = qty * unitConversion * harga;
+            subtotalSum += subtotal;
+            const feeRate = parseFloat(item.kuli_fee) || 0;
+            // fee per item = qty_total * fee_rate (apply unit conversion to qty)
+            kuliSum += qty * unitConversion * feeRate;
+            // timbangan: (qty_timbang - qty_input) * unit_conversion * harga_satuan
+            const selisihTimbangan = (qtyTimbangan - qty) * unitConversion * harga;
+            timbanganSum += selisihTimbangan;
+        });
+        // Return total termasuk fee kuli dan timbangan agar terhitung otomatis
+        return subtotalSum + kuliSum + timbanganSum;
+    })();
 
     return (
         <>
@@ -1146,22 +1447,29 @@ export default function Create(props) {
                                 d="M9 17v-2a4 4 0 014-4h3m4 0a9 9 0 11-18 0 9 9 0 0118 0z"
                             />
                         </svg>
-                        <div>
-                            <h2 className="text-lg font-semibold text-gray-800">
-                                Form Tambah Pembelian
-                            </h2>
-                            <p className="text-xs text-gray-500">
-                                Isi detail pembelian dan tambahkan item.
-                            </p>
-                        </div>
+                        <CardHeader>
+                            <CardTitle className="text-lg font-medium text-gray-700">
+                                Tambah Pembelian Baru
+                            </CardTitle>
+                        </CardHeader>
                         {/* Realtime clock on the right */}
-                        <div className="ml-auto text-sm text-gray-600 dark:text-gray-300">
-                            {new Date(currentTime).toLocaleTimeString("id-ID", {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                second: "2-digit",
-                            })}
+                        <div className="mb-4">
+
+                            <Card className="bg-blue-500 dark:bg-gray-900 w-fit ml-auto">
+
+
+                                <div className="space-y-2 text-center py-3 px-4">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-white">
+                                        <Clock className="w-4 h-4" />
+                                        Waktu Real-time
+                                    </div>
+                                    <p className="font-sans text-white text-sm font-semibold text-primary text-center">
+                                        {formattedTime}
+                                    </p>
+                                </div>
+                            </Card>
                         </div>
+
                     </div>
 
                     <div className="p-4">
@@ -1187,7 +1495,7 @@ export default function Create(props) {
                                         String(item.product_id).trim() !== "" &&
                                         String(item.unit_id).trim() !== "" &&
                                         String(item.category_id).trim() !==
-                                            "" &&
+                                        "" &&
                                         Number(item.product_id) > 0 &&
                                         Number(item.unit_id) > 0 &&
                                         Number(item.category_id) > 0 &&
@@ -1233,6 +1541,8 @@ export default function Create(props) {
                                         handleManualSupplierSubmit={
                                             handleManualSupplierSubmit
                                         }
+                                        manualSupplierErrors={manualSupplierErrors}
+                                        manualSupplierSubmitting={manualSupplierSubmitting}
                                         // Gudang
                                         showGudangModal={showGudangModal}
                                         setShowGudangModal={setShowGudangModal}
@@ -1269,8 +1579,8 @@ export default function Create(props) {
                                         <div className="mt-2 text-2xl font-bold text-gray-800">
                                             {typeof totalHarga === "number"
                                                 ? totalHarga.toLocaleString(
-                                                      "id-ID"
-                                                  )
+                                                    "id-ID"
+                                                )
                                                 : totalHarga}
                                         </div>
                                     </div>
@@ -1297,7 +1607,7 @@ export default function Create(props) {
                                     categories={categoriesState}
                                     subcategories={subcategoriesState}
                                     products={productsState}
-                                    units={units}
+                                    units={unitsState}
                                     onChange={(e) =>
                                         handleItemChange(
                                             data.items.length - 1,
@@ -1314,17 +1624,40 @@ export default function Create(props) {
                                     onAddProduct={(payload) =>
                                         handleAddProduct(payload)
                                     }
+                                    onAddUnit={() => handleAddUnit()}
                                 />
 
                                 <div className="mt-4 overflow-hidden border rounded-lg">
                                     <PurchaseItemsTable
                                         items={data.items.slice(0, -1)}
                                         products={productsState}
-                                        units={units}
+                                        units={unitsState}
                                         categories={categoriesState}
                                         subcategories={subcategoriesState}
                                         onRemove={removeItem}
-                                        totalHarga={totalHarga}
+                                        onItemUpdate={(itemIndex, updatedItem) => {
+                                            const items = [...data.items];
+                                            // Auto-update alokasi 50%-50% jika qty berubah
+                                            if (updatedItem.qty !== items[itemIndex].qty) {
+                                                const totalQty = parseFloat(updatedItem.qty) || 0;
+                                                updatedItem.qty_gudang = Math.round(totalQty * 0.5 * 100) / 100;
+                                                updatedItem.qty_toko = Math.round(totalQty * 0.5 * 100) / 100;
+
+                                                // Pastikan total alokasi sama dengan qty total
+                                                const totalAlokasi = updatedItem.qty_gudang + updatedItem.qty_toko;
+                                                if (Math.abs(totalAlokasi - totalQty) > 0.01) {
+                                                    updatedItem.qty_gudang = totalQty - updatedItem.qty_toko;
+                                                }
+                                            }
+
+                                            items[itemIndex] = updatedItem;
+                                            // Update localStorage
+                                            localStorage.setItem(
+                                                "purchase_items_table",
+                                                JSON.stringify(items.slice(0, -1))
+                                            );
+                                            setData("items", items);
+                                        }}
                                         onKuliFeeCheckboxChange={(checked) => {
                                             const items = [...data.items];
                                             for (
@@ -1346,6 +1679,19 @@ export default function Create(props) {
                                                 i++
                                             ) {
                                                 items[i].kuli_fee = value;
+                                            }
+                                            setData("items", items);
+                                        }}
+                                        onKuliManualChange={(checked) => {
+                                            const items = [...data.items];
+                                            for (
+                                                let i = 0;
+                                                i < items.length - 1;
+                                                i++
+                                            ) {
+                                                items[i]._kuli_manual = checked;
+                                                if (!checked)
+                                                    items[i].kuli_fee = 0;
                                             }
                                             setData("items", items);
                                         }}
@@ -1421,6 +1767,15 @@ export default function Create(props) {
                                 onSubmit={handleManualGudangSubmit}
                                 manualGudang={manualGudang}
                                 onChange={handleManualGudangChange}
+                            />
+                            {/* Modal Tambah Unit Manual */}
+                            <UnitManualModal
+                                show={showUnitModal}
+                                onClose={() => setShowUnitModal(false)}
+                                onSubmit={handleManualUnitSubmit}
+                                manualUnit={manualUnit}
+                                onChange={handleManualUnitChange}
+                                isLoading={isUnitLoading}
                             />
                             {/* Product quick-create modal (used by + Tambah Produk) */}
                             <ProductQuickModal

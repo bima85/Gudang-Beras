@@ -31,8 +31,9 @@ export default function Create() {
                     });
                 }
             },
-            onError: () => {
-                toast("Terjadi kesalahan dalam penyimpanan data", {
+            onError: (err) => {
+                const message = err?.response?.data?.errors?.name?.[0] || err?.response?.data?.message || "Terjadi kesalahan dalam penyimpanan data";
+                toast(message, {
                     style: {
                         borderRadius: "10px",
                         background: "#FF0000",
@@ -58,8 +59,8 @@ export default function Create() {
                                 "border bg-gray-200 text-gray-700 hover:bg-gray-300"
                             }
                             onClick={() =>
-                                (window.location.href =
-                                    route("suppliers.index"))
+                            (window.location.href =
+                                route("suppliers.index"))
                             }
                         />
                         <Button

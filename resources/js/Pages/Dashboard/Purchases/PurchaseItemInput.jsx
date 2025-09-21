@@ -20,23 +20,8 @@ export default function PurchaseItemInput({
     onAddCategory, // optional callback from parent to add a new category
     onAddSubcategory, // optional callback to add subcategory
     onAddProduct, // optional callback to add product
+    onAddUnit, // optional callback to add unit
 }) {
-    // Hitung alokasi otomatis ketika qty berubah
-    React.useEffect(() => {
-        if (item.qty && !item.qty_gudang && !item.qty_toko) {
-            const totalQty = parseFloat(item.qty) || 0;
-            if (totalQty > 0) {
-                // Default: 50% gudang, 50% toko (pembagian rata)
-                const qtyGudang = Math.round(totalQty * 0.5 * 100) / 100;
-                const qtyToko = Math.round(totalQty * 0.5 * 100) / 100;
-
-                // Update alokasi
-                onChange({ target: { name: "qty_gudang", value: qtyGudang } });
-                onChange({ target: { name: "qty_toko", value: qtyToko } });
-            }
-        }
-    }, [item.qty]);
-
     return (
         <div className="p-4 mb-4 bg-white border rounded-lg shadow-sm">
             <div className="grid items-end grid-cols-1 gap-4 md:grid-cols-6">
@@ -80,7 +65,6 @@ export default function PurchaseItemInput({
                                                         "Nama kategori baru"
                                                     );
                                                 if (name && name.trim()) {
-                                                    // Emit a custom event so parent can listen and handle
                                                     window.dispatchEvent(
                                                         new CustomEvent(
                                                             "purchase:add-category",
@@ -187,45 +171,83 @@ export default function PurchaseItemInput({
                     </Select>
                 </div>
 
-                <div className="md:col-span-2">
+                <div className="md:col-span-1">
                     <label className="block mb-1 text-sm font-medium text-gray-700">
                         Produk
                     </label>
                     <Select
                         value={item.product_id?.toString() || ""}
                         onValueChange={(value) =>
-                            onChange({
-                                target: { name: "product_id", value },
-                            })
+                            onChange({ target: { name: "product_id", value } })
                         }
                     >
                         <SelectTrigger className="text-base bg-white">
                             <SelectValue placeholder="Pilih Produk" />
                         </SelectTrigger>
                         <SelectContent>
-                            {products.map((p) => (
-                                <SelectItem key={p.id} value={p.id.toString()}>
-                                    {p.name}
-                                </SelectItem>
-                            ))}
+                            {/** DEBUG: temporary logs to diagnose missing products **/}
+                            {typeof window !== "undefined" &&
+                                (() => {
+                                    try {
+                                        console.debug("Product select debug:", {
+                                            productsCount:
+                                                products?.length || 0,
+                                            category_id: item?.category_id,
+                                            subcategory_id:
+                                                item?.subcategory_id,
+                                            sampleProductKeys:
+                                                products && products[0]
+                                                    ? Object.keys(
+                                                          products[0]
+                                                      ).slice(0, 6)
+                                                    : [],
+                                        });
+                                    } catch (e) {}
+                                    return null;
+                                })()}
+                            {products
+                                .filter((p) => {
+                                    if (item.subcategory_id) {
+                                        return (
+                                            String(p.subcategory_id) ===
+                                            String(item.subcategory_id)
+                                        );
+                                    }
+                                    if (item.category_id) {
+                                        return (
+                                            String(p.category_id) ===
+                                            String(item.category_id)
+                                        );
+                                    }
+                                    return true;
+                                })
+                                .map((p) => (
+                                    <SelectItem
+                                        key={p.id}
+                                        value={p.id.toString()}
+                                    >
+                                        {p.name}
+                                    </SelectItem>
+                                ))}
 
                             <div className="px-3 py-2 mt-2 border-t">
                                 <button
                                     type="button"
                                     onClick={() => {
                                         try {
-                                            const context = {
-                                                category_id:
-                                                    item.category_id || null,
-                                                subcategory_id:
-                                                    item.subcategory_id || null,
-                                                unit_id: item.unit_id || null,
-                                            };
                                             if (
                                                 typeof onAddProduct ===
                                                 "function"
                                             ) {
-                                                onAddProduct(context);
+                                                onAddProduct({
+                                                    name: null,
+                                                    category_id:
+                                                        item.category_id ||
+                                                        null,
+                                                    subcategory_id:
+                                                        item.subcategory_id ||
+                                                        null,
+                                                });
                                             } else {
                                                 const name =
                                                     window.prompt(
@@ -238,7 +260,12 @@ export default function PurchaseItemInput({
                                                             {
                                                                 detail: {
                                                                     name: name.trim(),
-                                                                    ...context,
+                                                                    category_id:
+                                                                        item.category_id ||
+                                                                        null,
+                                                                    subcategory_id:
+                                                                        item.subcategory_id ||
+                                                                        null,
                                                                 },
                                                             }
                                                         )
@@ -268,9 +295,7 @@ export default function PurchaseItemInput({
                     <Select
                         value={item.unit_id?.toString() || ""}
                         onValueChange={(value) =>
-                            onChange({
-                                target: { name: "unit_id", value },
-                            })
+                            onChange({ target: { name: "unit_id", value } })
                         }
                     >
                         <SelectTrigger className="text-base bg-white">
@@ -282,6 +307,54 @@ export default function PurchaseItemInput({
                                     {u.name}
                                 </SelectItem>
                             ))}
+                            <div className="px-3 py-2 mt-2 border-t">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        console.debug(
+                                            "Tambah Unit button clicked"
+                                        );
+                                        try {
+                                            if (
+                                                typeof onAddUnit === "function"
+                                            ) {
+                                                console.debug(
+                                                    "Calling onAddUnit function"
+                                                );
+                                                onAddUnit();
+                                            } else {
+                                                console.debug(
+                                                    "onAddUnit not provided, using prompt fallback"
+                                                );
+                                                const name =
+                                                    window.prompt(
+                                                        "Nama unit baru"
+                                                    );
+                                                if (name && name.trim()) {
+                                                    window.dispatchEvent(
+                                                        new CustomEvent(
+                                                            "purchase:add-unit",
+                                                            {
+                                                                detail: {
+                                                                    name: name.trim(),
+                                                                },
+                                                            }
+                                                        )
+                                                    );
+                                                }
+                                            }
+                                        } catch (e) {
+                                            console.error(
+                                                "Add unit action failed",
+                                                e
+                                            );
+                                        }
+                                    }}
+                                    className="w-full text-sm text-left text-blue-600 hover:text-blue-800"
+                                >
+                                    + Tambah Unit
+                                </button>
+                            </div>
                         </SelectContent>
                     </Select>
                 </div>
@@ -301,11 +374,12 @@ export default function PurchaseItemInput({
                     />
                 </div>
 
+                {/* Fee Kuli UI removed from per-item input (moved/handled in table footer) */}
+
                 {/* Row 2: qty toko, qty gudang, harga, add button */}
                 <div className="md:col-span-1">
                     <label className="block mb-1 text-sm font-medium text-gray-700">
-                        Qty Toko{" "}
-                        <span className="text-xs text-gray-500">(50%)</span>
+                        Qty Toko
                     </label>
                     <Input
                         type="number"
@@ -321,8 +395,7 @@ export default function PurchaseItemInput({
 
                 <div className="md:col-span-1">
                     <label className="block mb-1 text-sm font-medium text-gray-700">
-                        Qty Gudang{" "}
-                        <span className="text-xs text-gray-500">(50%)</span>
+                        Qty Gudang
                     </label>
                     <Input
                         type="number"
@@ -335,48 +408,6 @@ export default function PurchaseItemInput({
                         placeholder="0"
                     />
                 </div>
-
-                {/* Indikator Total Alokasi */}
-                {(item.qty_gudang || item.qty_toko) && (
-                    <div className="md:col-span-6">
-                        <div className="p-2 text-xs text-gray-600 rounded bg-gray-50">
-                            <span className="font-medium">Total Alokasi: </span>
-                            <span className="text-blue-600">
-                                {(
-                                    (parseFloat(item.qty_gudang) || 0) +
-                                    (parseFloat(item.qty_toko) || 0)
-                                ).toFixed(2)}
-                            </span>
-                            {item.qty && (
-                                <span
-                                    className={`ml-2 ${
-                                        Math.abs(
-                                            (parseFloat(item.qty_gudang) || 0) +
-                                                (parseFloat(item.qty_toko) ||
-                                                    0) -
-                                                parseFloat(item.qty)
-                                        ) < 0.01
-                                            ? "text-green-600"
-                                            : "text-red-600"
-                                    }`}
-                                >
-                                    {Math.abs(
-                                        (parseFloat(item.qty_gudang) || 0) +
-                                            (parseFloat(item.qty_toko) || 0) -
-                                            parseFloat(item.qty)
-                                    ) < 0.01
-                                        ? "✓ Sesuai"
-                                        : `⚠ Selisih ${(
-                                              parseFloat(item.qty) -
-                                              (parseFloat(item.qty_gudang) ||
-                                                  0) -
-                                              (parseFloat(item.qty_toko) || 0)
-                                          ).toFixed(2)}`}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-                )}
 
                 <div className="md:col-span-2">
                     <label className="block mb-1 text-sm font-medium text-gray-700">

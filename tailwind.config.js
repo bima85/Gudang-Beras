@@ -9,7 +9,7 @@ export default {
         './resources/views/**/*.blade.php',
         './resources/js/**/*.jsx',
     ],
-    darkMode: ['class', 'class'],
+    darkMode: ['class'],
     safelist: [
         'translate-x-0',
         '-translate-x-full',

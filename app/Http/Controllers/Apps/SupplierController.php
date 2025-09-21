@@ -7,6 +7,7 @@ use App\Models\Supplier;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Validation\Rule;
 
 class SupplierController extends Controller
 {
@@ -48,29 +49,39 @@ class SupplierController extends Controller
 
         try {
             $validated = $request->validate([
-                'name' => 'required|string|max:255',
+                'name' => ['required', 'string', 'max:255', Rule::unique('suppliers', 'name')],
                 'phone' => 'nullable|string|max:20',
                 'address' => 'nullable|string|max:255',
+            ], [
+                'name.unique' => 'Nama supplier sudah ada.'
             ]);
 
             $supplier = Supplier::create($validated);
 
-            // If this is an AJAX request (from modal), return JSON response
-            if ($request->wantsJson() || $request->ajax()) {
+            // If this is a non-Inertia AJAX request (from modal/fetch), return JSON response
+            if ((($request->wantsJson() || $request->ajax()) && ! $request->header('X-Inertia'))) {
                 return response()->json($supplier, 201);
             }
 
             return redirect()->route('suppliers.index')->with('success', 'Supplier berhasil ditambahkan.');
         } catch (\Illuminate\Validation\ValidationException $e) {
+            // If this is an Inertia request, let the exception bubble so Inertia middleware
+            // can return a proper Inertia response. For plain AJAX/fetch requests (no X-Inertia header),
+            // return JSON containing validation errors.
+            if ($request->header('X-Inertia')) {
+                throw $e;
+            }
+
             if ($request->wantsJson() || $request->ajax()) {
                 return response()->json([
                     'message' => 'Validation failed',
                     'errors' => $e->errors()
                 ], 422);
             }
+
             throw $e;
         } catch (\Exception $e) {
-            if ($request->wantsJson() || $request->ajax()) {
+            if ((($request->wantsJson() || $request->ajax()) && ! $request->header('X-Inertia'))) {
                 return response()->json([
                     'message' => 'Server error: ' . $e->getMessage()
                 ], 500);
@@ -101,9 +112,11 @@ class SupplierController extends Controller
         }
 
         $validated = $request->validate([
-            'name' => 'required|string|max:255',
+            'name' => ['required', 'string', 'max:255', Rule::unique('suppliers', 'name')->ignore($supplier->id)],
             'phone' => 'nullable|string|max:20',
             'address' => 'nullable|string|max:255',
+        ], [
+            'name.unique' => 'Nama supplier sudah ada.'
         ]);
 
         $supplier->update($validated);

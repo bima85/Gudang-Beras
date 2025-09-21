@@ -121,7 +121,7 @@ export default function Login({ status, canResetPassword }) {
                                 htmlFor="role"
                                 className="block mb-2 font-bold text-gray-700"
                             >
-                                Pilih Role
+                                Pilih Lokasi
                             </label>
                             <select
                                 id="role"
@@ -133,6 +133,7 @@ export default function Login({ status, canResetPassword }) {
                                 }}
                                 className="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-opacity-50"
                             >
+                                <option value="">-- Pilih Lokasi --</option>
                                 <option value="Toko">Toko</option>
                                 <option value="Gudang">Gudang</option>
                             </select>

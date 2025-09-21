@@ -13,10 +13,10 @@ export default function Dashboard() {
     const locationText = location
         ? location
         : isGudang
-        ? "Gudang"
-        : roles[0]
-        ? roles[0].name
-        : "-";
+            ? "Gudang"
+            : roles[0]
+                ? roles[0].name
+                : "-";
 
     return (
         <>

@@ -83,6 +83,13 @@ export default function Menu() {
                     permissions: true, // Atur permission sesuai kebutuhan
                 },
                 {
+                    title: "Pergerakan Stok",
+                    href: route("stock-movements.index"),
+                    active: url === "/dashboard/stock-movements" ? true : false,
+                    icon: <IconTable size={20} strokeWidth={1.5} />,
+                    permissions: isSuperAdmin || hasAnyPermission(["stock-movements.view"]),
+                },
+                {
                     title: "Pelanggan",
                     href: route("customers.index"),
                     active: url === "/dashboard/customers" ? true : false, // Update comparison here

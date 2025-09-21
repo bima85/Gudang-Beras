@@ -1,5 +1,7 @@
 import React from "react";
 import { Link, usePage } from "@inertiajs/react";
+import { Button } from "@/Components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 export default function BackToDashboard({ className = "" }) {
     const page = usePage();
@@ -16,12 +18,15 @@ export default function BackToDashboard({ className = "" }) {
 
     return (
         <div className={className}>
-            <Link
-                href={route("dashboard")}
-                className="inline-block bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition-colors"
-            >
-                Kembali ke Dashboard
-            </Link>
+            <Button asChild variant="outline">
+                <Link
+                    href={route("dashboard")}
+                    className="flex items-center gap-2"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    Kembali ke Dashboard
+                </Link>
+            </Button>
         </div>
     );
 }

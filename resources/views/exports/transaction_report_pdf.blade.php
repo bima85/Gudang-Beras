@@ -77,7 +77,8 @@
             @foreach ($transactions as $transaction)
                 <tr>
                     <td>{{ $no++ }}</td>
-                    <td>{{ \Carbon\Carbon::parse($transaction->created_at)->format('d/m/Y H:i') }}</td>
+                    <td>{{ \Carbon\Carbon::parse($transaction->created_at)->timezone('Asia/Jakarta')->format('d/m/Y H:i:s') }}
+                    </td>
                     <td>{{ $transaction->transaction_number }}</td>
                     <td>{{ $transaction->cashier?->name ?? '-' }}</td>
                     <td>{{ $transaction->customer?->name ?? '-' }}</td>

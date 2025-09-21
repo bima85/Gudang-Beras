@@ -308,7 +308,7 @@ export default function Index({ purchases = [] }) {
                                                                         Rp{" "}
                                                                         {Number(
                                                                             item.kuli_fee ||
-                                                                                0
+                                                                            0
                                                                         ).toLocaleString(
                                                                             "id-ID"
                                                                         )}
@@ -317,11 +317,9 @@ export default function Index({ purchases = [] }) {
                                                                     <td className="px-3 py-2">
                                                                         {item.timbangan !==
                                                                             undefined &&
-                                                                        item.timbangan !==
+                                                                            item.timbangan !==
                                                                             null
-                                                                            ? item.timbangan.toLocaleString(
-                                                                                  "id-ID"
-                                                                              )
+                                                                            ? "Rp " + Number(item.timbangan).toLocaleString("id-ID")
                                                                             : "-"}
                                                                     </td>
                                                                     <td className="px-3 py-2">

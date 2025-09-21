@@ -84,7 +84,7 @@ class TransactionReportExport implements FromCollection, WithHeadings, WithMappi
 
         return [
             $no,
-            \Carbon\Carbon::parse($transaction->created_at)->format('d/m/Y H:i'),
+            \Carbon\Carbon::parse($transaction->created_at)->timezone('Asia/Jakarta')->format('d/m/Y H:i:s'),
             $transaction->transaction_number ?? $transaction->invoice ?? $transaction->no_urut ?? '-',
             $transaction->cashier?->name ?? '-',
             $transaction->customer?->name ?? '-',

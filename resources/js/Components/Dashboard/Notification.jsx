@@ -41,7 +41,7 @@ export default function Notification() {
             window.removeEventListener('resize', handleResize);
             window.removeEventListener('mousedown', handleClickOutside);
         };
-    })
+    }, [])
 
     return (
         <>

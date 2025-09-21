@@ -1,8 +1,22 @@
 import React, { useState, useEffect } from "react";
 import Swal from "sweetalert2";
-import Input from "@/Components/Dashboard/Input";
-import InputSelect from "@/Components/Dashboard/InputSelect";
-import Button from "@/Components/Dashboard/Button";
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+} from "@/Components/ui/dialog";
+import { Button } from "@/Components/ui/button";
+import { Input } from "@/Components/ui/input";
+import { Label } from "@/Components/ui/label";
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from "@/Components/ui/select";
 
 export default function ProductQuickModal({
     show,
@@ -171,92 +185,131 @@ export default function ProductQuickModal({
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="w-full max-w-xl p-6 bg-white rounded shadow">
-                <h3 className="mb-4 text-lg font-semibold">
-                    Tambah Produk Cepat
-                </h3>
+        <Dialog open={show} onOpenChange={onClose}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle>Tambah Produk Cepat</DialogTitle>
+                    <DialogDescription>
+                        Tambahkan produk baru dengan informasi dasar.
+                    </DialogDescription>
+                </DialogHeader>
                 <form onSubmit={handleSubmit}>
-                    <div className="grid grid-cols-1 gap-3">
-                        <Input
-                            label="Nama Produk"
-                            value={data.name}
-                            onChange={(e) =>
-                                handleChange("name", e.target.value)
-                            }
-                        />
-                        <Input
-                            label="Kode/Barcode (opsional)"
-                            value={data.barcode}
-                            onChange={(e) =>
-                                handleChange("barcode", e.target.value)
-                            }
-                        />
-                        <div className="grid grid-cols-2 gap-3">
-                            <div>
-                                <label className="block text-sm text-gray-600 mb-1">
-                                    Kategori
-                                </label>
-                                <div className="p-2 border rounded bg-gray-50">
+                    <div className="grid grid-cols-1 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="product-name">Nama Produk</Label>
+                            <Input
+                                id="product-name"
+                                value={data.name}
+                                onChange={(e) =>
+                                    handleChange("name", e.target.value)
+                                }
+                                placeholder="Masukkan nama produk"
+                                required
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="product-barcode">
+                                Kode/Barcode (opsional)
+                            </Label>
+                            <Input
+                                id="product-barcode"
+                                value={data.barcode}
+                                onChange={(e) =>
+                                    handleChange("barcode", e.target.value)
+                                }
+                                placeholder="Masukkan kode atau barcode"
+                            />
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>Kategori</Label>
+                                <div className="p-3 border rounded-md bg-muted text-sm">
                                     {categories.find(
                                         (c) => c.id === data.category_id
                                     )?.name || "-"}
                                 </div>
                             </div>
-                            <div>
-                                <label className="block text-sm text-gray-600 mb-1">
-                                    Subkategori
-                                </label>
-                                <div className="p-2 border rounded bg-gray-50">
+                            <div className="space-y-2">
+                                <Label>Subkategori</Label>
+                                <div className="p-3 border rounded-md bg-muted text-sm">
                                     {subcategories.find(
                                         (s) => s.id === data.subcategory_id
                                     )?.name || "-"}
                                 </div>
                             </div>
                         </div>
-                        <InputSelect
-                            label="Satuan"
-                            data={units}
-                            selected={
-                                units.find((u) => u.id === data.unit_id) || null
-                            }
-                            setSelected={(u) =>
-                                handleChange("unit_id", u ? u.id : null)
-                            }
-                            displayKey="name"
-                        />
-                        <Input
-                            label="Stok Minimal"
-                            type="number"
-                            value={data.min_stock}
-                            onChange={(e) =>
-                                handleChange("min_stock", e.target.value)
-                            }
-                        />
-                        <Input
-                            label="Deskripsi (opsional)"
-                            value={data.description}
-                            onChange={(e) =>
-                                handleChange("description", e.target.value)
-                            }
-                        />
+
+                        <div className="space-y-2">
+                            <Label>Satuan</Label>
+                            <Select
+                                value={data.unit_id?.toString() || ""}
+                                onValueChange={(value) =>
+                                    handleChange("unit_id", value)
+                                }
+                            >
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Pilih satuan" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {units.map((unit) => (
+                                        <SelectItem
+                                            key={unit.id}
+                                            value={unit.id.toString()}
+                                        >
+                                            {unit.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="product-min-stock">
+                                Stok Minimal
+                            </Label>
+                            <Input
+                                id="product-min-stock"
+                                type="number"
+                                min="0"
+                                value={data.min_stock}
+                                onChange={(e) =>
+                                    handleChange("min_stock", e.target.value)
+                                }
+                                placeholder="0"
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="product-description">
+                                Deskripsi (opsional)
+                            </Label>
+                            <Input
+                                id="product-description"
+                                value={data.description}
+                                onChange={(e) =>
+                                    handleChange("description", e.target.value)
+                                }
+                                placeholder="Masukkan deskripsi produk"
+                            />
+                        </div>
                     </div>
 
-                    <div className="flex justify-end gap-3 mt-4">
+                    <div className="flex justify-end gap-3 mt-6">
                         <Button
                             type="button"
-                            label="Batal"
-                            className="border bg-gray-200"
+                            variant="outline"
                             onClick={onClose}
-                        />
-                        <Button
-                            type="submit"
-                            label={loading ? "Menyimpan..." : "Simpan"}
-                            processing={loading}
-                        />
+                        >
+                            Batal
+                        </Button>
+                        <Button type="submit" disabled={loading}>
+                            {loading ? "Menyimpan..." : "Simpan"}
+                        </Button>
                     </div>
                 </form>
-            </div>
-        </div>
+            </DialogContent>
+        </Dialog>
     );
 }

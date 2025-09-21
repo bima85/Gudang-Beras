@@ -31,8 +31,9 @@ export default function Edit({ supplier }) {
                     });
                 }
             },
-            onError: () => {
-                toast("Terjadi kesalahan dalam update data", {
+            onError: (err) => {
+                const message = err?.response?.data?.errors?.name?.[0] || err?.response?.data?.message || "Terjadi kesalahan dalam update data";
+                toast(message, {
                     style: {
                         borderRadius: "10px",
                         background: "#FF0000",
@@ -78,8 +79,8 @@ export default function Edit({ supplier }) {
                                 "border bg-red-500 text-gray-700 hover:bg-red-300 transition-colors duration-200"
                             }
                             onClick={() =>
-                                (window.location.href =
-                                    route("suppliers.index"))
+                            (window.location.href =
+                                route("suppliers.index"))
                             }
                         />
                         <Button

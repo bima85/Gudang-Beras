@@ -506,8 +506,30 @@ export default function Create({
                                                             </div>
                                                             <div className="text-sm text-gray-500">
                                                                 1 {unit.name} ={" "}
-                                                                {unit.conversion_to_kg ||
-                                                                    1}{" "}
+                                                                {(() => {
+                                                                    const num =
+                                                                        parseFloat(
+                                                                            unit.conversion_to_kg ||
+                                                                                1
+                                                                        );
+                                                                    const formatted =
+                                                                        num
+                                                                            .toFixed(
+                                                                                2
+                                                                            )
+                                                                            .replace(
+                                                                                /\.?0+$/,
+                                                                                ""
+                                                                            );
+                                                                    return (
+                                                                        formatted +
+                                                                        (formatted.includes(
+                                                                            "."
+                                                                        )
+                                                                            ? "kg"
+                                                                            : "Kg")
+                                                                    );
+                                                                })()}{" "}
                                                                 kg
                                                             </div>
                                                         </div>
