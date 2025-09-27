@@ -16,7 +16,26 @@ export default function TokoManualModal({
     onSubmit,
     manualToko,
     onChange,
+    // alternative callback used by Edit.jsx
+    onTokoAdded,
 }) {
+    const [local, setLocal] = React.useState({ name: "", address: "", phone: "" });
+
+    React.useEffect(() => {
+        if (manualToko) setLocal(manualToko);
+    }, [manualToko]);
+
+    const handleChange = (e) => {
+        if (onChange) return onChange(e);
+        const { name, value } = e.target;
+        setLocal((s) => ({ ...s, [name]: value }));
+    };
+
+    const handleSubmit = () => {
+        if (typeof onSubmit === "function") return onSubmit();
+        if (typeof onTokoAdded === "function") return onTokoAdded(local);
+    };
+
     return (
         <Dialog open={show} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
@@ -34,8 +53,8 @@ export default function TokoManualModal({
                             id="toko-name"
                             type="text"
                             name="name"
-                            value={manualToko.name}
-                            onChange={onChange}
+                            value={manualToko?.name ?? local.name ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan nama toko"
                             required
                         />
@@ -46,8 +65,8 @@ export default function TokoManualModal({
                             id="toko-address"
                             type="text"
                             name="address"
-                            value={manualToko.address}
-                            onChange={onChange}
+                            value={manualToko?.address ?? local.address ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan alamat toko"
                             required
                         />
@@ -58,8 +77,8 @@ export default function TokoManualModal({
                             id="toko-phone"
                             type="text"
                             name="phone"
-                            value={manualToko.phone}
-                            onChange={onChange}
+                            value={manualToko?.phone ?? local.phone ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan nomor telepon"
                         />
                     </div>
@@ -71,7 +90,7 @@ export default function TokoManualModal({
                         >
                             Batal
                         </Button>
-                        <Button type="button" onClick={onSubmit}>
+                        <Button type="button" onClick={handleSubmit}>
                             Simpan
                         </Button>
                     </div>

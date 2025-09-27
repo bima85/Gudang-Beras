@@ -43,7 +43,20 @@ export default function DashboardLayout({ children }) {
         // listen for mobile toggle event from hamburger
         const onToggleMobileSidebar = () => {
             if (window.matchMedia && window.matchMedia("(max-width: 767px)").matches) {
-                setSidebarOpen((v) => !v);
+                setSidebarOpen((v) => {
+                    const next = !v;
+                    // If opening the mobile sidebar, notify other mobile drawers to close
+                    if (next) {
+                        try {
+                            window.dispatchEvent(new CustomEvent("closeMobileDrawers"));
+                        } catch (e) {
+                            const ev = document.createEvent("Event");
+                            ev.initEvent("closeMobileDrawers", true, true);
+                            window.dispatchEvent(ev);
+                        }
+                    }
+                    return next;
+                });
             }
         };
         window.addEventListener("toggleSidebarMobile", onToggleMobileSidebar);
@@ -52,6 +65,7 @@ export default function DashboardLayout({ children }) {
             mm.removeEventListener("change", handleMM);
             window.removeEventListener("resize", handleResize);
             window.removeEventListener("closeSidebar", onCloseSidebar);
+            window.removeEventListener("toggleSidebarMobile", onToggleMobileSidebar);
         };
     }, []);
 
@@ -82,7 +96,7 @@ export default function DashboardLayout({ children }) {
                     className="z-[50] min-h-screen"
                 />
             )}
-            <div className="flex-1 flex flex-col min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200 z-[10] p-2">
+            <div className="flex-1  flex flex-col min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 transition-colors duration-200 z-[10] p-0">
                 <Navbar
                     toggleSidebar={toggleSidebar}
                     themeSwitcher={themeSwitcher}
@@ -100,7 +114,7 @@ export default function DashboardLayout({ children }) {
                         {children}
                     </div>
                 </div>
-                <footer className="w-full text-center text-sm text-gray-500 dark:text-gray-400 py-2 sm:py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
+                <footer className="w-full text-center text-sm text-gray-500 dark:text-gray-400 py-2 sm:py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 mt-auto">
                     © {new Date().getFullYear()} TOKO_85 App by YourCompany. All
                     rights reserved.
                 </footer>

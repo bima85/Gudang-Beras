@@ -18,7 +18,25 @@ export default function SupplierManualModal({
     onChange,
     errors = {},
     submitting = false,
+    onSupplierAdded,
 }) {
+    const [local, setLocal] = React.useState({ name: "", address: "", phone: "" });
+
+    React.useEffect(() => {
+        if (manualSupplier) setLocal(manualSupplier);
+    }, [manualSupplier]);
+
+    const handleChange = (e) => {
+        if (onChange) return onChange(e);
+        const { name, value } = e.target;
+        setLocal((s) => ({ ...s, [name]: value }));
+    };
+
+    const handleSubmit = () => {
+        if (typeof onSubmit === "function") return onSubmit();
+        if (typeof onSupplierAdded === "function") return onSupplierAdded(local);
+    };
+
     return (
         <Dialog open={show} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
@@ -36,8 +54,8 @@ export default function SupplierManualModal({
                             id="supplier-name"
                             type="text"
                             name="name"
-                            value={manualSupplier.name}
-                            onChange={onChange}
+                            value={manualSupplier?.name ?? local.name ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan nama supplier"
                             required
                         />
@@ -51,8 +69,8 @@ export default function SupplierManualModal({
                             id="supplier-address"
                             type="text"
                             name="address"
-                            value={manualSupplier.address}
-                            onChange={onChange}
+                            value={manualSupplier?.address ?? local.address ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan alamat supplier"
                             required
                         />
@@ -66,8 +84,8 @@ export default function SupplierManualModal({
                             id="supplier-phone"
                             type="text"
                             name="phone"
-                            value={manualSupplier.phone}
-                            onChange={onChange}
+                            value={manualSupplier?.phone ?? local.phone ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan nomor telepon"
                         />
                         {errors.phone && (
@@ -78,7 +96,7 @@ export default function SupplierManualModal({
                         <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
                             Batal
                         </Button>
-                        <Button type="button" onClick={onSubmit} disabled={submitting}>
+                        <Button type="button" onClick={handleSubmit} disabled={submitting}>
                             {submitting ? "Menyimpan..." : "Simpan"}
                         </Button>
                     </div>

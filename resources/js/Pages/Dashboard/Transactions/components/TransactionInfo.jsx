@@ -86,7 +86,7 @@ export default function TransactionInfo({
                             </Label>
                             <Input
                                 id="transaction-location"
-                                value={location}
+                                value={location ?? ""}
                                 className=" uppercase w-fit mx-auto p-2 border border-black-400 rounded-lg bg-green-50 dark:bg-green-950/20 dark:border-green-800 text-center"
                                 readOnly
                             />
@@ -141,17 +141,16 @@ export default function TransactionInfo({
                         </div>
                     </Card>
                     <Card className="bg-purple-500 dark:bg-gray-900">
-                        <div className="space-y-2 text-center py-3">
-                            <div className="flex items-center justify-center gap-2 text-lg font-medium text-white">
-                                <Hash className="w-5 h-5 " />
-                                No. Transaksi (Otomatis)
+                        <div className="space-y-1 text-center py-2">
+                            <div className="flex items-center justify-center gap-2 text-base font-medium text-white">
+                                <Hash className="w-4 h-4" />
+                                <span className="text-sm">No. Transaksi (Otomatis)</span>
                             </div>
-                            <div className="w-fit mx-auto p-2 border border-red-200 rounded-lg bg-green-50 dark:bg-green-950/20 dark:border-green-800">
-                                <p className="font-mono text-lg font-semibold text-primary text-center">
+                            <div className="w-fit mx-auto p-1 border border-red-200 rounded-md bg-green-50 dark:bg-green-950/20 dark:border-green-800">
+                                <p className="font-mono text-sm font-medium text-primary text-center ">
                                     {isLoadingSequence
                                         ? "Memuat..."
-                                        : transactionNumber ||
-                                        "TRX-DD/MM/YYYY-001"}
+                                        : transactionNumber || "TRX-DD/MM/YYYY-001"}
                                 </p>
                             </div>
                         </div>

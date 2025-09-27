@@ -111,7 +111,7 @@ export default function PurchaseFormInfo({
                 <CardContent>
                     <div className="flex items-start gap-4">
                         <div className="flex-1">
-                            <label className="block mb-2 text-sm font-medium text-gray-700">
+                            <label className="block p-2 mb-1 text-sm font-medium text-gray-700 dark:text-gray-200">
                                 Lokasi
                             </label>
                             <Input
@@ -119,12 +119,12 @@ export default function PurchaseFormInfo({
                                 name="toko_name"
                                 value={data.toko_name || location || ""}
                                 onChange={handleChange}
-                                className="text-base bg-gray-50"
+                                className="text-base bg-gray-50 dark:bg-gray-800 dark:text-gray-200"
                                 readOnly
                             />
 
                             {data.toko_name && !data.toko_id && (
-                                <div className="p-3 mt-3 text-sm border rounded bg-gray-50">
+                                <div className=" p-2 mt-3 text-sm rounded bg-gray-50 dark:bg-gray-800 dark:text-gray-200">
                                     <div>
                                         <span className="font-semibold">
                                             Nama:
@@ -135,7 +135,7 @@ export default function PurchaseFormInfo({
                             )}
                         </div>
                         {/* Keep a small area for date or helper text */}
-                        <div className="text-sm text-right text-gray-500 w-44">
+                        <div className=" p-2 text-sm text-right text-gray-500 w-44 dark:text-gray-400">
                             Tgl: {data.purchase_date || "-"}
                         </div>
                     </div>
@@ -144,9 +144,9 @@ export default function PurchaseFormInfo({
                     <CardTitle>Informasi Pembelian</CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 dark:text-gray-200">
                         <div>
-                            <label className="block mb-2 text-sm font-medium text-gray-700">
+                            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                                 Tanggal
                             </label>
                             <Input
@@ -154,18 +154,18 @@ export default function PurchaseFormInfo({
                                 name="purchase_date"
                                 value={data.purchase_date}
                                 onChange={handleChange}
-                                className="text-base"
+                                className="text-base bg-gray-50 dark:bg-gray-800 dark:text-gray-200 w-50"
                                 required
                             />
                         </div>
 
                         {/* No. urut invoice di-generate otomatis di backend; input manual dihapus */}
 
-                        <div className="md:col-span-2">
-                            <label className="block mb-2 text-sm font-medium text-gray-700">
+                        <div className="md:col-span-2 ">
+                            <label className="block mb-2 text-sm font-medium text-gray-700 dark:text-gray-200">
                                 No. Invoice (Otomatis)
                             </label>
-                            <span className="block w-full px-4 py-3 text-base border rounded-md bg-gray-50">
+                            <span className="block w-full px-4 py-3 text-base border rounded-md bg-gray-50 dark:bg-gray-800 dark:text-gray-200">
                                 {data.invoice_number || "-"}
                             </span>
                         </div>

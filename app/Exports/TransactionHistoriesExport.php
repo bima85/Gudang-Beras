@@ -35,6 +35,7 @@ class TransactionHistoriesExport implements FromCollection, WithHeadings, WithMa
         return [
             'Tanggal',
             'No. Transaksi',
+            'No. Resi',
             'Jenis',
             'Produk',
             'Qty',
@@ -53,6 +54,7 @@ class TransactionHistoriesExport implements FromCollection, WithHeadings, WithMa
         return [
             $row->transaction_date,
             $row->transaction_number,
+            $row->transtrack,
             $row->transaction_type,
             $row->product?->name,
             $row->quantity,

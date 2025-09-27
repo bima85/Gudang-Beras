@@ -12,6 +12,7 @@ class TransactionHistory extends Model
     protected $fillable = [
         'transaction_number',
         'transaction_type',
+        'transtrack',
         'transaction_time',
         'transaction_date',
         'related_party',

@@ -1,832 +1,173 @@
-import React, { useState } from "react";
-import DashboardLayout from "@/Layouts/DashboardLayout";
-import { Head, router } from "@inertiajs/react";
-import InputSelect from "@/Components/Dashboard/InputSelect";
-import { ExcelIcon, PdfIcon } from "@/Components/Dashboard/ExportIcons";
-import {
-    Plus,
-    ShoppingCart,
-    Package,
-    TrendingUp,
-    TrendingDown,
-    Calendar,
-    MapPin,
-    Search,
-    Filter,
-    Download,
-    Clock,
-    User,
-    DollarSign,
-    Building,
-    Eye,
-} from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
-import { Badge } from "@/Components/ui/badge";
-import { Separator } from "@/Components/ui/separator";
-import { Button } from "@/Components/ui/button";
+import React, { useState, useEffect } from 'react';
+import DashboardLayout from '@/Layouts/DashboardLayout';
+import { Head, Link } from '@inertiajs/react';
+import { format } from 'date-fns';
+import { toast } from 'react-toastify';
 
-export default function Index({
-    transactions,
-    sidebarOpen,
-    filters = {},
-    tokos = [],
-    warehouses = [],
-}) {
-    // State untuk filter
-    const [dateFrom, setDateFrom] = useState(filters.from || "");
-    const [dateTo, setDateTo] = useState(filters.to || "");
-    const [locationId, setLocationId] = useState(filters.location_id || "");
-    const [locationType, setLocationType] = useState(
-        filters.location_type || ""
-    );
-    const [loading, setLoading] = useState(false);
-    const [activeTab, setActiveTab] = useState("all");
+// Clean, minimal Transaction Histories index page.
+export default function Index({ transactions = { data: [], links: [], current_page: 1, per_page: 15 }, filters = {}, sidebarOpen }) {
+  const [start, setStart] = useState(filters.from || '');
+  const [end, setEnd] = useState(filters.to || '');
+  const [transactionsState, setTransactionsState] = useState(transactions || { data: [], links: [], current_page: 1, per_page: 15 });
+  const [loading, setLoading] = useState(false);
 
-    // Gabungkan warehouse dan toko menjadi satu array lokasi
-    const locations = [
-        ...warehouses.map((w) => ({
-            ...w,
-            type: "warehouse",
-            label: `🏢 ${w.name}`,
-        })),
-        ...tokos.map((t) => ({ ...t, type: "toko", label: `🏪 ${t.name}` })),
-    ];
+  useEffect(() => {
+    setTransactionsState(transactions || { data: [], links: [], current_page: 1, per_page: 15 });
+  }, [transactions]);
 
-    // Pisahkan data berdasarkan jenis transaksi
-    const purchaseTransactions =
-        transactions.data?.filter((t) => t.transaction_type === "purchase") ||
-        [];
-    const saleTransactions =
-        transactions.data?.filter((t) => t.transaction_type === "sale") || [];
-    const allTransactions = transactions.data || [];
+  const fmtDate = (iso) => {
+    if (!iso) return '-';
+    try {
+      return format(new Date(iso), 'dd MMM yyyy HH:mm');
+    } catch (e) {
+      return iso;
+    }
+  };
 
-    const formatPrice = (value) => {
-        if (!value) return "-";
-        return `Rp ${Number(value).toLocaleString("id-ID")}`;
-    };
+  const fetchTransactions = async (params = {}) => {
+    setLoading(true);
+    try {
+      const qs = new URLSearchParams({
+        from: params.from ?? start || '',
+        to: params.to ?? end || '',
+        page: (params.page || 1).toString(),
+        per_page: (params.per_page || transactionsState.per_page || 15).toString(),
+      });
 
-    const formatNumber = (value) => {
-        if (!value) return "-";
-        return Number(value).toLocaleString("id-ID");
-    };
+      const res = await fetch(`${route('transaction-histories.index')}?${qs.toString()}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json',
+          'X-Requested-With': 'XMLHttpRequest',
+          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+        },
+      });
 
-    const formatQuantity = (qty) => {
-        if (qty === null || qty === undefined) return "-";
-        const number = Number(qty);
-        if (isNaN(number)) return "-";
-        if (number % 1 === 0) {
-            return number.toString();
-        }
-        return parseFloat(number.toFixed(2)).toString();
-    };
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setTransactionsState(data);
+    } catch (err) {
+      console.error('fetchTransactions error', err);
+      toast.error('Gagal memuat data transaksi');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const formatDateTime = (date, time) => {
-        if (!date) return "-";
-        const formattedDate = new Date(date).toLocaleDateString("id-ID", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-        });
-        return time ? `${formattedDate} ${time}` : formattedDate;
-    };
+  const handleFilter = async (e) => {
+    e?.preventDefault();
+    await fetchTransactions({ from: start, to: end, page: 1 });
+  };
 
-    // Validasi tanggal
-    const isValidDateRange = () => {
-        if (!dateFrom || !dateTo) return true;
-        return new Date(dateFrom) <= new Date(dateTo);
-    };
+  const resetFilter = async () => {
+    setStart('');
+    setEnd('');
+    await fetchTransactions({ from: '', to: '', page: 1 });
+  };
 
-    // Komponen untuk tabel pembelian
-    const PurchaseTable = ({ data }) => {
-        if (!data || data.length === 0) {
-            return (
-                <Card>
-                    <CardContent className="py-8">
-                        <div className="text-center text-muted-foreground">
-                            <Package className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>Tidak ada data pembelian yang ditemukan.</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            );
-        }
+  const handleExportCsv = () => {
+    let csv = 'Tanggal,No Transaksi,Tipe,Pihak,Toko,Gudang,Produk,Kategori,Subkategori,Qty,Unit,Harga Beli,Subtotal,Status,Catatan\n';
+    (transactionsState.data || []).forEach((t) => {
+      const prodNames = (t.details && t.details.length) ? t.details.map(d => d.product?.name || d.product_name || '-').join('|') : (t.product?.name || '-');
+      const prodCats = (t.details && t.details.length) ? t.details.map(d => d.product?.category?.name || d.product?.category_name || '-').join('|') : (t.product?.category?.name || t.product?.category_name || '-');
+      const prodSubs = (t.details && t.details.length) ? t.details.map(d => d.product?.subcategory?.name || d.product?.subcategory_name || '-').join('|') : (t.product?.subcategory?.name || t.product?.subcategory_name || '-');
+      const tanggal = t.transaction_datetime_iso || t.transaction_date_local || t.transaction_date || '';
+      const hargaBeli = (t.harga_beli ?? t.product?.purchase_price) || '';
+      csv += `"${tanggal}","${t.transaction_number || ''}","${t.transaction_type || ''}","${t.related_party || ''}","${t.toko?.name || ''}","${t.warehouse?.name || ''}","${prodNames}","${prodCats}","${prodSubs}","${t.quantity || ''}","${t.unit || ''}","${hargaBeli}","${t.subtotal || ''}","${t.payment_status || ''}","${(t.notes || '').replace(/\n/g, ' ')}"\n`;
+    });
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `transaction-histories-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast.success('Data berhasil diekspor');
+  };
 
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Package className="w-5 h-5 text-blue-600" />
-                        Data Pembelian ({data.length})
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-muted/50">
-                                <tr className="border-b">
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        Tanggal & Waktu
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        No. Transaksi
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        Produk
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        Supplier
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Qty
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Harga
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Subtotal
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Fee Kuli
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Timbangan
-                                    </th>
-                                    <th className="px-4 py-3 text-center font-medium text-sm">
-                                        Status
-                                    </th>
-                                    <th className="px-4 py-3 text-center font-medium text-sm">
-                                        Aksi
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.map((trx) => (
-                                    <tr
-                                        key={trx.id}
-                                        className="border-b hover:bg-muted/30 transition-colors"
-                                    >
-                                        <td className="px-4 py-3 text-sm">
-                                            {formatDateTime(
-                                                trx.transaction_date,
-                                                trx.transaction_time
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <Badge
-                                                variant="outline"
-                                                className="font-mono text-xs"
-                                            >
-                                                {trx.transaction_number}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div>
-                                                <p className="font-medium">
-                                                    {trx.product?.name || "-"}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {
-                                                        trx.product?.category
-                                                            ?.name
-                                                    }
-                                                    {trx.product?.subcategory &&
-                                                        ` / ${trx.product.subcategory.name}`}
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <Package className="w-4 h-4 text-orange-600" />
-                                                {trx.related_party || "-"}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div>
-                                                <span className="font-medium">
-                                                    {formatQuantity(
-                                                        trx.quantity
-                                                    )}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground ml-1">
-                                                    {trx.unit}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {formatPrice(trx.price)}
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-medium">
-                                            {formatPrice(trx.subtotal)}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {formatPrice(trx.kuli_fee) || "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {trx.timbangan
-                                                ? `${formatQuantity(
-                                                      trx.timbangan
-                                                  )} kg`
-                                                : "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <Badge
-                                                variant={
-                                                    trx.payment_status ===
-                                                    "paid"
-                                                        ? "default"
-                                                        : trx.payment_status ===
-                                                          "unpaid"
-                                                        ? "destructive"
-                                                        : "secondary"
-                                                }
-                                                className="text-xs"
-                                            >
-                                                {trx.payment_status === "paid"
-                                                    ? "Lunas"
-                                                    : trx.payment_status ===
-                                                      "unpaid"
-                                                    ? "Belum Lunas"
-                                                    : trx.payment_status ===
-                                                      "partial"
-                                                    ? "Sebagian"
-                                                    : "-"}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <div className="flex gap-1 justify-center">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-8 w-8 p-0"
-                                                    onClick={() =>
-                                                        router.get(
-                                                            route(
-                                                                "transaction-histories.show",
-                                                                trx.id
-                                                            )
-                                                        )
-                                                    }
-                                                >
-                                                    <span className="text-blue-600">
-                                                        👁
-                                                    </span>
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    };
+  const data = transactionsState?.data || [];
+  const pager = transactionsState && Object.keys(transactionsState).length ? transactionsState : { current_page: 1, per_page: 15, links: [] };
 
-    // Komponen untuk tabel penjualan
-    const SalesTable = ({ data }) => {
-        if (!data || data.length === 0) {
-            return (
-                <Card>
-                    <CardContent className="py-8">
-                        <div className="text-center text-muted-foreground">
-                            <ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                            <p>Tidak ada data penjualan yang ditemukan.</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            );
-        }
+  return (
+    <DashboardLayout sidebarOpen={sidebarOpen}>
+      <Head title="Histori Transaksi" />
 
-        return (
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <ShoppingCart className="w-5 h-5 text-green-600" />
-                        Data Penjualan ({data.length})
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <table className="w-full">
-                            <thead className="bg-muted/50">
-                                <tr className="border-b">
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        Tanggal & Waktu
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        No. Transaksi
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        Produk
-                                    </th>
-                                    <th className="px-4 py-3 text-left font-medium text-sm">
-                                        Customer
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Qty
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Harga
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Subtotal
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Discount
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Deposit
-                                    </th>
-                                    <th className="px-4 py-3 text-right font-medium text-sm">
-                                        Kembalian
-                                    </th>
-                                    <th className="px-4 py-3 text-center font-medium text-sm">
-                                        Status
-                                    </th>
-                                    <th className="px-4 py-3 text-center font-medium text-sm">
-                                        Aksi
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {data.map((trx) => (
-                                    <tr
-                                        key={trx.id}
-                                        className="border-b hover:bg-muted/30 transition-colors"
-                                    >
-                                        <td className="px-4 py-3 text-sm">
-                                            {formatDateTime(
-                                                trx.transaction_date,
-                                                trx.transaction_time
-                                            )}
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <Badge
-                                                variant="outline"
-                                                className="font-mono text-xs"
-                                            >
-                                                {trx.transaction_number}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div>
-                                                <p className="font-medium">
-                                                    {trx.product?.name || "-"}
-                                                </p>
-                                                <p className="text-xs text-muted-foreground">
-                                                    {
-                                                        trx.product?.category
-                                                            ?.name
-                                                    }
-                                                    {trx.product?.subcategory &&
-                                                        ` / ${trx.product.subcategory.name}`}
-                                                </p>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3">
-                                            <div className="flex items-center gap-2">
-                                                <ShoppingCart className="w-4 h-4 text-green-600" />
-                                                {trx.related_party ||
-                                                    "Walk-in Customer"}
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <div>
-                                                <span className="font-medium">
-                                                    {formatQuantity(
-                                                        trx.quantity
-                                                    )}
-                                                </span>
-                                                <span className="text-xs text-muted-foreground ml-1">
-                                                    {trx.unit}
-                                                </span>
-                                            </div>
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {formatPrice(trx.price)}
-                                        </td>
-                                        <td className="px-4 py-3 text-right font-medium">
-                                            {formatPrice(trx.subtotal)}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {formatPrice(trx.discount) || "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            {formatPrice(trx.deposit_amount) ||
-                                                "-"}
-                                        </td>
-                                        <td className="px-4 py-3 text-right">
-                                            <span className="text-green-600 font-medium">
-                                                {trx.transaction?.change
-                                                    ? formatPrice(
-                                                          trx.transaction.change
-                                                      )
-                                                    : "-"}
-                                            </span>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <Badge
-                                                variant={
-                                                    trx.payment_status ===
-                                                    "paid"
-                                                        ? "default"
-                                                        : trx.payment_status ===
-                                                          "unpaid"
-                                                        ? "destructive"
-                                                        : "secondary"
-                                                }
-                                                className="text-xs"
-                                            >
-                                                {trx.payment_status === "paid"
-                                                    ? "Lunas"
-                                                    : trx.payment_status ===
-                                                      "unpaid"
-                                                    ? "Belum Lunas"
-                                                    : trx.payment_status ===
-                                                      "partial"
-                                                    ? "Sebagian"
-                                                    : "-"}
-                                            </Badge>
-                                        </td>
-                                        <td className="px-4 py-3 text-center">
-                                            <div className="flex gap-1 justify-center">
-                                                <Button
-                                                    size="sm"
-                                                    variant="ghost"
-                                                    className="h-8 w-8 p-0"
-                                                    onClick={() =>
-                                                        router.get(
-                                                            route(
-                                                                "transaction-histories.show",
-                                                                trx.id
-                                                            )
-                                                        )
-                                                    }
-                                                >
-                                                    <span className="text-blue-600">
-                                                        👁
-                                                    </span>
-                                                </Button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
-        );
-    };
-    const handleFilter = () => {
-        if (!isValidDateRange()) {
-            alert("Tanggal awal harus sebelum atau sama dengan tanggal akhir.");
-            return;
-        }
-        setLoading(true);
-        router.get(
-            route("transaction-histories.index"),
-            {
-                ...(dateFrom ? { from: dateFrom } : {}),
-                ...(dateTo ? { to: dateTo } : {}),
-                ...(locationId && locationType
-                    ? {
-                          location_id: locationId,
-                          location_type: locationType,
-                      }
-                    : {}),
-            },
-            {
-                preserveState: true,
-                replace: true,
-                onFinish: () => setLoading(false),
-            }
-        );
-    };
+      <div className="p-6 space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold">Histori Transaksi</h1>
+            <p className="text-sm text-gray-500">Daftar histori transaksi</p>
+          </div>
+        </div>
 
-    return (
-        <>
-            <Head title="Histori Transaksi" />
-            <div className="min-h-screen p-4 lg:p-6 bg-background">
-                {/* Header Section */}
-                <div className="mb-6">
-                    <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div>
-                            <h1 className="text-2xl lg:text-3xl font-bold text-foreground">
-                                Histori Transaksi
-                            </h1>
-                            <p className="text-muted-foreground mt-1">
-                                Kelola dan pantau riwayat semua transaksi
-                            </p>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex flex-wrap gap-2">
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                    window.open(
-                                        route(
-                                            "transaction-histories.export.pdf"
-                                        ),
-                                        "_blank"
-                                    )
-                                }
-                                className="flex items-center gap-2"
-                            >
-                                <Download className="w-4 h-4" />
-                                <span className="hidden sm:inline">
-                                    Export PDF
-                                </span>
-                            </Button>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                    window.open(
-                                        route(
-                                            "transaction-histories.export.excel"
-                                        ),
-                                        "_blank"
-                                    )
-                                }
-                                className="flex items-center gap-2"
-                            >
-                                <Download className="w-4 h-4" />
-                                <span className="hidden sm:inline">
-                                    Export Excel
-                                </span>
-                            </Button>
-                            <Button
-                                size="sm"
-                                onClick={() =>
-                                    router.get(
-                                        route("transaction-histories.create")
-                                    )
-                                }
-                                className="flex items-center gap-2"
-                            >
-                                <Plus className="w-4 h-4" />
-                                <span className="hidden sm:inline">Tambah</span>
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Filter Section */}
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Filter className="w-5 h-5" />
-                            Filter Data
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">
-                                    Tanggal Awal
-                                </label>
-                                <input
-                                    type="date"
-                                    value={dateFrom}
-                                    onChange={(e) =>
-                                        setDateFrom(e.target.value)
-                                    }
-                                    className="w-full px-3 py-2 border rounded-md text-sm"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">
-                                    Tanggal Akhir
-                                </label>
-                                <input
-                                    type="date"
-                                    value={dateTo}
-                                    onChange={(e) => setDateTo(e.target.value)}
-                                    className="w-full px-3 py-2 border rounded-md text-sm"
-                                />
-                            </div>
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">
-                                    Lokasi
-                                </label>
-                                <InputSelect
-                                    data={locations}
-                                    selected={
-                                        locations.find(
-                                            (l) =>
-                                                l.id == locationId &&
-                                                l.type == locationType
-                                        ) || null
-                                    }
-                                    setSelected={(l) => {
-                                        if (l) {
-                                            setLocationId(l.id);
-                                            setLocationType(l.type);
-                                        } else {
-                                            setLocationId("");
-                                            setLocationType("");
-                                        }
-                                    }}
-                                    displayKey="label"
-                                    placeholder="Semua Lokasi"
-                                    className="w-full"
-                                />
-                            </div>
-                            <div className="space-y-2 flex items-end">
-                                <div className="flex gap-2 w-full">
-                                    <Button
-                                        onClick={handleFilter}
-                                        disabled={loading}
-                                        className="flex-1"
-                                    >
-                                        <Search className="w-4 h-4 mr-2" />
-                                        Filter
-                                    </Button>
-                                    <Button
-                                        variant="outline"
-                                        onClick={() => {
-                                            setDateFrom("");
-                                            setDateTo("");
-                                            setLocationId("");
-                                            setLocationType("");
-                                            router.get(
-                                                route(
-                                                    "transaction-histories.index"
-                                                )
-                                            );
-                                        }}
-                                    >
-                                        Reset
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                {/* Summary Cards */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Total Transaksi
-                                    </p>
-                                    <p className="text-2xl font-bold">
-                                        {allTransactions.length}
-                                    </p>
-                                </div>
-                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-blue-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Pembelian
-                                    </p>
-                                    <p className="text-2xl font-bold text-blue-600">
-                                        {purchaseTransactions.length}
-                                    </p>
-                                </div>
-                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                                    <TrendingUp className="w-5 h-5 text-blue-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Penjualan
-                                    </p>
-                                    <p className="text-2xl font-bold text-green-600">
-                                        {saleTransactions.length}
-                                    </p>
-                                </div>
-                                <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                                    <TrendingDown className="w-5 h-5 text-green-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card>
-                        <CardContent className="p-4">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm text-muted-foreground">
-                                        Total Nilai
-                                    </p>
-                                    <p className="text-lg font-bold">
-                                        {formatPrice(
-                                            allTransactions.reduce(
-                                                (sum, trx) =>
-                                                    sum +
-                                                    Number(trx.subtotal || 0),
-                                                0
-                                            )
-                                        )}
-                                    </p>
-                                </div>
-                                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
-                                    <Package className="w-5 h-5 text-orange-600" />
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                {/* Main Content with Tabs */}
-                <Tabs
-                    value={activeTab}
-                    onValueChange={setActiveTab}
-                    className="w-full"
-                >
-                    <TabsList className="grid w-full grid-cols-3 lg:w-[400px]">
-                        <TabsTrigger
-                            value="all"
-                            className="flex items-center gap-2"
-                        >
-                            <Package className="w-4 h-4" />
-                            <span className="hidden sm:inline">Semua</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="purchase"
-                            className="flex items-center gap-2"
-                        >
-                            <TrendingUp className="w-4 h-4" />
-                            <span className="hidden sm:inline">Pembelian</span>
-                        </TabsTrigger>
-                        <TabsTrigger
-                            value="sale"
-                            className="flex items-center gap-2"
-                        >
-                            <TrendingDown className="w-4 h-4" />
-                            <span className="hidden sm:inline">Penjualan</span>
-                        </TabsTrigger>
-                    </TabsList>
-
-                    <div className="mt-6">
-                        <TabsContent value="all" className="space-y-4">
-                            <PurchaseTable data={purchaseTransactions} />
-                            {purchaseTransactions.length > 0 &&
-                                saleTransactions.length > 0 && (
-                                    <Separator className="my-6" />
-                                )}
-                            <SalesTable data={saleTransactions} />
-                        </TabsContent>
-
-                        <TabsContent value="purchase">
-                            <PurchaseTable data={purchaseTransactions} />
-                        </TabsContent>
-
-                        <TabsContent value="sale">
-                            <SalesTable data={saleTransactions} />
-                        </TabsContent>
-                    </div>
-                </Tabs>
-
-                {/* Pagination */}
-                {transactions.links && (
-                    <div className="mt-6 flex justify-center">
-                        <div className="flex gap-2">
-                            {transactions.links.map((link, index) => (
-                                <Button
-                                    key={index}
-                                    variant={
-                                        link.active ? "default" : "outline"
-                                    }
-                                    size="sm"
-                                    disabled={!link.url}
-                                    onClick={() =>
-                                        link.url && router.get(link.url)
-                                    }
-                                    dangerouslySetInnerHTML={{
-                                        __html: link.label,
-                                    }}
-                                />
-                            ))}
-                        </div>
-                    </div>
-                )}
+        <div className="bg-white shadow-sm rounded p-4">
+          <form onSubmit={handleFilter} className="flex gap-2 items-end">
+            <div>
+              <label className="block text-sm text-gray-700">Dari</label>
+              <input type="date" value={start} onChange={(e) => setStart(e.target.value)} className="border rounded px-2 py-1" />
             </div>
-        </>
-    );
+            <div>
+              <label className="block text-sm text-gray-700">Sampai</label>
+              <input type="date" value={end} onChange={(e) => setEnd(e.target.value)} className="border rounded px-2 py-1" />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="bg-blue-600 text-white px-3 py-1 rounded" disabled={loading}>{loading ? 'Memuat...' : 'Filter'}</button>
+              <button type="button" onClick={resetFilter} className="border px-3 py-1 rounded">Reset</button>
+              <button type="button" onClick={handleExportCsv} className="border px-3 py-1 rounded">Export CSV</button>
+            </div>
+          </form>
+        </div>
+
+        <div className="bg-white shadow-sm rounded p-4">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm table-auto">
+              <thead>
+                <tr className="text-left">
+                  <th className="px-2 py-1">#</th>
+                  <th className="px-2 py-1">Nomor</th>
+                  <th className="px-2 py-1">Tipe</th>
+                  <th className="px-2 py-1">Produk</th>
+                  <th className="px-2 py-1">Kategori</th>
+                  <th className="px-2 py-1">Subkategori</th>
+                  <th className="px-2 py-1">Qty</th>
+                  <th className="px-2 py-1">Harga Beli</th>
+                  <th className="px-2 py-1">Tanggal</th>
+                  <th className="px-2 py-1">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((r, idx) => (
+                  <tr key={r.id || idx} className="border-t">
+                    <td className="px-2 py-1">{idx + 1 + ((pager.current_page - 1) * pager.per_page || 0)}</td>
+                    <td className="px-2 py-1">{r.transaction_number}</td>
+                    <td className="px-2 py-1">{r.transaction_type}</td>
+                    <td className="px-2 py-1">{r.product?.name || r.product_name || (r.details && r.details[0]?.product?.name) || '-'}</td>
+                    <td className="px-2 py-1">{r.product?.category?.name || r.product?.category_name || '-'}</td>
+                    <td className="px-2 py-1">{r.product?.subcategory?.name || r.product?.subcategory_name || '-'}</td>
+                    <td className="px-2 py-1">{r.quantity || r.total_quantity || '-'}</td>
+                    <td className="px-2 py-1">{r.harga_beli ?? r.product?.purchase_price ?? '-'}</td>
+                    <td className="px-2 py-1">{fmtDate(r.transaction_datetime_iso || r.transaction_datetime_local || r.transaction_date)}</td>
+                    <td className="px-2 py-1"><Link href={route('transaction-histories.show', r.id)} className="text-blue-600">Lihat</Link></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* simple pager */}
+          {pager.links && pager.links.length > 0 && (
+            <div className="mt-3 flex items-center justify-between">
+              <div className="text-sm text-gray-600">Halaman {pager.current_page} dari {pager.last_page || Math.ceil((pager.total || 0) / (pager.per_page || 15))}</div>
+              <div className="flex gap-2">
+                {pager.links.map((l, i) => (
+                  <button key={i} className={`px-2 py-1 rounded ${l.active ? 'bg-gray-200' : 'border'}`} disabled={!l.url} onClick={() => fetchTransactions({ page: (() => { try { return new URL(l.url).searchParams.get('page') || 1 } catch (e) { return 1 } })() })} dangerouslySetInnerHTML={{ __html: l.label }} />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </DashboardLayout>
+  );
 }
 
-Index.layout = (page) => <DashboardLayout>{page}</DashboardLayout>;

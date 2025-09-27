@@ -64,7 +64,15 @@ export default function PurchaseItemsTable({
     const timbanganFlat = Number(timbanganGlobal) || 0;
     const totalTimbangan = -timbanganFlat;
 
-    const totalFinal = totalSubtotals + kuliTotal + totalTimbangan; return (
+    const totalFinal = totalSubtotals + kuliTotal + totalTimbangan;
+
+    // Local state to toggle timbangan input visibility
+    const [showTimbangan, setShowTimbangan] = React.useState(Boolean(Number(timbanganGlobal)));
+    React.useEffect(() => {
+        setShowTimbangan(Boolean(Number(timbanganGlobal)));
+    }, [timbanganGlobal]);
+
+    return (
         <div className="mt-4">
             <Table>
                 <TableHeader>
@@ -203,23 +211,30 @@ export default function PurchaseItemsTable({
 
                                 <div className="flex items-center mt-2 space-x-2">
                                     <label className="inline-flex items-center text-sm text-gray-600">
-                                        <input type="checkbox" className="mr-2" checked={items.some((it) => it && it._kuli_manual)} onChange={(e) => { const checked = e.target.checked; typeof onKuliFeeCheckboxChange === "function" && onKuliFeeCheckboxChange(false); typeof onKuliManualChange === "function" && onKuliManualChange(checked); }} />
-                                        Input Manual
+                                        <input type="checkbox" className="mr-2" checked={items.some((it) => it && it._kuli_manual)} onChange={(e) => { const checked = e.target.checked; typeof onKuliFeeCheckboxChange === "function" && onKuliFeeCheckboxChange(false); typeof onKuliManualChange === "function" && onKuliManualChange(checked); }} /> aktifkan Kuli
                                     </label>
                                 </div>
 
                                 {items.some((it) => it && it._kuli_manual) && (
                                     <div className="mt-2">
-                                        <Input type="number" name="kuli_fee" min="0" value={kuliRate} onChange={(e) => typeof onKuliFeeChange === "function" && onKuliFeeChange(Number(e.target.value) || 0)} className="h-8" />
+                                        <Input type="number" name="kuli_fee" min="0" value={kuliRate || ""} onChange={(e) => typeof onKuliFeeChange === "function" && onKuliFeeChange(Number(e.target.value) || 0)} className="h-8" />
                                     </div>
                                 )}
                             </div>
                         </TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={8} className="font-bold text-right bg-muted/50">Timbangan</TableCell>
+                        <TableCell colSpan={8} className="font-bold text-right bg-muted/50">Timbangan (Total Rp)</TableCell>
                         <TableCell colSpan={3} className="bg-muted/50">
-                            <Input type="number" name="timbangan" value={timbanganGlobal} onChange={(e) => setTimbanganGlobal(Number(e.target.value) || 0)} placeholder="0 (bisa + atau -)" className="h-8" step="0.01" />
+                            <div className="flex items-center space-x-3">
+                                <label className="inline-flex items-center text-sm text-gray-600">
+                                    <input type="checkbox" className="mr-2" checked={showTimbangan} onChange={(e) => { const checked = e.target.checked; setShowTimbangan(checked); if (!checked) setTimbanganGlobal(0); }} />
+                                    Aktifkan Timbangan (Total Rp)
+                                </label>
+                                {showTimbangan && (
+                                    <Input type="number" name="timbangan" value={timbanganGlobal} onChange={(e) => setTimbanganGlobal(Number(e.target.value) || "")} placeholder="Total Timbangan (Rp)" className="h-8 w-36" step="0.01" />
+                                )}
+                            </div>
                         </TableCell>
                     </TableRow>
                     <TableRow>
@@ -232,7 +247,7 @@ export default function PurchaseItemsTable({
                     </TableRow>
                     <TableRow>
                         <TableCell colSpan={8} className="font-bold text-right" hidden>Total (incl. Fee Kuli)</TableCell>
-                        <TableCell colSpan={3} className="font-bold text-right">{totalFinal.toLocaleString("id-ID")}</TableCell>
+                        <TableCell colSpan={3} className="font-bold text-right" hidden>{totalFinal.toLocaleString("id-ID")}</TableCell>
                     </TableRow>
                     <TableRow>
                         <TableCell colSpan={8} className="font-bold text-right bg-muted/20">Total Subtotal (incl. Fee Kuli + Timbangan)</TableCell>

@@ -16,7 +16,25 @@ export default function GudangManualModal({
     onSubmit,
     manualGudang,
     onChange,
+    onGudangAdded,
 }) {
+    const [local, setLocal] = React.useState({ name: "", address: "", phone: "" });
+
+    React.useEffect(() => {
+        if (manualGudang) setLocal(manualGudang);
+    }, [manualGudang]);
+
+    const handleChange = (e) => {
+        if (onChange) return onChange(e);
+        const { name, value } = e.target;
+        setLocal((s) => ({ ...s, [name]: value }));
+    };
+
+    const handleSubmit = () => {
+        if (typeof onSubmit === "function") return onSubmit();
+        if (typeof onGudangAdded === "function") return onGudangAdded(local);
+    };
+
     return (
         <Dialog open={show} onOpenChange={onClose}>
             <DialogContent className="sm:max-w-md">
@@ -34,8 +52,8 @@ export default function GudangManualModal({
                             id="gudang-name"
                             type="text"
                             name="name"
-                            value={manualGudang.name}
-                            onChange={onChange}
+                            value={manualGudang?.name ?? local.name ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan nama gudang"
                             required
                         />
@@ -46,8 +64,8 @@ export default function GudangManualModal({
                             id="gudang-address"
                             type="text"
                             name="address"
-                            value={manualGudang.address}
-                            onChange={onChange}
+                            value={manualGudang?.address ?? local.address ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan alamat gudang"
                             required
                         />
@@ -58,8 +76,8 @@ export default function GudangManualModal({
                             id="gudang-phone"
                             type="text"
                             name="phone"
-                            value={manualGudang.phone}
-                            onChange={onChange}
+                            value={manualGudang?.phone ?? local.phone ?? ""}
+                            onChange={handleChange}
                             placeholder="Masukkan nomor telepon"
                         />
                     </div>
@@ -71,7 +89,7 @@ export default function GudangManualModal({
                         >
                             Batal
                         </Button>
-                        <Button type="button" onClick={onSubmit}>
+                        <Button type="button" onClick={handleSubmit}>
                             Simpan
                         </Button>
                     </div>

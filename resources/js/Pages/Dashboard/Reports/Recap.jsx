@@ -1,1127 +1,466 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
+import { Head, router } from "@inertiajs/react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
-import { Head, router, usePage } from "@inertiajs/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
-import { Label } from "@/Components/ui/label";
-import { Badge } from "@/Components/ui/badge";
-import { Alert, AlertDescription } from "@/Components/ui/alert";
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
 } from "@/Components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Label } from "@/Components/ui/label";
+import { toast } from "react-toastify";
+import { Download, Filter, BarChart3, DollarSign, ChevronDown, ChevronRight } from "lucide-react";
 import {
-    CalendarIcon,
-    TrendingUpIcon,
-    TrendingDownIcon,
-    DollarSignIcon,
-    CreditCardIcon,
-    ClockIcon,
-    PiggyBankIcon,
-    ShoppingCartIcon,
-    ShoppingBagIcon,
-    BarChart3Icon,
-    FileDownIcon,
-    FilterIcon,
-    CheckCircleIcon,
-    AlertCircleIcon,
-} from "lucide-react";
+  useReactTable,
+  getCoreRowModel,
+  getSortedRowModel,
+  flexRender,
+} from "@tanstack/react-table";
 
 export default function Recap({
-    transactions,
-    purchases = [],
-    totalCash = 0,
-    totalTempo = 0,
-    totalDeposit = 0,
-    totalPenjualan = 0,
-    totalPembelian = 0,
-    labaKotor = 0,
-    persentaseLaba = 0,
-    balancing = false,
-    start_date = "",
-    end_date = "",
-    kategoriProduk = {},
-    categories = [],
-    subcategories = [],
-    products = [],
+  transactions,
+  dailySummary = [],
+  totalPenjualan = 0,
+  totalPembelian = 0,
+  labaKotor = 0,
+  persentaseLaba = 0,
+  start_date = "",
+  end_date = "",
+  period_limited = false,
+  max_days = 90,
+  effective_start = null,
+  effective_end = null,
 }) {
-    const { errors } = usePage().props;
-    // debug logs removed
-    const [start, setStart] = useState(start_date || "");
-    const [end, setEnd] = useState(end_date || "");
-    const [showAll, setShowAll] = useState(false);
-    const [hppMode, setHppMode] = useState('history'); // 'history' | 'assume' | 'hide'
-    const [assumedMargin, setAssumedMargin] = useState(20);
+  const [start, setStart] = useState(start_date || "");
+  const [end, setEnd] = useState(end_date || "");
+  const [perPage, setPerPage] = useState(transactions?.per_page || 20);
+  const [sorting, setSorting] = useState([]);
+  const [expandedIds, setExpandedIds] = useState(new Set());
+  const [transactionsState, setTransactionsState] = useState(transactions || { data: [], links: [], current_page: 1, per_page: perPage });
+  const [isLive, setIsLive] = useState(false);
+  const intervalMs = 5000;
 
-    const formatPrice = (num) => {
-        const number = Number(num) || 0;
-        const fraction = Math.abs(number - Math.trunc(number));
-        const showDecimals = fraction > 0;
-        return (
-            "Rp " +
-            number.toLocaleString("id-ID", {
-                minimumFractionDigits: showDecimals ? 2 : 0,
-                maximumFractionDigits: showDecimals ? 2 : 0,
-            })
-        );
-    };
-    const formatDate = (value) => {
-        if (!value) return "-";
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return "-";
-        return (
-            d.toLocaleDateString("id-ID") +
-            " " +
-            d.toLocaleTimeString("id-ID", {
-                hour: "2-digit",
-                minute: "2-digit",
-                second: "2-digit",
-            })
-        );
-    };
-    const formatRelative = (value) => {
-        if (!value) return "-";
-        const d = new Date(value);
-        if (Number.isNaN(d.getTime())) return "-";
-        const diff = Date.now() - d.getTime();
-        const seconds = Math.floor(diff / 1000);
-        const minutes = Math.floor(seconds / 60);
-        const hours = Math.floor(minutes / 60);
-        const days = Math.floor(hours / 24);
-        if (days > 0) return `${days} hari lalu`;
-        if (hours > 0) return `${hours} jam lalu`;
-        if (minutes > 0) return `${minutes} menit lalu`;
-        return `${seconds} detik lalu`;
-    };
-    const formatPercent = (num) => (num || 0).toFixed(2) + "%";
+  const expandAll = () => {
+    const ids = new Set((transactions?.data || []).map((t) => t.id).filter(Boolean));
+    setExpandedIds(ids);
+  };
 
-    const getFirstNumeric = (obj, keys) => {
-        if (!obj) return null;
-        // first try to find a non-zero numeric value
-        for (const k of keys) {
-            const v = obj[k];
-            if (v !== undefined && v !== null && !Number.isNaN(Number(v)) && Number(v) !== 0) {
-                return Number(v);
-            }
-        }
-        // fallback to any numeric (including zero)
-        for (const k of keys) {
-            const v = obj[k];
-            if (v !== undefined && v !== null && !Number.isNaN(Number(v))) {
-                return Number(v);
-            }
-        }
-        return null;
-    };
+  const collapseAll = () => setExpandedIds(new Set());
 
-    const purchasePriceMap = useMemo(() => {
-        const map = {};
-        (purchases || []).forEach((p) => {
-            (p.items || []).forEach((item) => {
-                const pid = item.product_id || item.product?.id;
-                if (!pid) return;
-                const price = getFirstNumeric(item, ['harga_pembelian', 'purchase_price', 'price', 'cost', 'unit_price']);
-                const qty = Number(item.qty || 0);
-                if (!map[pid]) map[pid] = { qty: 0, total: 0 };
-                map[pid].qty += qty;
-                map[pid].total += price * qty;
-            });
-        });
-        // also gather purchase-like prices from transaction details as fallback
-        (transactions?.data || []).forEach((t) => {
-            (t.details || []).forEach((d) => {
-                const pid = d.product_id || d.product?.id;
-                if (!pid) return;
-                // treat transaction detail price as potential seller price; but also it's useful as fallback if no purchase data
-                const price = getFirstNumeric(d, ['purchase_price', 'harga_pembelian', 'unit_cost', 'cost', 'price']);
-                const qty = Number(d.qty || d.quantity || 0);
-                if (!map[pid]) map[pid] = { qty: 0, total: 0 };
-                map[pid].qty += qty;
-                map[pid].total += price * qty;
-            });
-        });
-        const out = {};
-        Object.keys(map).forEach((k) => {
-            const entry = map[k];
-            out[k] = entry.qty > 0 ? entry.total / entry.qty : entry.total || 0;
-        });
-        return out;
-    }, [purchases]);
-
-    const findSalePriceFromTransactions = (productId) => {
-        if (!transactions || !transactions.data) return 0;
-        for (const t of transactions.data) {
-            if (!t.details) continue;
-            for (const d of t.details) {
-                if ((d.product_id || d.product?.id) === productId) {
-                    const p = getFirstNumeric(d, ['price', 'sell_price', 'harga_jual']);
-                    if (p) return p;
-                }
-            }
-        }
-        return 0;
-    };
-
-    const resolveProductPrices = (product) => {
-        const purchaseKeys = ['purchase_price', 'harga_beli', 'buy_price', 'purchasePrice', 'harga_pokok', 'cost'];
-        const sellKeys = ['sell_price', 'harga_jual', 'sellPrice', 'selling_price', 'price'];
-        let purchase = getFirstNumeric(product, purchaseKeys);
-        let sell = getFirstNumeric(product, sellKeys);
-        // treat null or zero as missing and try to find a better value
-        if (sell === null || sell === 0) {
-            const txPrice = findSalePriceFromTransactions(product.id);
-            if (txPrice) sell = txPrice;
-        }
-        // if purchase missing or zero, try purchasePriceMap
-        if (purchase === null || purchase === 0) {
-            const mapped = purchasePriceMap[product.id];
-            if (mapped !== undefined && mapped > 0) purchase = mapped;
-            else purchase = null;
-        }
-        // if still not found and mode is 'assume', estimate from sell
-        if ((purchase === null || purchase === 0) && hppMode === 'assume' && sell) {
-            purchase = sell * (1 - (assumedMargin || 0) / 100);
-        }
-        // normalize nulls to 0 for display
-        return { purchase: purchase || 0, sell: sell || 0 };
-    };
-
-    const resolveDetailPurchasePrice = (detail) => {
-        const detailKeys = ['purchase_price', 'harga_beli', 'unit_cost', 'cost', 'harga_pokok'];
-        const fromDetail = getFirstNumeric(detail, detailKeys);
-        if (fromDetail !== null && fromDetail > 0) return fromDetail;
-        const pid = detail.product_id || detail.product?.id;
-        if (pid && purchasePriceMap[pid] && purchasePriceMap[pid] > 0) return purchasePriceMap[pid];
-        const fromProduct = getFirstNumeric(detail.product || {}, ['purchase_price', 'harga_beli', 'buy_price', 'purchasePrice', 'harga_pokok', 'cost']);
-        if (fromProduct !== null && fromProduct > 0) return fromProduct;
-        return 0;
-    };
-
-    const handleFilter = (e) => {
-        e.preventDefault();
-        const params = { start_date: start, end_date: end };
-        if (showAll) params.all = 1;
-        router.get(route("dashboard.recap"), params);
-    };
-
-    const handleExport = () => {
-        const params = new URLSearchParams();
-        if (start) params.append('start_date', start);
-        if (end) params.append('end_date', end);
-        if (showAll) params.append('all', '1');
-        let csv = "Tanggal,Invoice,Kasir,Pelanggan,Total,Metode,Deposit\n";
-        transactions.data.forEach((t) => {
-            csv += `${formatDate(t.created_at)},${t.invoice},${t.cashier?.name || ""},${t.customer?.name || ""},${t.grand_total},${t.payment_method},${t.deposit_amount || 0}\n`;
-        });
-        const blob = new Blob([csv], { type: "text/csv" });
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `rekap-transaksi.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-    };
-
-    return (
-        <>
-            <Head title="Laporan Laba Rugi & Rekapitulasi" />
-
-            {/* Header */}
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-8 gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                        Laporan Laba Rugi & Rekapitulasi
-                    </h1>
-                    <p className="text-gray-600">
-                        Analisis performa keuangan dan transaksi bisnis
-                    </p>
-                </div>
-
-                {/* Filter Form */}
-                <Card className="lg:w-auto w-full">
-                    <CardContent className="p-4">
-                        <form
-                            onSubmit={handleFilter}
-                            className="flex flex-col sm:flex-row gap-3 items-end"
-                        >
-                            <div className="space-y-2">
-                                <Label htmlFor="start-date">
-                                    Tanggal Mulai
-                                </Label>
-                                <div className="relative">
-                                    <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="start-date"
-                                        type="date"
-                                        value={start}
-                                        onChange={(e) =>
-                                            setStart(e.target.value)
-                                        }
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="end-date">Tanggal Akhir</Label>
-                                <div className="relative">
-                                    <CalendarIcon className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                                    <Input
-                                        id="end-date"
-                                        type="date"
-                                        value={end}
-                                        onChange={(e) => setEnd(e.target.value)}
-                                        className="pl-10"
-                                    />
-                                </div>
-                            </div>
-                            <Button type="submit" className="w-full sm:w-auto">
-                                <FilterIcon className="w-4 h-4 mr-2" />
-                                Filter
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Laba Rugi Section */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-                {/* Pendapatan */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-base font-semibold">
-                            Total Penjualan
-                        </CardTitle>
-                        <TrendingUpIcon className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-green-600">
-                            {formatPrice(totalPenjualan)}
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                            Pendapatan kotor dari penjualan
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Pengeluaran */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-base font-semibold">
-                            Total Pembelian
-                        </CardTitle>
-                        <TrendingDownIcon className="h-4 w-4 text-red-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold text-red-600">
-                            {formatPrice(totalPembelian)}
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                            Harga pokok penjualan (HPP)
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* Laba Rugi */}
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-base font-semibold">
-                            Laba Kotor
-                        </CardTitle>
-                        <BarChart3Icon
-                            className={`h-4 w-4 ${labaKotor >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                                }`}
-                        />
-                    </CardHeader>
-                    <CardContent>
-                        <div
-                            className={`text-2xl font-bold ${labaKotor >= 0
-                                ? "text-green-600"
-                                : "text-red-600"
-                                }`}
-                        >
-                            {formatPrice(labaKotor)}
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                            Margin: {formatPercent(persentaseLaba)}
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Breakdown Penjualan */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-base font-semibold">
-                            Penjualan Cash
-                        </CardTitle>
-                        <DollarSignIcon className="h-4 w-4 text-green-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold">
-                            {formatPrice(totalCash)}
-                        </div>
-                        <Badge variant="secondary" className="mt-2">
-                            {totalPenjualan > 0
-                                ? ((totalCash / totalPenjualan) * 100).toFixed(
-                                    1
-                                )
-                                : 0}
-                            %
-                        </Badge>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-base font-semibold">
-                            Penjualan Tempo
-                        </CardTitle>
-                        <ClockIcon className="h-4 w-4 text-orange-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold">
-                            {formatPrice(totalTempo)}
-                        </div>
-                        <Badge variant="secondary" className="mt-2">
-                            {totalPenjualan > 0
-                                ? ((totalTempo / totalPenjualan) * 100).toFixed(
-                                    1
-                                )
-                                : 0}
-                            %
-                        </Badge>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-base font-semibold">
-                            Total Deposit
-                        </CardTitle>
-                        <PiggyBankIcon className="h-4 w-4 text-blue-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold">
-                            {formatPrice(totalDeposit)}
-                        </div>
-                        <Badge variant="secondary" className="mt-2">
-                            {totalPenjualan > 0
-                                ? (
-                                    (totalDeposit / totalPenjualan) *
-                                    100
-                                ).toFixed(1)
-                                : 0}
-                            %
-                        </Badge>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                        <CardTitle className="text-base font-semibold">
-                            Total Transaksi
-                        </CardTitle>
-                        <ShoppingCartIcon className="h-4 w-4 text-purple-600" />
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-xl font-bold">
-                            {transactions.total}
-                        </div>
-                        <p className="text-xs text-gray-600 mt-1">
-                            Jumlah transaksi
-                        </p>
-                    </CardContent>
-                </Card>
-            </div>
-
-            {/* Neraca Balancing Alert */}
-            <Alert
-                className={`mb-8 ${balancing
-                    ? "border-green-200 bg-green-50"
-                    : "border-red-200 bg-red-50"
-                    }`}
-            >
-                <div className="flex items-center">
-                    {balancing ? (
-                        <CheckCircleIcon className="h-4 w-4 text-green-600 mr-2" />
-                    ) : (
-                        <AlertCircleIcon className="h-4 w-4 text-red-600 mr-2" />
-                    )}
-                    <AlertDescription
-                        className={
-                            balancing ? "text-green-800" : "text-red-800"
-                        }
-                    >
-                        <div className="font-semibold mb-2">
-                            {balancing
-                                ? "NERACA SEIMBANG ✓"
-                                : "NERACA TIDAK SEIMBANG ⚠️"}
-                        </div>
-                        <div className="text-sm font-mono">
-                            Cash + Deposit + Tempo = Total Penjualan
-                        </div>
-                        <div className="text-sm font-mono mt-1">
-                            {formatPrice(totalCash)} +{" "}
-                            {formatPrice(totalDeposit)} +{" "}
-                            {formatPrice(totalTempo)} ={" "}
-                            {formatPrice(totalPenjualan)}
-                        </div>
-                    </AlertDescription>
-                </div>
-            </Alert>
-
-            {/* Export Button */}
-            <div className="flex justify-end mb-6">
-                <div className="flex gap-2">
-                    <div className="flex items-center gap-2 mr-2">
-                        <label className="text-sm text-gray-600">HPP Mode:</label>
-                        <select
-                            value={hppMode}
-                            onChange={(e) => setHppMode(e.target.value)}
-                            className="border rounded px-2 py-1 text-sm"
-                        >
-                            <option value="history">History</option>
-                            <option value="assume">Assume</option>
-                            <option value="hide">Hide</option>
-                        </select>
-                        {hppMode === 'assume' && (
-                            <input
-                                type="number"
-                                value={assumedMargin}
-                                onChange={(e) => setAssumedMargin(Number(e.target.value))}
-                                className="w-20 border rounded px-2 py-1 text-sm ml-2"
-                                aria-label="Assumed margin %"
-                            />
-                        )}
-                    </div>
-                    <Button
-                        onClick={() => {
-                            setShowAll((s) => !s);
-                            const params = new URLSearchParams();
-                            if (start) params.append('start_date', start);
-                            if (end) params.append('end_date', end);
-                            if (!showAll) params.append('all', '1');
-                            router.get(route('dashboard.recap'), Object.fromEntries(params.entries()));
-                        }}
-                        variant={showAll ? 'default' : 'outline'}
-                    >
-                        {showAll ? 'Tampilkan Terbatas' : 'Tampilkan Semua'}
-                    </Button>
-                    <Button
-                        onClick={() => {
-                            const params = new URLSearchParams();
-                            if (start) params.append('start_date', start);
-                            if (end) params.append('end_date', end);
-                            window.location = route('dashboard.recap.export-excel') + '?' + params.toString();
-                        }}
-                        variant="outline"
-                    >
-                        <FileDownIcon className="w-4 h-4 mr-2" />
-                        Export Excel
-                    </Button>
-                    <Button
-                        onClick={() => {
-                            const params = new URLSearchParams();
-                            if (start) params.append('start_date', start);
-                            if (end) params.append('end_date', end);
-                            window.open(route('dashboard.recap.export-pdf') + '?' + params.toString(), '_blank');
-                        }}
-                        variant="outline"
-                    >
-                        <FileDownIcon className="w-4 h-4 mr-2" />
-                        Export PDF
-                    </Button>
-                    <Button onClick={handleExport} variant="outline">
-                        <FileDownIcon className="w-4 h-4 mr-2" />
-                        Export CSV
-                    </Button>
-                </div>
-            </div>
-            {/* Tabel Transaksi */}
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                        <ShoppingCartIcon className="h-5 w-5" />
-                        Detail Transaksi Penjualan
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                    <div className="overflow-x-auto -mx-2 px-2">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
-                                <tr>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                                        No
-                                    </th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                                        Tanggal
-                                    </th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                                        Invoice
-                                    </th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                                        Kasir
-                                    </th>
-                                    <th className="px-3 py-2 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                                        Pelanggan
-                                    </th>
-                                    <th className="px-3 py-2 text-right text-xs font-semibold text-gray-600 uppercase tracking-wide">
-                                        Total
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        HPP
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Profit
-                                    </th>
-                                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Metode
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Deposit
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {transactions.data.length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={10}
-                                            className="px-4 py-8 text-center text-gray-500"
-                                        >
-                                            Tidak ada transaksi ditemukan untuk
-                                            periode ini
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    transactions.data.map((t, i) => (
-                                        <tr
-                                            key={t.id}
-                                            className="hover:bg-gray-50 transition-colors"
-                                        >
-                                            <td className="px-4 py-3 text-sm text-gray-900">
-                                                {(transactions.current_page -
-                                                    1) *
-                                                    transactions.per_page +
-                                                    i +
-                                                    1}
-                                            </td>
-                                            <td className="px-3 py-2 text-sm text-gray-900">
-                                                <div>{formatDate(t.created_at)}</div>
-                                                <div className="text-xs text-muted-foreground">{formatRelative(t.created_at)}</div>
-                                            </td>
-                                            <td className="px-3 py-2">
-                                                <Badge
-                                                    variant="outline"
-                                                    className="font-mono text-xs"
-                                                >
-                                                    {t.invoice}
-                                                </Badge>
-                                            </td>
-                                            <td className="px-3 py-2 text-sm text-gray-900">
-                                                {t.cashier?.name || "-"}
-                                            </td>
-                                            <td className="px-3 py-2 text-sm text-gray-900">
-                                                {t.customer?.name ||
-                                                    "Walk-in Customer"}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900">
-                                                {formatPrice(t.grand_total)}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900">
-                                                {hppMode === 'hide' ? (
-                                                    "-"
-                                                ) : (
-                                                    formatPrice(
-                                                        (t.details || []).reduce((acc, d) => {
-                                                            const purchasePrice = resolveDetailPurchasePrice(d) || 0;
-                                                            return acc + purchasePrice * (d.qty || 0);
-                                                        }, 0)
-                                                    )
-                                                )}
-                                            </td>
-                                            <td className="px-4 py-3 text-sm font-semibold text-right text-gray-900">
-                                                {(() => {
-                                                    if (hppMode === 'hide') return "-";
-                                                    const hpp = (t.details || []).reduce((acc, d) => {
-                                                        const purchasePrice = resolveDetailPurchasePrice(d) || 0;
-                                                        return acc + purchasePrice * (d.qty || 0);
-                                                    }, 0);
-                                                    const profit = t.grand_total - hpp;
-                                                    if (hppMode === 'assume' && hpp === 0) {
-                                                        // estimate hpp from assumed margin
-                                                        const estimatedHpp = t.grand_total * (1 - (assumedMargin || 0) / 100);
-                                                        return formatPrice(t.grand_total - estimatedHpp);
-                                                    }
-                                                    return formatPrice(profit);
-                                                })()}
-                                            </td>
-                                            <td className="px-4 py-3 text-center">
-                                                <Badge
-                                                    variant={
-                                                        t.payment_method ===
-                                                            "cash"
-                                                            ? "default"
-                                                            : t.payment_method ===
-                                                                "tempo"
-                                                                ? "secondary"
-                                                                : t.payment_method ===
-                                                                    "deposit"
-                                                                    ? "outline"
-                                                                    : "secondary"
-                                                    }
-                                                    className="text-xs"
-                                                >
-                                                    {t.payment_method === "cash"
-                                                        ? "Cash"
-                                                        : t.payment_method ===
-                                                            "tempo"
-                                                            ? "Tempo"
-                                                            : t.payment_method ===
-                                                                "deposit"
-                                                                ? "Deposit"
-                                                                : "-"}
-                                                </Badge>
-                                            </td>
-                                            <td className="px-4 py-3 text-sm text-right text-gray-900">
-                                                {t.is_deposit
-                                                    ? formatPrice(
-                                                        t.deposit_amount ?? 0
-                                                    )
-                                                    : "-"}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-
-                    {/* Pagination */}
-                    {transactions.links && !showAll && (
-                        <div className="px-4 py-3 border-t bg-gray-50">
-                            <div className="flex justify-center gap-1">
-                                {transactions.links.map((link, i) => (
-                                    <Button
-                                        key={i}
-                                        variant={
-                                            link.active ? "default" : "outline"
-                                        }
-                                        size="sm"
-                                        onClick={() =>
-                                            link.url && router.get(link.url)
-                                        }
-                                        disabled={!link.url}
-                                        className="min-w-[40px]"
-                                    >
-                                        {link.label.replace(
-                                            /&laquo;|&raquo;|&lsaquo;|&rsaquo;/g,
-                                            ""
-                                        )}
-                                    </Button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Tabel Pembelian */}
-            <Card className="mb-8">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <ShoppingBagIcon className="h-5 w-5" />
-                        Detail Transaksi Pembelian
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {/* Desktop Table View */}
-                    <div className="hidden md:block rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow className="bg-muted/50">
-                                    <TableHead className="w-[50px]">No</TableHead>
-                                    <TableHead className="min-w-[100px]">Tanggal</TableHead>
-                                    <TableHead className="min-w-[120px]">Invoice</TableHead>
-                                    <TableHead className="min-w-[120px]">Supplier</TableHead>
-                                    <TableHead className="min-w-[100px]">Gudang</TableHead>
-                                    <TableHead className="min-w-[100px]">Toko</TableHead>
-                                    <TableHead className="min-w-[150px]">Produk</TableHead>
-                                    <TableHead className="min-w-[100px]">Kategori</TableHead>
-                                    <TableHead className="min-w-[120px]">Subkategori</TableHead>
-                                    <TableHead className="text-right min-w-[80px]">Qty</TableHead>
-                                    <TableHead className="text-right min-w-[100px]">Harga</TableHead>
-                                    <TableHead className="text-right min-w-[120px]">Subtotal</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {purchases.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell
-                                            colSpan={12}
-                                            className="h-24 text-center text-muted-foreground"
-                                        >
-                                            Tidak ada transaksi pembelian ditemukan untuk periode ini
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    purchases.map((p, purchaseIndex) => {
-                                        const itemCount = p.items?.length || 0;
-                                        return (
-                                            <React.Fragment key={p.id}>
-                                                {/* Purchase Header Row */}
-                                                <TableRow className="bg-muted/30 border-b-2">
-                                                    <TableCell className="font-semibold">
-                                                        {purchaseIndex + 1}
-                                                    </TableCell>
-                                                    <TableCell className="font-semibold">
-                                                        {new Date(
-                                                            p.purchase_date
-                                                        ).toLocaleDateString("id-ID")}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <Badge
-                                                            variant="outline"
-                                                            className="font-mono text-xs font-semibold"
-                                                        >
-                                                            {p.invoice_number}
-                                                        </Badge>
-                                                    </TableCell>
-                                                    <TableCell className="font-semibold">
-                                                        {p.supplier?.name || "-"}
-                                                    </TableCell>
-                                                    <TableCell className="font-semibold">
-                                                        {p.warehouse?.name || "-"}
-                                                    </TableCell>
-                                                    <TableCell className="font-semibold">
-                                                        {p.toko?.name || "-"}
-                                                    </TableCell>
-                                                    <TableCell colSpan={6} className="bg-primary/5">
-                                                        <div className="text-sm font-medium text-primary">
-                                                            {itemCount} item{itemCount !== 1 ? 's' : ''}
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                                {/* Item Detail Rows */}
-                                                {p.items && p.items.length > 0 ? (
-                                                    p.items.map((item, itemIndex) => (
-                                                        <TableRow
-                                                            key={`${p.id}-${item.id}`}
-                                                            className="hover:bg-muted/50 transition-colors"
-                                                        >
-                                                            <TableCell colSpan={6} className="pl-12 text-muted-foreground bg-muted/20">
-
-                                                            </TableCell>
-                                                            <TableCell className="font-medium">
-                                                                {item.product?.name || "-"}
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Badge variant="secondary" className="text-xs">
-                                                                    {item.product?.category_relation?.name || "-"}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell>
-                                                                <Badge variant="outline" className="text-xs">
-                                                                    {item.product?.subcategory?.name || "-"}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-mono">
-                                                                {item.qty || 0}
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-mono">
-                                                                {formatPrice(item.harga_pembelian)}
-                                                            </TableCell>
-                                                            <TableCell className="text-right font-semibold font-mono">
-                                                                {formatPrice((item.qty || 0) * (item.harga_pembelian || 0))}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    ))
-                                                ) : (
-                                                    <TableRow className="hover:bg-muted/50 transition-colors">
-                                                        <TableCell colSpan={6} className="pl-12 text-muted-foreground bg-muted/20">
-                                                            <span className="text-sm">No items</span>
-                                                        </TableCell>
-                                                        <TableCell colSpan={6} className="text-muted-foreground italic">
-                                                            Tidak ada item dalam pembelian ini
-                                                        </TableCell>
-                                                    </TableRow>
-                                                )}
-                                                {/* Summary row placed after item rows aligned with Subtotal column */}
-                                                <TableRow className="bg-primary/5">
-                                                    <TableCell colSpan={11} className="text-right pr-4 font-medium text-primary">
-                                                        Total:
-                                                    </TableCell>
-                                                    <TableCell className="text-right font-semibold font-mono text-primary">
-                                                        {formatPrice(p.total)}
-                                                    </TableCell>
-                                                </TableRow>
-                                            </React.Fragment>
-                                        );
-                                    })
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-
-                    {/* Mobile Card View */}
-                    <div className="md:hidden space-y-4 p-4">
-                        {purchases.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                                Tidak ada transaksi pembelian ditemukan untuk periode ini
-                            </div>
-                        ) : (
-                            purchases.map((p, purchaseIndex) => (
-                                <Card key={p.id} className="border-l-4 border-l-primary">
-                                    <CardHeader className="pb-3">
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-2">
-                                                <Badge variant="outline" className="font-mono">
-                                                    {p.invoice_number}
-                                                </Badge>
-                                                <span className="text-sm text-muted-foreground">
-                                                    #{purchaseIndex + 1}
-                                                </span>
-                                            </div>
-                                            <Badge variant="secondary">
-                                                {formatPrice(p.total)}
-                                            </Badge>
-                                        </div>
-                                        <div className="grid grid-cols-2 gap-2 text-sm">
-                                            <div>
-                                                <span className="text-muted-foreground">Tanggal:</span>
-                                                <div className="font-medium">
-                                                    {new Date(p.purchase_date).toLocaleDateString("id-ID")}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">Supplier:</span>
-                                                <div className="font-medium">
-                                                    {p.supplier?.name || "-"}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">Gudang:</span>
-                                                <div className="font-medium">
-                                                    {p.warehouse?.name || "-"}
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <span className="text-muted-foreground">Toko:</span>
-                                                <div className="font-medium">
-                                                    {p.toko?.name || "-"}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </CardHeader>
-                                    <CardContent className="pt-0">
-                                        <div className="space-y-3">
-                                            <div className="flex items-center justify-between border-t pt-3">
-                                                <span className="text-sm font-medium">
-                                                    {p.items?.length || 0} Item{p.items?.length !== 1 ? 's' : ''}
-                                                </span>
-                                            </div>
-                                            {p.items && p.items.length > 0 ? (
-                                                <div className="space-y-2">
-                                                    {p.items.map((item, itemIndex) => (
-                                                        <div
-                                                            key={`${p.id}-${item.id}`}
-                                                            className="bg-muted/30 rounded-lg p-3 space-y-2"
-                                                        >
-                                                            <div className="flex items-center justify-between">
-                                                                <span className="text-sm font-medium">
-                                                                    Item {itemIndex + 1}
-                                                                </span>
-                                                                <Badge variant="secondary" className="text-xs">
-                                                                    {formatPrice((item.qty || 0) * (item.harga_pembelian || 0))}
-                                                                </Badge>
-                                                            </div>
-                                                            <div className="grid grid-cols-1 gap-1 text-sm">
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Produk:</span>
-                                                                    <span className="font-medium">{item.product?.name || "-"}</span>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Kategori:</span>
-                                                                    <Badge variant="secondary" className="text-xs">
-                                                                        {item.product?.category_relation?.name || "-"}
-                                                                    </Badge>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Subkategori:</span>
-                                                                    <Badge variant="outline" className="text-xs">
-                                                                        {item.product?.subcategory?.name || "-"}
-                                                                    </Badge>
-                                                                </div>
-                                                                <div className="flex justify-between">
-                                                                    <span className="text-muted-foreground">Qty × Harga:</span>
-                                                                    <span className="font-mono">
-                                                                        {item.qty || 0} × {formatPrice(item.harga_pembelian)}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            ) : (
-                                                <div className="text-center py-4 text-muted-foreground italic">
-                                                    Tidak ada item dalam pembelian ini
-                                                </div>
-                                            )}
-                                        </div>
-                                    </CardContent>
-                                </Card>
-                            ))
-                        )}
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Rekap Kategori Produk */}
-            <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <BarChart3Icon className="h-5 w-5" />
-                        Rekap Kategori Produk Terjual
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                    <div className="overflow-x-auto -mx-2 px-2">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Kategori Produk
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Quantity Terjual
-                                    </th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Persentase
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {Object.keys(kategoriProduk).length === 0 ? (
-                                    <tr>
-                                        <td
-                                            colSpan={3}
-                                            className="px-4 py-8 text-center text-gray-500"
-                                        >
-                                            Tidak ada data kategori produk
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    (() => {
-                                        const totalQty = Object.values(
-                                            kategoriProduk
-                                        ).reduce((a, b) => a + b, 0);
-                                        return Object.entries(kategoriProduk)
-                                            .sort(([, a], [, b]) => b - a) // Sort by quantity descending
-                                            .map(([cat, qty], i) => (
-                                                <tr
-                                                    key={i}
-                                                    className="hover:bg-gray-50 transition-colors"
-                                                >
-                                                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                                                        {cat}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-sm text-right text-gray-900">
-                                                        {qty.toLocaleString(
-                                                            "id-ID"
-                                                        )}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        <Badge variant="secondary">
-                                                            {totalQty > 0
-                                                                ? (
-                                                                    (qty /
-                                                                        totalQty) *
-                                                                    100
-                                                                ).toFixed(1)
-                                                                : 0}
-                                                            %
-                                                        </Badge>
-                                                    </td>
-                                                </tr>
-                                            ));
-                                    })()
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
-
-            {/* Daftar Produk */}
-            <Card className="mt-8">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <BarChart3Icon className="h-5 w-5" />
-                        Daftar Produk ({products.length})
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-4">
-                    <div className="overflow-x-auto -mx-2 px-2">
-                        <table className="w-full">
-                            <thead className="bg-gray-50 border-b">
-                                <tr>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kode</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nama Produk</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kategori</th>
-                                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subkategori</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Beli</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Harga Jual</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Qty</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Profit</th>
-                                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Total Profit</th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {products.length === 0 ? (
-                                    <tr>
-                                        <td colSpan={10} className="px-4 py-8 text-center text-gray-500">Tidak ada produk ditemukan</td>
-                                    </tr>
-                                ) : (
-                                    products.map((product, i) => {
-                                        const qty = product.stock ?? product.qty ?? product.quantity ?? 0;
-                                        const prices = resolveProductPrices(product);
-                                        const profitPerUnit = (prices.sell || 0) - (prices.purchase || 0);
-                                        const totalProfit = profitPerUnit * qty;
-                                        return (
-                                            <tr key={product.id} className="hover:bg-gray-50 transition-colors">
-                                                <td className="px-3 py-2 text-sm text-gray-800">
-                                                    <div className="text-sm">{formatDate(product.created_at)}</div>
-                                                    <div className="text-xs text-muted-foreground">{formatRelative(product.created_at)}</div>
-                                                </td>
-                                                <td className="px-3 py-2 text-sm text-gray-800">{product.barcode || "-"}</td>
-                                                <td className="px-3 py-2 text-sm font-medium text-gray-900">{product.name}</td>
-                                                <td className="px-3 py-2 text-sm text-gray-800">{product.category_relation?.name || "-"}</td>
-                                                <td className="px-3 py-2 text-sm text-gray-800">{product.subcategory?.name || "-"}</td>
-                                                <td className="px-3 py-2 text-sm text-right font-mono text-sm text-gray-800">{formatPrice(prices.purchase)}</td>
-                                                <td className="px-3 py-2 text-sm text-right font-mono text-sm text-gray-800">{formatPrice(prices.sell)}</td>
-                                                <td className="px-3 py-2 text-sm text-right font-mono text-sm text-gray-800">{qty.toLocaleString()}</td>
-                                                <td className="px-3 py-2 text-sm text-right font-mono text-sm text-gray-800">{formatPrice(profitPerUnit)}</td>
-                                                <td className="px-3 py-2 text-sm text-right font-mono text-sm text-gray-800">{formatPrice(totalProfit)}</td>
-                                            </tr>
-                                        );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </CardContent>
-            </Card>
-        </>
+  const handleFilter = (e) => {
+    e.preventDefault();
+    router.get(
+      route("dashboard.recap"),
+      { start_date: start, end_date: end, per_page: perPage },
+      { preserveState: true, replace: true }
     );
-}
+  };
 
-Recap.layout = (page) => <DashboardLayout children={page} />;
+  const resetFilter = () => {
+    setStart("");
+    setEnd("");
+    router.get(route("dashboard.recap"), { per_page: perPage }, { preserveState: true, replace: true });
+  };
+
+  const handleExportCsv = () => {
+    let csv = "Tanggal,Invoice,Kasir,Pelanggan,Total,HPP,Profit,Margin (%),Metode\n";
+    (transactionsState.data || []).forEach((t) => {
+      const invoiceNo = t.invoice_number || t.invoice || t.invoice_no || t.id;
+      csv += `${t.created_at || ''},${invoiceNo},${t.cashier?.name || '-'},${t.customer?.name || '-'},${t.grand_total || 0},${t.hpp_cost || 0},${t.profit || 0},${Number(t.margin || 0).toFixed(2)},${t.payment_method || '-'}\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `rekap-transaksi-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    window.URL.revokeObjectURL(url);
+    toast.success("Data berhasil diekspor");
+  };
+
+  // Columns for TanStack Table (client-side on current page)
+  const data = transactionsState?.data || transactions?.data || [];
+  const pager = transactionsState && Object.keys(transactionsState).length ? transactionsState : transactions;
+
+  const columns = [
+    {
+      accessorKey: "__index",
+      header: "No",
+      cell: (info) => {
+        const id = info.row.original?.id;
+        const currentPage = pager?.current_page || 1;
+        const pageSize = pager?.per_page || perPage || 20;
+        const idx = info.row.index + 1 + ((currentPage - 1) * pageSize);
+        const isOpen = id ? expandedIds.has(id) : false;
+        return (
+          <div className="flex items-center gap-2">
+            {id && (
+              <button
+                type="button"
+                onClick={() => {
+                  const next = new Set(expandedIds);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  setExpandedIds(next);
+                }}
+                className="p-1 rounded hover:bg-muted/50"
+                aria-label={isOpen ? 'Collapse' : 'Expand'}
+              >
+                {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+              </button>
+            )}
+            <span className="font-medium">{idx}</span>
+          </div>
+        );
+      },
+    },
+    {
+      accessorKey: "created_at",
+      header: "Tanggal",
+      cell: (info) => {
+        const v = info.getValue();
+        return v ? new Date(v).toLocaleString("id-ID", { timeZone: "Asia/Jakarta" }) : "-";
+      },
+    },
+    {
+      accessorKey: "invoice_number", header: "Invoice", cell: (info) => {
+        const row = info.row.original || {};
+        const v = row.invoice_number || row.invoice || row.invoice_no || row.id;
+        const profit = row?.profit ?? 0;
+        const margin = row?.margin ?? 0;
+        return (
+          <div>
+            <div className="font-mono">{v}</div>
+            <div className="text-xs text-muted-foreground">Profit: {Number(profit).toLocaleString()} • {Number(margin).toFixed(2)}%</div>
+          </div>
+        );
+      }
+    },
+    { accessorKey: "cashier.name", header: "Kasir", cell: (info) => info.row.original.cashier?.name || "-" },
+    { accessorKey: "grand_total", header: "Total", cell: (info) => Number(info.getValue() || 0).toLocaleString() },
+    { accessorKey: "hpp_cost", header: "HPP", cell: (info) => Number(info.getValue() || 0).toLocaleString() },
+    { accessorKey: "profit", header: "Profit", cell: (info) => Number(info.getValue() || 0).toLocaleString() },
+    { accessorKey: "margin", header: "Margin (%)", cell: (info) => `${Number(info.getValue() || 0).toFixed(2)}%` },
+    { accessorKey: "payment_method", header: "Metode", cell: (info) => info.getValue() || "-" },
+  ];
+
+  const table = useReactTable({
+    data,
+    columns,
+    state: { sorting },
+    onSortingChange: setSorting,
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    debugTable: false,
+  });
+
+  const colCount = table.getAllLeafColumns().length;
+
+  // fetch transactions via AJAX for per-page / live updates
+  const fetchTransactions = async (page = 1, per_page = perPage) => {
+    try {
+      const params = new URLSearchParams({ start_date: start || '', end_date: end || '', page, per_page });
+      const url = route('dashboard.recap.data-json') + '?' + params.toString();
+      const res = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+      if (!res.ok) return;
+      const json = await res.json();
+      // json is paginated object
+      setTransactionsState(json);
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  // When perPage changes in UI, fetch without full reload
+  useEffect(() => {
+    // update transactionsState.per_page to reflect change immediately
+    setTransactionsState((prev) => ({ ...(prev || {}), per_page: perPage }));
+    fetchTransactions(1, perPage);
+  }, [perPage]);
+
+  // optional live polling
+  useEffect(() => {
+    if (!isLive) return;
+    let mounted = true;
+    fetchTransactions(transactionsState.current_page || 1, perPage);
+    const id = setInterval(() => {
+      if (!mounted) return;
+      fetchTransactions(transactionsState.current_page || 1, perPage);
+    }, intervalMs);
+    return () => { mounted = false; clearInterval(id); };
+  }, [isLive, start, end, perPage]);
+
+  return (
+    <DashboardLayout>
+      <Head title="Rekap Transaksi" />
+
+      <div className="space-y-6">
+        {period_limited && (
+          <div className="p-3 rounded-md bg-yellow-50 border border-yellow-200 text-sm text-yellow-800">
+            Periode yang diminta melebihi {max_days} hari. Menampilkan data dari {effective_start} sampai {effective_end}.
+          </div>
+        )}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Rekap Transaksi</h1>
+            <p className="text-muted-foreground">Laporan penjualan, HPP, profit, dan margin</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <Card>
+            <CardHeader className="flex items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Penjualan</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-primary">{Number(totalPenjualan).toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Total penjualan pada periode</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Total Pembelian (HPP)</CardTitle>
+              <BarChart3 className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{Number(totalPembelian).toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Total pembelian / HPP pada periode</p>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium">Laba Kotor</CardTitle>
+              <Filter className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-foreground">{Number(labaKotor).toLocaleString()}</div>
+              <p className="text-xs text-muted-foreground">Persentase: {Number(persentaseLaba).toFixed(2)}%</p>
+            </CardContent>
+          </Card>
+        </div>
+
+
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Daftar Transaksi</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {/* Daily summary */}
+            {dailySummary && dailySummary.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-medium mb-2">Margin / Profit Per Hari</h3>
+                <div className="overflow-x-auto rounded-md border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="p-2 text-left">Tanggal</th>
+                        <th className="p-2 text-right">Total Penjualan</th>
+                        <th className="p-2 text-right">Total HPP</th>
+                        <th className="p-2 text-right">Profit</th>
+                        <th className="p-2 text-right">Margin (%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dailySummary.map((d) => (
+                        <tr key={d.date} className="odd:bg-white even:bg-slate-50">
+                          <td className="p-2">{new Date(d.date).toLocaleDateString('id-ID')}</td>
+                          <td className="p-2 text-right">{Number(d.total_sales).toLocaleString()}</td>
+                          <td className="p-2 text-right">{Number(d.total_hpp).toLocaleString()}</td>
+                          <td className="p-2 text-right">{Number(d.profit).toLocaleString()}</td>
+                          <td className="p-2 text-right">{Number(d.margin).toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            )}
+            {transactions?.data?.length > 0 ? (
+              <div className="space-y-4">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2"><Filter className="h-5 w-5" /> Filter Data</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <form onSubmit={handleFilter} className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="start_date">Tanggal Mulai</Label>
+                          <Input id="start_date" type="date" value={start} onChange={(e) => setStart(e.target.value)} />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="end_date">Tanggal Akhir</Label>
+                          <Input id="end_date" type="date" value={end} onChange={(e) => setEnd(e.target.value)} />
+                        </div>
+                      </div>
+                      <div className="flex gap-4">
+                        <Button type="submit" className="flex items-center gap-2"><Filter className="h-4 w-4" /> Filter</Button>
+                        <Button type="button" variant="outline" onClick={resetFilter} className="flex items-center gap-2">Reset</Button>
+                        <Button type="button" variant="secondary" onClick={handleExportCsv} className="flex items-center gap-2"><Download className="h-4 w-4" /> Export CSV</Button>
+                        <Button type="button" variant="ghost" onClick={() => window.open(route('dashboard.recap.export-excel', { start_date: start, end_date: end }))} className="flex items-center gap-2">Excel</Button>
+                        <Button type="button" variant="ghost" onClick={() => window.open(route('dashboard.recap.export-pdf', { start_date: start, end_date: end }))} className="flex items-center gap-2">PDF</Button>
+                        <div className="ml-auto flex items-center gap-2">
+                          <Button type="button" size="sm" variant="outline" onClick={expandAll}>Expand All</Button>
+                          <Button type="button" size="sm" variant="outline" onClick={collapseAll}>Collapse All</Button>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2">
+                        <Label htmlFor="per_page">Baris / halaman</Label>
+                        <select id="per_page" value={perPage} onChange={(e) => { setPerPage(Number(e.target.value)); }} className="ml-0 rounded-sm border-sky-600 px-4 py-2 text-sm w-20">
+                          <option value="5">5</option>
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                    </form>
+                  </CardContent>
+                </Card>
+                <div className="max-h-[60vh] overflow-auto overflow-x-auto rounded-md border">
+                  <Table className="min-w-max">
+                    <TableHeader sticky>
+                      {table.getHeaderGroups().map((headerGroup) => (
+                        <TableRow key={headerGroup.id}>
+                          {headerGroup.headers.map((header) => (
+                            <TableHead key={header.id} onClick={header.column.getToggleSortingHandler()} className="cursor-pointer">
+                              {header.isPlaceholder ? null : (
+                                <div className="flex items-center gap-2">
+                                  {flexRender(header.column.columnDef.header, header.getContext())}
+                                  <span className="text-xs text-muted-foreground">{header.column.getIsSorted() === 'asc' ? '↑' : header.column.getIsSorted() === 'desc' ? '↓' : ''}</span>
+                                </div>
+                              )}
+                            </TableHead>
+                          ))}
+                        </TableRow>
+                      ))}
+                    </TableHeader>
+                    <TableBody>
+
+                      {table.getRowModel().rows.map((row) => {
+                        const id = row.original?.id;
+                        return (
+                          <React.Fragment key={row.id}>
+                            <TableRow>
+                              {row.getVisibleCells().map((cell) => (
+                                <TableCell key={cell.id}>{flexRender(cell.column.columnDef.cell, cell.getContext())}</TableCell>
+                              ))}
+                            </TableRow>
+
+                            {id && expandedIds.has(id) && (
+                              <TableRow>
+                                <TableCell colSpan={colCount} className="bg-gray-50">
+                                  <div className="p-3">
+                                    <div className="text-sm font-medium mb-2">Rincian Transaksi</div>
+                                    <div className="overflow-x-auto">
+                                      <table className="w-full text-sm">
+                                        <thead>
+                                          <tr className="text-left text-xs text-muted-foreground">
+
+                                            <th className="p-2">Produk</th>
+                                            <th className="p-2 text-right">Qty</th>
+                                            <th className="p-2 text-right">Unit</th>
+                                            <th className="p-2 text-right">Harga Jual</th>
+                                            <th className="p-2 text-right">HPP</th>
+                                            <th className="p-2 text-right">Harga Beli</th>
+                                            <th className="p-2 text-right">Profit</th>
+                                            <th className="p-2 text-right">Subtotal</th>
+                                            <th className="p-2 text-right">Margin (%)</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {(row.original.details || []).map((d, idx) => {
+                                            const qty = d.qty || 0;
+                                            const sell = d.price || 0;
+                                            // Prefer server-provided canonical fields `harga_beli` and `unit_name`
+                                            const hpp = d.product?.purchase_price || d.harga_beli || 0;
+                                            const hargaBeli = d.harga_beli ?? d.product?.purchase_price ?? d.product?.harga_pembelian ?? d.harga_pembelian ?? d.purchase_price ?? d.product?.purchasePrice ?? 0;
+                                            const unit = d.unit_name || d.unit?.name || d.satuan || d.product?.unit?.name || d.product?.unit_name || "-";
+                                            const subtotal = (d.subtotal !== undefined && d.subtotal !== null) ? d.subtotal : sell * qty;
+                                            const lineCost = hpp * qty;
+                                            // profit should be calculated per unit: (harga_jual - harga_beli) * qty
+                                            const lineProfit = (sell - hargaBeli) * qty;
+                                            const lineMargin = (sell * qty) > 0 ? (lineProfit / (sell * qty)) * 100 : 0;
+                                            return (
+                                              <tr key={idx} className="odd:bg-white even:bg-slate-50">
+
+                                                <td className="p-2">{d.product?.name || d.product_name || '-'}</td>
+                                                <td className="p-2 text-right">{qty}</td>
+                                                <td className="p-2 text-right">{unit}</td>
+                                                <td className="p-2 text-right">{Number(sell).toLocaleString()}</td>
+                                                <td className="p-2 text-right">{Number(hpp).toLocaleString()}</td>
+                                                <td className="p-2 text-right">{hargaBeli ? Number(hargaBeli).toLocaleString() : '-'}</td>
+                                                <td className="p-2 text-right">{Number(subtotal).toLocaleString()}</td>
+                                                <td className="p-2 text-right">{Number(lineProfit).toLocaleString()}</td>
+                                                <td className="p-2 text-right">{Number(lineMargin).toFixed(2)}%</td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    </div>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+
+                {transactions.links && transactions.links.length > 0 && (
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm text-muted-foreground">Menampilkan {pager.from}-{pager.to} dari {pager.total} data</div>
+                    <div className="flex gap-2 items-center">
+                      {pager.links?.map((link, index) => {
+                        // render disabled look for null url (Laravel uses null for separators)
+                        if (link.url === null) {
+                          return (
+                            <Button key={index} variant="ghost" size="sm" disabled dangerouslySetInnerHTML={{ __html: link.label }} />
+                          );
+                        }
+                        // extract page number from link.url
+                        try {
+                          const parsed = new URL(link.url, window.location.origin);
+                          const pageParam = parsed.searchParams.get('page') || 1;
+                          return (
+                            <Button
+                              key={index}
+                              variant={link.active ? 'default' : 'outline'}
+                              size="sm"
+                              onClick={() => fetchTransactions(pageParam, perPage)}
+                              dangerouslySetInnerHTML={{ __html: link.label }}
+                            />
+                          );
+                        } catch (e) {
+                          return (
+                            <Button key={index} variant={link.active ? 'default' : 'outline'} size="sm" onClick={() => fetchTransactions(1, perPage)} dangerouslySetInnerHTML={{ __html: link.label }} />
+                          );
+                        }
+                      })}
+                      <div className="ml-3 text-xs text-muted-foreground">Per halaman: <strong>{perPage}</strong></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">Tidak ada transaksi yang ditemukan</div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardLayout>
+  );
+}

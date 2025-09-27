@@ -13,8 +13,16 @@ const Table = React.forwardRef(({ className, ...props }, ref) => (
 ));
 Table.displayName = "Table";
 
-const TableHeader = React.forwardRef(({ className, ...props }, ref) => (
-    <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />
+const TableHeader = React.forwardRef(({ className, sticky = false, ...props }, ref) => (
+    <thead
+        ref={ref}
+        className={cn(
+            "[&_tr]:border-b",
+            sticky && "[&_th]:sticky [&_th]:top-0 [&_th]:bg-white [&_th]:z-10 dark:[&_th]:bg-gray-950",
+            className
+        )}
+        {...props}
+    />
 ));
 TableHeader.displayName = "TableHeader";
 

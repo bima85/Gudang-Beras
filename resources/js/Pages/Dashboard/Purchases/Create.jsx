@@ -104,7 +104,7 @@ export default function Create(props) {
                     unit_id: "",
                     category_id: "",
                     subcategory_id: "",
-                    qty: 1,
+                    qty: 0,
                     qty_gudang: 0,
                     qty_toko: 0,
                     harga_pembelian: 0,
@@ -181,7 +181,7 @@ export default function Create(props) {
                     subcategory_id: item.subcategory_id
                         ? String(item.subcategory_id)
                         : "",
-                    qty: item.qty ? Number(item.qty) : 1,
+                    qty: item.qty ? Number(item.qty) : 0,
                     qty_gudang: item.qty_gudang ? Number(item.qty_gudang) : 0,
                     qty_toko: item.qty_toko ? Number(item.qty_toko) : 0,
                     harga_pembelian: item.harga_pembelian
@@ -199,7 +199,7 @@ export default function Create(props) {
             unit_id: "",
             category_id: "",
             subcategory_id: "",
-            qty: 1,
+            qty: 0,
             qty_gudang: 0,
             qty_toko: 0,
             harga_pembelian: 0,
@@ -223,7 +223,7 @@ export default function Create(props) {
                     subcategory_id: item.subcategory_id
                         ? String(item.subcategory_id)
                         : "",
-                    qty: item.qty ? Number(item.qty) : 1,
+                    qty: item.qty ? Number(item.qty) : 0,
                     qty_gudang: item.qty_gudang ? Number(item.qty_gudang) : 0,
                     qty_toko: item.qty_toko ? Number(item.qty_toko) : 0,
                     harga_pembelian: item.harga_pembelian
@@ -246,7 +246,7 @@ export default function Create(props) {
             unit_id: "",
             category_id: "",
             subcategory_id: "",
-            qty: 1,
+            qty: 0,
             qty_gudang: 0,
             qty_toko: 0,
             harga_pembelian: 0,
@@ -1152,7 +1152,7 @@ export default function Create(props) {
                 unit_id: "",
                 category_id: "",
                 subcategory_id: "",
-                qty: 1,
+                qty: 0,
                 qty_gudang: 0,
                 qty_toko: 0,
                 harga_pembelian: 0,
@@ -1290,7 +1290,7 @@ export default function Create(props) {
                             unit_id: "",
                             category_id: "",
                             subcategory_id: "",
-                            qty: 1,
+                            qty: 0,
                             qty_gudang: 0,
                             qty_toko: 0,
                             harga_pembelian: 0,
@@ -1430,49 +1430,48 @@ export default function Create(props) {
 
             {/* Top card */}
             <div className="mx-auto mt-6 max-w-7xl">
-                {" "}
                 {/* Ubah max-w-5xl menjadi max-w-7xl */}
-                <div className="overflow-hidden bg-white border border-gray-100 shadow-md rounded-xl">
-                    <div className="flex items-center gap-3 px-6 py-4 bg-gradient-to-r from-blue-50 to-white">
-                        <svg
-                            className="text-blue-600 w-7 h-7"
-                            fill="none"
-                            stroke="currentColor"
-                            strokeWidth="2"
-                            viewBox="0 0 24 24"
-                        >
-                            <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M9 17v-2a4 4 0 014-4h3m4 0a9 9 0 11-18 0 9 9 0 0118 0z"
-                            />
-                        </svg>
-                        <CardHeader>
-                            <CardTitle className="text-lg font-medium text-gray-700">
-                                Tambah Pembelian Baru
-                            </CardTitle>
-                        </CardHeader>
+                <div className="overflow-hidden bg-white border border-gray-100 shadow-md rounded-xl dark:bg-gray-800 dark:border-gray-700">
+                    <Card className="flex flex-col sm:flex-row m-2 sm:m-4 p-3 sm:p-4 justify-between items-center border-b border-gray-100 dark:border-gray-700 gap-3 sm:gap-0">
+                        <div className="flex items-center gap-3 px-1 sm:px-2 py-1 w-full sm:w-auto">
+                            <svg
+                                className="text-blue-600 w-6 h-6 sm:w-7 sm:h-7 flex-shrink-0"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="2"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M9 17v-2a4 4 0 014-4h3m4 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                            </svg>
+                            <CardHeader className="p-0 sm:p-2 flex-1 min-w-0">
+                                <CardTitle className="text-base sm:text-lg font-medium text-gray-700 dark:text-gray-200 truncate">
+                                    Tambah Pembelian Baru
+                                </CardTitle>
+                            </CardHeader>
+                        </div>
+
                         {/* Realtime clock on the right */}
-                        <div className="mb-4">
-
-                            <Card className="bg-blue-500 dark:bg-gray-900 w-fit ml-auto">
-
-
-                                <div className="space-y-2 text-center py-3 px-4">
-                                    <div className="flex items-center gap-2 text-sm font-medium text-white">
-                                        <Clock className="w-4 h-4" />
-                                        Waktu Real-time
+                        <div className="flex-shrink-0 w-full sm:w-auto flex justify-center sm:justify-end">
+                            <Card className="bg-blue-500 dark:bg-gray-900 w-fit">
+                                <div className="space-y-2 text-center py-2 sm:py-3 px-3 sm:px-4">
+                                    <div className="flex items-center justify-center gap-2 text-xs sm:text-sm font-medium text-white">
+                                        <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
+                                        <span className="hidden xs:inline">Waktu Real-time</span>
+                                        <span className="xs:hidden">Real-time</span>
                                     </div>
-                                    <p className="font-sans text-white text-sm font-semibold text-primary text-center">
+                                    <p className="font-sans text-white text-xs sm:text-sm font-semibold text-center">
                                         {formattedTime}
                                     </p>
                                 </div>
                             </Card>
                         </div>
+                    </Card>
 
-                    </div>
-
-                    <div className="p-4">
+                    <div className="p-4 sm:p-6">
                         {" "}
                         {/* Kurangi padding menjadi p-4 */}
                         <div className="mb-4 space-y-2">
@@ -1627,100 +1626,104 @@ export default function Create(props) {
                                     onAddUnit={() => handleAddUnit()}
                                 />
 
-                                <div className="mt-4 overflow-hidden border rounded-lg">
-                                    <PurchaseItemsTable
-                                        items={data.items.slice(0, -1)}
-                                        products={productsState}
-                                        units={unitsState}
-                                        categories={categoriesState}
-                                        subcategories={subcategoriesState}
-                                        onRemove={removeItem}
-                                        onItemUpdate={(itemIndex, updatedItem) => {
-                                            const items = [...data.items];
-                                            // Auto-update alokasi 50%-50% jika qty berubah
-                                            if (updatedItem.qty !== items[itemIndex].qty) {
-                                                const totalQty = parseFloat(updatedItem.qty) || 0;
-                                                updatedItem.qty_gudang = Math.round(totalQty * 0.5 * 100) / 100;
-                                                updatedItem.qty_toko = Math.round(totalQty * 0.5 * 100) / 100;
+                                <div className="mt-4 border rounded-lg">
+                                    <div className="overflow-x-auto w-full">
+                                        <div className="min-w-[900px]">
+                                            <PurchaseItemsTable
+                                                items={data.items.slice(0, -1)}
+                                                products={productsState}
+                                                units={unitsState}
+                                                categories={categoriesState}
+                                                subcategories={subcategoriesState}
+                                                onRemove={removeItem}
+                                                onItemUpdate={(itemIndex, updatedItem) => {
+                                                    const items = [...data.items];
+                                                    // Auto-update alokasi 50%-50% jika qty berubah
+                                                    if (updatedItem.qty !== items[itemIndex].qty) {
+                                                        const totalQty = parseFloat(updatedItem.qty) || 0;
+                                                        updatedItem.qty_gudang = Math.round(totalQty * 0.5 * 100) / 100;
+                                                        updatedItem.qty_toko = Math.round(totalQty * 0.5 * 100) / 100;
 
-                                                // Pastikan total alokasi sama dengan qty total
-                                                const totalAlokasi = updatedItem.qty_gudang + updatedItem.qty_toko;
-                                                if (Math.abs(totalAlokasi - totalQty) > 0.01) {
-                                                    updatedItem.qty_gudang = totalQty - updatedItem.qty_toko;
-                                                }
-                                            }
+                                                        // Pastikan total alokasi sama dengan qty total
+                                                        const totalAlokasi = updatedItem.qty_gudang + updatedItem.qty_toko;
+                                                        if (Math.abs(totalAlokasi - totalQty) > 0.01) {
+                                                            updatedItem.qty_gudang = totalQty - updatedItem.qty_toko;
+                                                        }
+                                                    }
 
-                                            items[itemIndex] = updatedItem;
-                                            // Update localStorage
-                                            localStorage.setItem(
-                                                "purchase_items_table",
-                                                JSON.stringify(items.slice(0, -1))
-                                            );
-                                            setData("items", items);
-                                        }}
-                                        onKuliFeeCheckboxChange={(checked) => {
-                                            const items = [...data.items];
-                                            for (
-                                                let i = 0;
-                                                i < items.length - 1;
-                                                i++
-                                            ) {
-                                                items[i].kuli_fee = checked
-                                                    ? 1000
-                                                    : 0;
-                                            }
-                                            setData("items", items);
-                                        }}
-                                        onKuliFeeChange={(value) => {
-                                            const items = [...data.items];
-                                            for (
-                                                let i = 0;
-                                                i < items.length - 1;
-                                                i++
-                                            ) {
-                                                items[i].kuli_fee = value;
-                                            }
-                                            setData("items", items);
-                                        }}
-                                        onKuliManualChange={(checked) => {
-                                            const items = [...data.items];
-                                            for (
-                                                let i = 0;
-                                                i < items.length - 1;
-                                                i++
-                                            ) {
-                                                items[i]._kuli_manual = checked;
-                                                if (!checked)
-                                                    items[i].kuli_fee = 0;
-                                            }
-                                            setData("items", items);
-                                        }}
-                                        timbanganGlobal={timbanganGlobal}
-                                        setTimbanganGlobal={(value) => {
-                                            setTimbanganGlobal(value);
-                                            const items = [...data.items];
-                                            for (
-                                                let i = 0;
-                                                i < items.length - 1;
-                                                i++
-                                            ) {
-                                                items[i].timbangan = value;
-                                            }
-                                            setData("items", items);
-                                        }}
-                                        onTimbanganChange={(value) => {
-                                            setTimbanganGlobal(value);
-                                            const items = [...data.items];
-                                            for (
-                                                let i = 0;
-                                                i < items.length - 1;
-                                                i++
-                                            ) {
-                                                items[i].timbangan = value;
-                                            }
-                                            setData("items", items);
-                                        }}
-                                    />
+                                                    items[itemIndex] = updatedItem;
+                                                    // Update localStorage
+                                                    localStorage.setItem(
+                                                        "purchase_items_table",
+                                                        JSON.stringify(items.slice(0, -1))
+                                                    );
+                                                    setData("items", items);
+                                                }}
+                                                onKuliFeeCheckboxChange={(checked) => {
+                                                    const items = [...data.items];
+                                                    for (
+                                                        let i = 0;
+                                                        i < items.length - 1;
+                                                        i++
+                                                    ) {
+                                                        items[i].kuli_fee = checked
+                                                            ? 1000
+                                                            : 0;
+                                                    }
+                                                    setData("items", items);
+                                                }}
+                                                onKuliFeeChange={(value) => {
+                                                    const items = [...data.items];
+                                                    for (
+                                                        let i = 0;
+                                                        i < items.length - 1;
+                                                        i++
+                                                    ) {
+                                                        items[i].kuli_fee = value;
+                                                    }
+                                                    setData("items", items);
+                                                }}
+                                                onKuliManualChange={(checked) => {
+                                                    const items = [...data.items];
+                                                    for (
+                                                        let i = 0;
+                                                        i < items.length - 1;
+                                                        i++
+                                                    ) {
+                                                        items[i]._kuli_manual = checked;
+                                                        if (!checked)
+                                                            items[i].kuli_fee = 0;
+                                                    }
+                                                    setData("items", items);
+                                                }}
+                                                timbanganGlobal={timbanganGlobal}
+                                                setTimbanganGlobal={(value) => {
+                                                    setTimbanganGlobal(value);
+                                                    const items = [...data.items];
+                                                    for (
+                                                        let i = 0;
+                                                        i < items.length - 1;
+                                                        i++
+                                                    ) {
+                                                        items[i].timbangan = value;
+                                                    }
+                                                    setData("items", items);
+                                                }}
+                                                onTimbanganChange={(value) => {
+                                                    setTimbanganGlobal(value);
+                                                    const items = [...data.items];
+                                                    for (
+                                                        let i = 0;
+                                                        i < items.length - 1;
+                                                        i++
+                                                    ) {
+                                                        items[i].timbangan = value;
+                                                    }
+                                                    setData("items", items);
+                                                }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
 

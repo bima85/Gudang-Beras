@@ -34,7 +34,7 @@ export default function CustomerModal({
     const filteredCustomers = customers.filter(
         (customer) =>
             customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            (customer.phone && customer.phone.includes(searchTerm))
+            (customer.no_telp && customer.no_telp.includes(searchTerm))
     );
 
     const resetAndClose = () => {
@@ -125,66 +125,62 @@ export default function CustomerModal({
                                 {/* Filtered Customers */}
                                 {filteredCustomers.length > 0
                                     ? filteredCustomers.map((customer) => (
-                                          <Card
-                                              key={customer.id}
-                                              className="cursor-pointer hover:bg-accent transition-colors"
-                                              onClick={() => {
-                                                  if (onSelectCustomer)
-                                                      onSelectCustomer(
-                                                          customer.id
-                                                      );
-                                                  resetAndClose();
-                                              }}
-                                          >
-                                              <CardContent className="p-4">
-                                                  <div className="flex items-start gap-3">
-                                                      <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
-                                                          <User className="w-5 h-5 text-primary" />
-                                                      </div>
-                                                      <div className="flex-1 min-w-0">
-                                                          <h3 className="font-medium truncate">
-                                                              {customer.name}
-                                                          </h3>
-                                                          <div className="space-y-1 mt-1">
-                                                              {customer.phone && (
-                                                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                                                      <Phone className="w-3 h-3" />
-                                                                      <span>
-                                                                          {
-                                                                              customer.phone
-                                                                          }
-                                                                      </span>
-                                                                  </div>
-                                                              )}
-                                                              {customer.address && (
-                                                                  <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                                                                      <MapPin className="w-3 h-3" />
-                                                                      <span className="truncate">
-                                                                          {
-                                                                              customer.address
-                                                                          }
-                                                                      </span>
-                                                                  </div>
-                                                              )}
-                                                          </div>
-                                                      </div>
-                                                  </div>
-                                              </CardContent>
-                                          </Card>
-                                      ))
+                                        <Card
+                                            key={customer.id}
+                                            className="cursor-pointer hover:bg-accent transition-colors"
+                                            onClick={() => {
+                                                if (onSelectCustomer)
+                                                    onSelectCustomer(
+                                                        customer.id
+                                                    );
+                                                resetAndClose();
+                                            }}
+                                        >
+                                            <CardContent className="p-4">
+                                                <div className="flex items-start gap-3">
+                                                    <div className="w-10 h-10 bg-primary/10 rounded-full flex items-center justify-center">
+                                                        <User className="w-5 h-5 text-primary" />
+                                                    </div>
+                                                    <div className="flex-1 min-w-0">
+                                                        <h3 className="font-medium truncate">
+                                                            {customer.name}
+                                                        </h3>
+                                                        <div className="space-y-1 mt-1">
+                                                            {customer.no_telp && (
+                                                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                                                    <Phone className="w-3 h-3" />
+                                                                    <span>{customer.no_telp}</span>
+                                                                </div>
+                                                            )}
+                                                            {customer.address && (
+                                                                <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                                                                    <MapPin className="w-3 h-3" />
+                                                                    <span className="truncate">
+                                                                        {
+                                                                            customer.address
+                                                                        }
+                                                                    </span>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </CardContent>
+                                        </Card>
+                                    ))
                                     : searchTerm && (
-                                          <div className="text-center py-8 text-muted-foreground">
-                                              <User className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                                              <p>
-                                                  Tidak ada pelanggan yang
-                                                  ditemukan
-                                              </p>
-                                              <p className="text-sm">
-                                                  Coba kata kunci lain atau
-                                                  tambah pelanggan baru
-                                              </p>
-                                          </div>
-                                      )}
+                                        <div className="text-center py-8 text-muted-foreground">
+                                            <User className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                                            <p>
+                                                Tidak ada pelanggan yang
+                                                ditemukan
+                                            </p>
+                                            <p className="text-sm">
+                                                Coba kata kunci lain atau
+                                                tambah pelanggan baru
+                                            </p>
+                                        </div>
+                                    )}
                             </div>
                         </div>
                     ) : (

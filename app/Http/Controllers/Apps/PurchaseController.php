@@ -19,10 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
-use App\Helpers\UnitConversionHelper;
-use App\Helpers\UnitConverter;
 use App\Services\StockUpdateService;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\PurchaseExport;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -39,7 +36,7 @@ class PurchaseController extends Controller
      *
      * @return \Inertia\Response
      */
-    public function index()
+    public function index(Request $request)
     {
         // Check permission
         /** @var \App\Models\User $user */
@@ -48,7 +45,7 @@ class PurchaseController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $purchases = Purchase::with([
+        $query = Purchase::with([
             'supplier',
             'warehouse',
             'toko',
@@ -56,7 +53,49 @@ class PurchaseController extends Controller
             'items.unit',
             'items.category',
             'items.subcategory'
-        ])->latest()->get();
+        ]);
+
+        // Apply filters
+        if ($request->filled('supplier')) {
+            $query->whereHas('supplier', function ($q) use ($request) {
+                $q->where('name', $request->supplier);
+            });
+        }
+
+        if ($request->filled('warehouse')) {
+            $query->whereHas('warehouse', function ($q) use ($request) {
+                $q->where('name', $request->warehouse);
+            });
+        }
+
+        if ($request->filled('start_date')) {
+            $query->where('purchase_date', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->where('purchase_date', '<=', $request->end_date);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->whereHas('supplier', function ($sq) use ($search) {
+                    $sq->where('name', 'like', '%' . $search . '%');
+                })
+                    ->orWhereHas('warehouse', function ($wq) use ($search) {
+                        $wq->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhereHas('toko', function ($tq) use ($search) {
+                        $tq->where('name', 'like', '%' . $search . '%');
+                    })
+                    ->orWhere('purchase_date', 'like', '%' . $search . '%')
+                    ->orWhereHas('items.product', function ($pq) use ($search) {
+                        $pq->where('name', 'like', '%' . $search . '%');
+                    });
+            });
+        }
+
+        $purchases = $query->latest()->paginate(50); // Paginate with 50 per page
 
         return Inertia::render('Dashboard/Purchases/Index', [
             'purchases' => $purchases
@@ -305,11 +344,14 @@ class PurchaseController extends Controller
             }
             $kuliFee = $totalQtyKg * $kuliFeeRate;
 
-            $timbanganValue = 0;
+            // Perubahan: anggap input 'timbangan' dari frontend adalah total nominal (Rp total)
+            // bukan tarif per-kg. Jadi baca langsung nilai total yang dikirim.
+            $totalTimbangan = 0;
             if (count($validated['items']) > 0 && isset($validated['items'][0]['timbangan'])) {
-                $timbanganValue = floatval($validated['items'][0]['timbangan']);
+                // Frontend mengirimkan 'timbangan' di setiap item sebagai nilai total (sama untuk semua item),
+                // ambil nilai tersebut sebagai total timbangan.
+                $totalTimbangan = floatval($validated['items'][0]['timbangan']);
             }
-            $totalTimbangan = $totalQtyKg * $timbanganValue;
 
             // Hitung subtotal per item dengan proporsi fee kuli dan timbangan
             foreach ($validated['items'] as $item) {
@@ -344,8 +386,7 @@ class PurchaseController extends Controller
             Log::info('Total qty dalam kg:', ['total_qty_kg' => $totalQtyKg]);
             Log::info('Fee kuli rate:', ['kuli_fee_rate' => $kuliFeeRate]);
             Log::info('Fee kuli total:', ['fee_kuli_total' => $kuliFee]);
-            Log::info('Timbangan value:', ['timbangan_value' => $timbanganValue]);
-            Log::info('Total timbangan:', ['total_timbangan' => $totalTimbangan]);
+            Log::info('Total timbangan (nominal):', ['total_timbangan' => $totalTimbangan]);
             Log::info('Total akhir pembelian:', ['total_final' => $totalFinal]);
 
             $today = date('Y/m/d', strtotime($validated['purchase_date']));
@@ -376,6 +417,7 @@ class PurchaseController extends Controller
             ]);
 
             // Integrasikan StockUpdateService untuk distribusi stok
+            $toko = null;
             foreach ($itemSubtotals as $itemData) {
                 $item = $itemData['item'];
                 $subtotal = $itemData['subtotal'];
@@ -433,11 +475,12 @@ class PurchaseController extends Controller
 
                 // Update stok menggunakan service baru
                 if (!empty($distribution)) {
+                    $tokoId = isset($toko) && isset($toko->id) ? $toko->id : null;
                     $stockUpdateResult = StockUpdateService::updateStockAfterPurchase(
                         $item['product_id'],
                         $distribution,
                         $warehouse ? $warehouse->id : null,
-                        $toko->id ?? null,
+                        $tokoId,
                         Auth::id()
                     );
 

@@ -128,7 +128,7 @@ export default function Edit(props) {
                     subcategory_id: item.subcategory_id
                         ? String(item.subcategory_id)
                         : "",
-                    qty: item.qty ? Number(item.qty) : 1,
+                    qty: item.qty ? Number(item.qty) : 0,
                     qty_gudang: item.qty_gudang ? Number(item.qty_gudang) : 0,
                     qty_toko: item.qty_toko ? Number(item.qty_toko) : 0,
                     harga_pembelian: item.harga_pembelian
@@ -137,13 +137,13 @@ export default function Edit(props) {
                     kuli_fee: item.kuli_fee ? Number(item.kuli_fee) : 0,
                 };
             }
-        } catch {}
+        } catch { }
         return {
             product_id: "",
             unit_id: "",
             category_id: "",
             subcategory_id: "",
-            qty: 1,
+            qty: 0,
             qty_gudang: 0,
             qty_toko: 0,
             harga_pembelian: 0,
@@ -166,7 +166,7 @@ export default function Edit(props) {
                     subcategory_id: item.subcategory_id
                         ? String(item.subcategory_id)
                         : "",
-                    qty: item.qty ? Number(item.qty) : 1,
+                    qty: item.qty ? Number(item.qty) : 0,
                     qty_gudang: item.qty_gudang ? Number(item.qty_gudang) : 0,
                     qty_toko: item.qty_toko ? Number(item.qty_toko) : 0,
                     harga_pembelian: item.harga_pembelian
@@ -175,7 +175,7 @@ export default function Edit(props) {
                     kuli_fee: item.kuli_fee ? Number(item.kuli_fee) : 0,
                 }));
             }
-        } catch {}
+        } catch { }
         return [];
     })();
 
@@ -189,7 +189,7 @@ export default function Edit(props) {
             unit_id: "",
             category_id: "",
             subcategory_id: "",
-            qty: 1,
+            qty: 0,
             qty_gudang: 0,
             qty_toko: 0,
             harga_pembelian: 0,
@@ -215,7 +215,7 @@ export default function Edit(props) {
             unit_id: "",
             category_id: "",
             subcategory_id: "",
-            qty: 1,
+            qty: 0,
             qty_gudang: 0,
             qty_toko: 0,
             harga_pembelian: 0,
@@ -226,16 +226,16 @@ export default function Edit(props) {
     // Initialize items from purchase data
     let itemsFromPurchase = purchase.items
         ? purchase.items.map((item) => ({
-              product_id: String(item.product_id || ""),
-              unit_id: String(item.unit_id || ""),
-              category_id: String(item.category_id || ""),
-              subcategory_id: String(item.subcategory_id || ""),
-              qty: Number(item.qty || 1),
-              qty_gudang: Number(item.qty_gudang || 0),
-              qty_toko: Number(item.qty_toko || 0),
-              harga_pembelian: Number(item.harga_pembelian || 0),
-              kuli_fee: Number(item.kuli_fee || 0),
-          }))
+            product_id: String(item.product_id || ""),
+            unit_id: String(item.unit_id || ""),
+            category_id: String(item.category_id || ""),
+            subcategory_id: String(item.subcategory_id || ""),
+            qty: Number(item.qty || 0),
+            qty_gudang: Number(item.qty_gudang || 0),
+            qty_toko: Number(item.qty_toko || 0),
+            harga_pembelian: Number(item.harga_pembelian || 0),
+            kuli_fee: Number(item.kuli_fee || 0),
+        }))
         : [];
 
     // Add empty row for new item input

@@ -20,27 +20,23 @@ export default function Navbar({ toggleSidebar, themeSwitcher, darkMode }) {
     );
     const sublinks = filter_sublinks.flatMap((item) => item.subdetails);
 
-    // define state isMobile
-    const [isMobile, setIsMobile] = useState(false);
-
-    // define useEffect
-    useEffect(() => {
-        // define handle resize window
-        const handleResize = () => {
-            setIsMobile(window.innerWidth <= 768);
-        };
-
-        // define event listener
-        window.addEventListener("resize", handleResize);
-
-        // call handle resize window
-        handleResize();
-
-        // remove event listener
-        return () => {
-            window.removeEventListener("resize", handleResize);
-        };
+    // define state isMobile — use matchMedia and attach listener once
+    const [isMobile, setIsMobile] = useState(() => {
+        if (typeof window !== "undefined" && window.matchMedia) {
+            return window.matchMedia("(max-width: 767px)").matches;
+        }
+        return false;
     });
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !window.matchMedia) return;
+        const mm = window.matchMedia("(max-width: 767px)");
+        const handleMM = (e) => setIsMobile(e.matches);
+        // set initial state
+        handleMM(mm);
+        mm.addEventListener("change", handleMM);
+        return () => mm.removeEventListener("change", handleMM);
+    }, []);
 
     return (
         <div className="py-4 px-4 md:px-6 flex justify-between items-center min-w-full sticky top-0 z-[30] h-16 border-b border-border bg-card/95 backdrop-blur-sm shadow-sm">
@@ -74,33 +70,28 @@ export default function Navbar({ toggleSidebar, themeSwitcher, darkMode }) {
                     <Menu size={20} />
                 </Button>
                 <div className="flex flex-row items-center gap-1 md:border-l-2 md:border-double md:px-4 border-border">
-                    {/* {links.map((link, i) => (
-                        link.hasOwnProperty('subdetails') ?
-                            sublinks.map((sublink, x) => sublink.active === true && <span className='font-semibold text-sm md:text-base text-gray-700 dark:text-gray-400' key={x}>{sublink.title}</span>)
-                            :
-                            link.active === true && <span className='font-semibold text-sm md:text-base text-gray-700 dark:text-gray-400' key={i}>{link.title}</span>
-                    ))} */}
+
                     {links.map((link, i) =>
                         link.hasOwnProperty("subdetails")
                             ? sublinks.map(
-                                  (sublink, x) =>
-                                      sublink.active === true && (
-                                          <span
-                                              className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-400"
-                                              key={x}
-                                          >
-                                              {sublink.title}
-                                          </span>
-                                      )
-                              )
+                                (sublink, x) =>
+                                    sublink.active === true && (
+                                        <span
+                                            className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-400"
+                                            key={x}
+                                        >
+                                            {sublink.title}
+                                        </span>
+                                    )
+                            )
                             : link.active === true && (
-                                  <span
-                                      className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-400 "
-                                      key={i}
-                                  >
-                                      {link.title}
-                                  </span>
-                              )
+                                <span
+                                    className="font-semibold text-sm md:text-base text-gray-700 dark:text-gray-400 "
+                                    key={i}
+                                >
+                                    {link.title}
+                                </span>
+                            )
                     )}
                 </div>
             </div>
@@ -115,7 +106,7 @@ export default function Navbar({ toggleSidebar, themeSwitcher, darkMode }) {
                         >
                             {darkMode ? <Sun size={18} /> : <Moon size={18} />}
                         </Button>
-                        <Notification />
+                        {/* <Notification isMobile={isMobile} /> */}
                     </div>
                 </div>
                 <AuthDropdown auth={auth} isMobile={isMobile} />

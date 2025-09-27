@@ -48,8 +48,17 @@ export default function AuthDropdown({ auth, isMobile }) {
     useEffect(() => {
         const onToggleMobile = () => setIsToggle((v) => !v);
         window.addEventListener("toggleMobileMenu", onToggleMobile);
-        return () => window.removeEventListener("toggleMobileMenu", onToggleMobile);
+        const onCloseMobileDrawers = () => setIsToggle(false);
+        window.addEventListener("closeMobileDrawers", onCloseMobileDrawers);
+        return () => {
+            window.removeEventListener("toggleMobileMenu", onToggleMobile);
+            window.removeEventListener("closeMobileDrawers", onCloseMobileDrawers);
+        };
     }, []);
+
+    // mounted guard to avoid SSR/hydration mismatch
+    const [mounted, setMounted] = React.useState(false);
+    React.useEffect(() => setMounted(true), []);
 
     // Prevent body scroll when mobile drawer is open and handle Escape key
     useEffect(() => {
@@ -77,9 +86,12 @@ export default function AuthDropdown({ auth, isMobile }) {
         post(route("logout"));
     };
 
+    // Temporary: force desktop dropdown to avoid mobile drawer on desktop
+    const showMobile = false;
+
     return (
         <>
-            {isMobile === false ? (
+            {showMobile === false ? (
                 <Menu className="relative z-10" as="div">
                     <Menu.Button className="flex items-center rounded-full">
                         <img
@@ -87,7 +99,7 @@ export default function AuthDropdown({ auth, isMobile }) {
                                 auth.user.avatar
                                     ? auth.user.avatar
                                     : "https://ui-avatars.com/api/?name=" +
-                                      auth.user.name
+                                    auth.user.name
                             }
                             alt={auth.user.name}
                             className="w-10 h-10 rounded-full"
@@ -125,7 +137,7 @@ export default function AuthDropdown({ auth, isMobile }) {
                     </Transition>
                 </Menu>
             ) : (
-                <div ref={dropdownRef}>
+                <div ref={dropdownRef} aria-hidden={showMobile ? "false" : "true"}>
                     <button
                         className="flex items-center group"
                         onClick={() => {
@@ -148,30 +160,28 @@ export default function AuthDropdown({ auth, isMobile }) {
                                 auth.user.avatar
                                     ? auth.user.avatar
                                     : "https://ui-avatars.com/api/?name=" +
-                                      auth.user.name
+                                    auth.user.name
                             }
                             alt={auth.user.name}
                             className="w-10 h-10 rounded-full"
                         />
                     </button>
-                        {/* Overlay behind drawer (mobile only) */}
-                        <div
-                            ref={overlayRef}
-                            onClick={() => setIsToggle(false)}
-                            className={`${
-                                isToggle ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+                    {/* Overlay behind drawer (mobile only) */}
+                    <div
+                        ref={overlayRef}
+                        onClick={() => setIsToggle(false)}
+                        className={`${isToggle ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
                             } fixed inset-0 bg-black/40 z-40 transition-opacity duration-200 md:hidden`}
-                            aria-hidden={isToggle ? "false" : "true"}
-                        />
+                        aria-hidden={isToggle ? "false" : "true"}
+                    />
 
-                        <div
-                            role="dialog"
-                            aria-modal="true"
-                            aria-label="User menu"
-                            className={`${
-                                isToggle ? "translate-x-0 opacity-100" : "-translate-x-full"
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="User menu"
+                        className={`${isToggle ? "translate-x-0 opacity-100" : "-translate-x-full"
                             } fixed top-0 left-0 z-50 w-full max-w-xs h-full transition-all duration-300 transform border-r bg-popover border-border md:hidden`}
-                        >
+                    >
                         <div className="flex items-center justify-center h-16 px-6 py-2">
                             <div className="text-2xl font-bold leading-loose tracking-wider text-center text-foreground">
                                 KASIR
@@ -183,7 +193,7 @@ export default function AuthDropdown({ auth, isMobile }) {
                                     auth.user.avatar
                                         ? auth.user.avatar
                                         : "https://ui-avatars.com/api/?name=" +
-                                          auth.user.name
+                                        auth.user.name
                                 }
                                 alt={auth.user.name}
                                 className="w-12 h-12 rounded-full"

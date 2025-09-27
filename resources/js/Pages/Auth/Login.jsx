@@ -97,13 +97,13 @@ export default function Login({ status, canResetPassword }) {
                 <div className="w-full max-w-md p-8 bg-white rounded-lg shadow-lg">
                     <div className="mb-6 text-center">
                         <ApplicationLogo className="w-20 h-20 mx-auto mb-4" />
-                        <h1 className="mb-2 text-3xl font-bold text-black">
+                        <h1 className="mb-2 text-3xl font-bold text-black dark:text-white ">
                             Toko 85
                         </h1>
-                        <h2 className="text-xl font-semibold text-gray-700">
+                        <h2 className="text-xl font-semibold text-gray-700 dark:text-gray-300">
                             Login
                         </h2>
-                        <p className="text-gray-500">Lanjutkan ke Dashboard</p>
+                        <p className="text-gray-500 ">Lanjutkan ke Dashboard</p>
                     </div>
 
                     <form onSubmit={submit}>
@@ -131,7 +131,7 @@ export default function Login({ status, canResetPassword }) {
                                     setRole(e.target.value);
                                     setData("role", e.target.value);
                                 }}
-                                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-opacity-50"
+                                className="w-full border-gray-300 rounded-lg shadow-sm focus:ring focus:ring-opacity-50 dark:bg-gray-800 dark:border-gray-600 dark:placeholder-gray-400 dark:text-white focus:border-blue-300 focus:ring-blue-200"
                             >
                                 <option value="">-- Pilih Lokasi --</option>
                                 <option value="Toko">Toko</option>
@@ -169,7 +169,7 @@ export default function Login({ status, canResetPassword }) {
                             <input
                                 type="password"
                                 name="password"
-                                className="block w-full px-4 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-300"
+                                className="block w-full px-4 py-2 mt-1 border border-gray-300 rounded-md shadow-sm focus:ring focus:ring-blue-200 focus:border-blue-300 text-black"
                                 value={data.password}
                                 onChange={(e) =>
                                     setData("password", e.target.value)
@@ -183,7 +183,7 @@ export default function Login({ status, canResetPassword }) {
                                     id="remember_me"
                                     name="remember"
                                     type="checkbox"
-                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500 "
                                     checked={data.remember}
                                     onChange={(e) =>
                                         setData("remember", e.target.checked)

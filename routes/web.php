@@ -262,6 +262,10 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], fu
     Route::get('/recap', [RecapController::class, 'index'])->name('dashboard.recap');
     Route::get('/recap/export/excel', [RecapController::class, 'exportExcel'])->name('dashboard.recap.export-excel');
     Route::get('/recap/export/pdf', [RecapController::class, 'exportPdf'])->name('dashboard.recap.export-pdf');
+    // Debug: sample JSON for recap (authenticated)
+    Route::get('/recap/sample-json', [RecapController::class, 'sampleJson'])->name('dashboard.recap.sample-json');
+    // AJAX data endpoint for live/async updates
+    Route::get('/recap/data', [RecapController::class, 'dataJson'])->name('dashboard.recap.data-json');
 
     // (debug routes removed)
 

@@ -182,9 +182,8 @@ export default function PaymentSection({
                                         key={customer.id}
                                         value={customer.id.toString()}
                                     >
-                                        {`${customer.name || "Unknown"} - ${
-                                            customer.phone || "Tanpa telepon"
-                                        }`}
+                                        {`${customer.name || "Unknown"} - ${customer.no_telp || "Tanpa telepon"
+                                            }`}
                                         {customer.deposit &&
                                             customer.deposit > 0 && (
                                                 <Badge className="ml-2 bg-green-100 text-green-800 text-xs">
@@ -319,7 +318,7 @@ export default function PaymentSection({
                                                 Math.max(
                                                     0,
                                                     safeFinalTotal -
-                                                        safeDepositPayment
+                                                    safeDepositPayment
                                                 )
                                             )}
                                         </span>
@@ -329,7 +328,7 @@ export default function PaymentSection({
                                         <span className="font-medium text-green-600">
                                             {formatRupiah(
                                                 customerDeposit -
-                                                    safeDepositPayment
+                                                safeDepositPayment
                                             )}
                                         </span>
                                     </div>
@@ -413,11 +412,11 @@ export default function PaymentSection({
                         placeholder={
                             useDepositPayment && safeDepositPayment > 0
                                 ? `Sisa yang perlu dibayar: ${formatRupiah(
-                                      Math.max(
-                                          0,
-                                          safeFinalTotal - safeDepositPayment
-                                      )
-                                  )}`
+                                    Math.max(
+                                        0,
+                                        safeFinalTotal - safeDepositPayment
+                                    )
+                                )}`
                                 : "Masukkan jumlah uang tunai"
                         }
                         className="text-right text-lg font-semibold"
@@ -525,8 +524,8 @@ export default function PaymentSection({
                                         {change >= 0
                                             ? formatRupiah(Math.abs(change))
                                             : `-${formatRupiah(
-                                                  Math.abs(change)
-                                              )}`}
+                                                Math.abs(change)
+                                            )}`}
                                     </span>
                                 </div>
                                 {change < 0 && (
