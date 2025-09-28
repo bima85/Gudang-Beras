@@ -51,7 +51,7 @@ class RecapController extends Controller
         $endDateUtc = $effectiveEndLocal ? $effectiveEndLocal->utc() : null;
 
         // Query transaksi penjualan dengan timezone Asia/Jakarta
-        $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.unit', 'details.unit']);
+    $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit']);
         if ($startDateUtc && $endDateUtc) {
             $query->whereBetween('created_at', [
                 $startDateUtc->format('Y-m-d H:i:s'),
@@ -248,7 +248,7 @@ class RecapController extends Controller
      */
     public function sampleJson(Request $request)
     {
-        $trx = Transaction::with(['cashier', 'customer', 'details.product.unit', 'details.unit'])->orderByDesc('created_at')->first();
+    $trx = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit'])->orderByDesc('created_at')->first();
         if (!$trx) {
             return response()->json(['message' => 'No transactions found'], 404);
         }
@@ -307,7 +307,7 @@ class RecapController extends Controller
         $perPage = (int) $request->input('per_page', 20);
         if (!in_array($perPage, $allowedPerPage)) $perPage = 20;
 
-        $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.unit', 'details.unit']);
+    $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit']);
         if ($start && $end) {
             $startLocal = \Carbon\Carbon::parse($start, 'Asia/Jakarta')->startOfDay()->utc();
             $endLocal = \Carbon\Carbon::parse($end, 'Asia/Jakarta')->endOfDay()->utc();
@@ -366,7 +366,8 @@ class RecapController extends Controller
         // if ?detail=1 will export per-transaction-detail rows, otherwise per-transaction summary
         $detailed = filter_var($request->input('detail', '0'), FILTER_VALIDATE_BOOLEAN);
 
-        $query = Transaction::with(['cashier', 'customer', 'details.product']);
+        // eager-load category and subcategory for product to include them in export
+        $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory']);
         if ($start && $end) {
             $startDate = \Carbon\Carbon::parse($start, 'Asia/Jakarta')->startOfDay()->utc();
             $endDate = \Carbon\Carbon::parse($end, 'Asia/Jakarta')->endOfDay()->utc();
@@ -465,6 +466,8 @@ class RecapController extends Controller
                         'Kasir' => $trx->cashier->name ?? '-',
                         'Pelanggan' => $trx->customer->name ?? '-',
                         'Produk' => $d->product->name ?? ($d->product_name ?? '-'),
+                        'Kategori' => $d->product->categoryRelation->name ?? '-',
+                        'Subkategori' => $d->product->subcategory->name ?? '-',
                         'Satuan' => $d->unit->name ?? ($d->unit_name ?? ($d->satuan ?? '-')),
                         'Qty' => $qty,
                         'Harga Jual (per unit)' => $price,
@@ -508,6 +511,7 @@ class RecapController extends Controller
         }
         // remove debug dd in production; log rows count for debugging
         Log::info('exportExcel: preparing export rows', ['rows_count' => count($rows)]);
+
         // Build detailed rows (per transaction detail)
         $detailRows = [];
         foreach ($transactions as $trx) {
@@ -517,9 +521,10 @@ class RecapController extends Controller
                 $purchasePrice = $d->harga_beli ?? 0;
                 $profitLine = PricingService::calculateProfit($unitSell, $purchasePrice, $qty);
 
-                // Export columns required by user (exact order)
                 $detailRows[] = [
                     'Produk' => $d->product->name ?? ($d->product_name ?? '-'),
+                    'Kategori' => $d->product->categoryRelation->name ?? '-',
+                    'Subkategori' => $d->product->subcategory->name ?? '-',
                     'Qty' => $qty,
                     'Unit' => $d->unit->name ?? ($d->unit_name ?? ($d->satuan ?? '-')),
                     'Harga Jual' => $unitSell,
