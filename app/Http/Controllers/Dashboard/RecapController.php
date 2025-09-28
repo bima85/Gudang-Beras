@@ -111,14 +111,29 @@ class RecapController extends Controller
             ];
         }
 
+        // Load purchase items for fallback pricing
+        $purchasesItems = PurchaseItem::with('purchase')->get();
+
         // Tambahkan per-transaction HPP, profit, dan margin (gunakan PricingService)
-        $transactions->getCollection()->transform(function ($trx) {
+        $transactions->getCollection()->transform(function ($trx) use ($purchasesItems) {
             $cost = 0;
             foreach ($trx->details as $d) {
                 // determine default purchase price from product or detail fields
                 $defaultPurchase = $d->product->purchase_price ?? $d->harga_pembelian ?? $d->purchase_price ?? 0;
                 $trxDateLocal = $trx->created_at->setTimezone('Asia/Jakarta')->toDateString();
                 $purchasePrice = PricingService::getPurchasePrice($d->product_id ?? null, $trxDateLocal, $defaultPurchase);
+
+                // If still 0, try preloaded purchase items collection as fallback
+                if ((float)$purchasePrice === 0.0 && isset($purchasesItems) && $purchasesItems instanceof \Illuminate\Support\Collection) {
+                    $candidate = $purchasesItems->where('product_id', $d->product_id)
+                        ->sortByDesc(function ($pi) {
+                            return $pi->purchase->purchase_date ?? null;
+                        })
+                        ->first();
+                    if ($candidate && !empty($candidate->harga_pembelian)) {
+                        $purchasePrice = $candidate->harga_pembelian;
+                    }
+                }
 
                 // attach harga_beli to detail for frontend/export
                 $d->harga_beli = $purchasePrice;
