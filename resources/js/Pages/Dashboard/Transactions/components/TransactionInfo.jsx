@@ -159,7 +159,7 @@ export default function TransactionInfo({
                 {/* Real-time Clock */}
 
                 {/* Quick Actions */}
-                <div className="pt-4 border-t">
+                {/* <div className="pt-4 border-t">
                     <div className="space-y-2">
                         <p className="text-sm font-medium text-muted-foreground">
                             Aksi Cepat
@@ -177,7 +177,7 @@ export default function TransactionInfo({
                             </a>
                         </div>
                     </div>
-                </div>
+                </div> */}
             </CardContent>
         </Card>
     );

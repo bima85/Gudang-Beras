@@ -68,7 +68,7 @@ export default function Show({ transaction, sidebarOpen }) {
                                     </div>
                                     <div>
                                         <div className="text-sm text-gray-600">Lokasi</div>
-                                        <div>{transaction.toko?.name || transaction.warehouse?.name || '-'}</div>
+                                        <div>{transaction.toko_id ? (transaction.toko?.name || 'Toko') : (transaction.warehouse?.name || transaction.transaction?.warehouse?.name || '-')}</div>
                                     </div>
                                 </div>
                             </CardContent>
@@ -97,7 +97,7 @@ export default function Show({ transaction, sidebarOpen }) {
                                                         <div className="font-medium">{d.product?.name || d.product_name || '-'}</div>
                                                         <div className="text-xs text-gray-500">{d.product?.category?.name || d.product?.category_name || '-'} / {d.product?.subcategory?.name || d.product?.subcategory_name || '-'}</div>
                                                     </TableCell>
-                                                    <TableCell>{fmtQuantity(d.quantity)} {d.unit || ''}</TableCell>
+                                                    <TableCell>{fmtQuantity(d.quantity)} {d.unit?.name || d.unit?.symbol || ''}</TableCell>
                                                     <TableCell>{fmtCurrency(d.price || d.unit_price || d.sale_price)}</TableCell>
                                                     <TableCell>{fmtCurrency(d.harga_beli ?? d.purchase_price ?? d.product?.purchase_price)}</TableCell>
                                                     <TableCell>{fmtCurrency(d.profit ?? ((d.price || d.unit_price || d.sale_price) - (d.harga_beli ?? d.purchase_price ?? d.product?.purchase_price)))}</TableCell>

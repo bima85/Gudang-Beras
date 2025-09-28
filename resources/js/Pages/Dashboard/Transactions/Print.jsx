@@ -34,13 +34,13 @@ export default function Print({ transaction = {}, store }) {
                     store?.phone ||
                     store?.address ||
                     store?.location) && (
-                    <>
-                        {store?.code && <p>Kode: {store.code}</p>}
-                        {store?.phone && <p>Telp: {store.phone}</p>}
-                        {store?.address && <p>{store.address}</p>}
-                        {store?.location && <p>{store.location}</p>}
-                    </>
-                )}
+                        <>
+                            {store?.code && <p>Kode: {store.code}</p>}
+                            {store?.phone && <p>Telp: {store.phone}</p>}
+                            {store?.address && <p>{store.address}</p>}
+                            {store?.location && <p>{store.location}</p>}
+                        </>
+                    )}
             </div>
             <div className="flex justify-between mb-6 bg-white text-black print:bg-white print:text-black">
                 <div>
@@ -50,8 +50,8 @@ export default function Print({ transaction = {}, store }) {
                         Date:{" "}
                         {transaction.created_at
                             ? new Date(
-                                  transaction.created_at
-                              ).toLocaleDateString()
+                                transaction.created_at
+                            ).toLocaleDateString()
                             : "-"}
                     </p>
                 </div>
@@ -109,7 +109,7 @@ export default function Print({ transaction = {}, store }) {
                                         </td>
                                         <td className="border-b py-2">
                                             {item.unit
-                                                ? `${item.unit.name} (${item.unit.conversion_to_kg}Kg)`
+                                                ? `${item.unit?.name} (${item.unit?.conversion_to_kg}Kg)`
                                                 : item.satuan || "-"}
                                         </td>
                                         <td className="border-b py-2">
@@ -174,9 +174,9 @@ export default function Print({ transaction = {}, store }) {
                             <td colSpan="2" className="py-2">
                                 {transaction.add_change_to_deposit
                                     ? formatPrice(
-                                          transaction.change_to_deposit_amount ||
-                                              0
-                                      )
+                                        transaction.change_to_deposit_amount ||
+                                        0
+                                    )
                                     : formatPrice(transaction.change || 0)}
                             </td>
                         </tr>
@@ -188,12 +188,12 @@ export default function Print({ transaction = {}, store }) {
                                 <td colSpan="2" className="py-2">
                                     {formatPrice(
                                         (transaction.customer?.deposit || 0) +
-                                            (transaction.change_to_deposit_amount ||
-                                                0) -
-                                            (transaction.is_deposit
-                                                ? transaction.deposit_amount ||
-                                                  0
-                                                : 0)
+                                        (transaction.change_to_deposit_amount ||
+                                            0) -
+                                        (transaction.is_deposit
+                                            ? transaction.deposit_amount ||
+                                            0
+                                            : 0)
                                     )}
                                 </td>
                             </tr>
@@ -212,12 +212,12 @@ export default function Print({ transaction = {}, store }) {
                                 {transaction.payment_method === "cash"
                                     ? "Cash"
                                     : transaction.payment_method === "tempo"
-                                    ? "Tempo"
-                                    : transaction.payment_method === "deposit"
-                                    ? "Deposit"
-                                    : "-"}
+                                        ? "Tempo"
+                                        : transaction.payment_method === "deposit"
+                                            ? "Deposit"
+                                            : "-"}
                                 {transaction.is_deposit &&
-                                transaction.payment_method !== "deposit"
+                                    transaction.payment_method !== "deposit"
                                     ? " + Deposit"
                                     : ""}
                             </td>

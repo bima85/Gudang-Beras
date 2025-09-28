@@ -117,6 +117,36 @@ class TransactionHistoryController extends Controller
                         $d->harga_beli = $d->harga_pembelian ?? ($d->purchase_price ?? 0);
                     }
                 }
+
+                // Calculate total quantity from transaction details
+                $totalQuantity = 0;
+                foreach ($th->transaction->details as $d) {
+                    $totalQuantity += $d->qty ?? $d->quantity ?? 0;
+                }
+                $th->total_quantity = $totalQuantity;
+
+                // Calculate remaining stock based on location
+                $remainingStock = 0;
+                if ($th->warehouse_id) {
+                    // Get stock from warehouse
+                    $remainingStock = \App\Models\WarehouseStock::getStock($th->product_id, $th->warehouse_id);
+                } elseif ($th->toko_id) {
+                    // Get stock from store
+                    $remainingStock = \App\Models\StoreStock::getStock($th->product_id, $th->toko_id);
+                }
+                $th->remaining_stock = $remainingStock;
+            } else {
+                // If no transaction details, use the quantity from TransactionHistory
+                $th->total_quantity = $th->quantity ?? 0;
+
+                // Calculate remaining stock for single product transactions
+                $remainingStock = 0;
+                if ($th->warehouse_id) {
+                    $remainingStock = \App\Models\WarehouseStock::getStock($th->product_id, $th->warehouse_id);
+                } elseif ($th->toko_id) {
+                    $remainingStock = \App\Models\StoreStock::getStock($th->product_id, $th->toko_id);
+                }
+                $th->remaining_stock = $remainingStock;
             }
 
             // Attach harga_beli for the history's direct product (if any)
@@ -133,8 +163,9 @@ class TransactionHistoryController extends Controller
             return $th;
         });
 
-        // Check if this is an AJAX request
-        if ($request->ajax() || $request->wantsJson()) {
+        // Check if this is a true AJAX request (not Inertia)
+        // Inertia requests have X-Inertia header, so we should return Inertia response for those
+        if ($request->ajax() && !$request->header('X-Inertia')) {
             // Generate pagination links array manually
             $links = [];
             $currentPage = $transactions->currentPage();
@@ -223,6 +254,7 @@ class TransactionHistoryController extends Controller
             'transaction.details.product.category',
             'transaction.details.product.subcategory',
             'transaction.details.unit',
+            'transaction.warehouse',
             'transaction'
         ])->findOrFail($id);
 

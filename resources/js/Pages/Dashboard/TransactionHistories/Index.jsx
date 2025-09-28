@@ -1,8 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import DashboardLayout from '@/Layouts/DashboardLayout';
-import { Head, Link } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { format } from 'date-fns';
 import { toast } from 'react-toastify';
+import { ScrollArea } from '@/Components/ui/scroll-area';
+import {
+  useReactTable,
+  getCoreRowModel,
+  getFilteredRowModel,
+  getPaginationRowModel,
+  getSortedRowModel,
+  flexRender,
+  createColumnHelper,
+} from '@tanstack/react-table';
+import { ChevronUp, ChevronDown, ArrowUpDown } from 'lucide-react';
+
+// Column helper for type safety
+const columnHelper = createColumnHelper();
 
 // Clean, minimal Transaction Histories index page.
 export default function Index({ transactions = { data: [], links: [], current_page: 1, per_page: 15 }, filters = {}, sidebarOpen }) {
@@ -10,6 +24,7 @@ export default function Index({ transactions = { data: [], links: [], current_pa
   const [end, setEnd] = useState(filters.to || '');
   const [transactionsState, setTransactionsState] = useState(transactions || { data: [], links: [], current_page: 1, per_page: 15 });
   const [loading, setLoading] = useState(false);
+  const [globalFilter, setGlobalFilter] = useState('');
 
   useEffect(() => {
     setTransactionsState(transactions || { data: [], links: [], current_page: 1, per_page: 15 });
@@ -24,32 +39,120 @@ export default function Index({ transactions = { data: [], links: [], current_pa
     }
   };
 
+  // Column definitions
+  const columns = useMemo(() => [
+    columnHelper.accessor('id', {
+      header: '#',
+      cell: (info) => {
+        const pager = transactionsState;
+        return info.row.index + 1 + ((pager.current_page - 1) * pager.per_page || 0);
+      },
+      size: 60,
+    }),
+    columnHelper.accessor('transaction_number', {
+      header: 'Nomor',
+      cell: (info) => info.getValue(),
+      size: 120,
+    }),
+    columnHelper.accessor('transaction_type', {
+      header: 'Tipe',
+      cell: (info) => info.getValue(),
+      size: 80,
+    }),
+    columnHelper.accessor((row) => row.product?.name || row.product_name, {
+      id: 'product_name',
+      header: 'Produk',
+      cell: (info) => info.getValue() || '-',
+      size: 150,
+    }),
+    columnHelper.accessor((row) => row.product?.category?.name || row.product?.category_name, {
+      id: 'category_name',
+      header: 'Kategori',
+      cell: (info) => info.getValue() || '-',
+      size: 120,
+    }),
+    columnHelper.accessor((row) => row.product?.subcategory?.name || row.product?.subcategory_name, {
+      id: 'subcategory_name',
+      header: 'Subkategori',
+      cell: (info) => info.getValue() || '-',
+      size: 120,
+    }),
+    columnHelper.accessor('total_quantity', {
+      header: 'Qty',
+      cell: (info) => info.getValue() || info.row.original.quantity || '-',
+      size: 80,
+    }),
+    columnHelper.accessor('remaining_stock', {
+      header: 'Sisa Stok',
+      cell: (info) => info.getValue() ?? '-',
+      size: 100,
+    }),
+    columnHelper.accessor('harga_beli', {
+      header: 'Harga Beli',
+      cell: (info) => info.getValue() ?? info.row.original.product?.purchase_price ?? '-',
+      size: 120,
+    }),
+    columnHelper.accessor('transaction_datetime_iso', {
+      header: 'Tanggal',
+      cell: (info) => fmtDate(info.getValue() || info.row.original.transaction_datetime_local || info.row.original.transaction_date),
+      size: 150,
+    }),
+    columnHelper.display({
+      id: 'actions',
+      header: 'Aksi',
+      cell: (info) => (
+        <Link href={route('transaction-histories.show', info.row.original.id)} className="text-blue-600 hover:text-blue-800">
+          Lihat
+        </Link>
+      ),
+      size: 80,
+    }),
+  ], [transactionsState]);
+
+  const tableData = useMemo(() => transactionsState.data || [], [transactionsState.data]);
+
+  const table = useReactTable({
+    data: tableData,
+    columns,
+    getCoreRowModel: getCoreRowModel(),
+    getFilteredRowModel: getFilteredRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    globalFilterFn: 'includesString',
+    state: {
+      globalFilter,
+    },
+    onGlobalFilterChange: setGlobalFilter,
+  });
+
   const fetchTransactions = async (params = {}) => {
     setLoading(true);
     try {
-      const qs = new URLSearchParams({
-        from: params.from ?? start || '',
-        to: params.to ?? end || '',
+      const queryParams = {
+        from: (params.from ?? start) || '',
+        to: (params.to ?? end) || '',
         page: (params.page || 1).toString(),
         per_page: (params.per_page || transactionsState.per_page || 15).toString(),
-      });
+      };
 
-      const res = await fetch(`${route('transaction-histories.index')}?${qs.toString()}`, {
-        method: 'GET',
-        headers: {
-          Accept: 'application/json',
-          'X-Requested-With': 'XMLHttpRequest',
-          'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '',
+      // Use Inertia router instead of fetch for proper Inertia navigation
+      router.get(route('transaction-histories.index'), queryParams, {
+        preserveState: true,
+        preserveScroll: true,
+        onSuccess: (page) => {
+          setTransactionsState(page.props.transactions || { data: [], links: [], current_page: 1, per_page: 15 });
         },
+        onError: (errors) => {
+          console.error('fetchTransactions error', errors);
+          toast.error('Gagal memuat data transaksi');
+        },
+        onFinish: () => {
+          setLoading(false);
+        }
       });
-
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data = await res.json();
-      setTransactionsState(data);
     } catch (err) {
       console.error('fetchTransactions error', err);
       toast.error('Gagal memuat data transaksi');
-    } finally {
       setLoading(false);
     }
   };
@@ -66,14 +169,15 @@ export default function Index({ transactions = { data: [], links: [], current_pa
   };
 
   const handleExportCsv = () => {
-    let csv = 'Tanggal,No Transaksi,Tipe,Pihak,Toko,Gudang,Produk,Kategori,Subkategori,Qty,Unit,Harga Beli,Subtotal,Status,Catatan\n';
-    (transactionsState.data || []).forEach((t) => {
+    let csv = 'Tanggal,No Transaksi,Tipe,Pihak,Toko,Gudang,Produk,Kategori,Subkategori,Qty,Sisa Stok,Unit,Harga Beli,Subtotal,Status,Catatan\n';
+    table.getFilteredRowModel().rows.forEach((row) => {
+      const t = row.original;
       const prodNames = (t.details && t.details.length) ? t.details.map(d => d.product?.name || d.product_name || '-').join('|') : (t.product?.name || '-');
       const prodCats = (t.details && t.details.length) ? t.details.map(d => d.product?.category?.name || d.product?.category_name || '-').join('|') : (t.product?.category?.name || t.product?.category_name || '-');
       const prodSubs = (t.details && t.details.length) ? t.details.map(d => d.product?.subcategory?.name || d.product?.subcategory_name || '-').join('|') : (t.product?.subcategory?.name || t.product?.subcategory_name || '-');
       const tanggal = t.transaction_datetime_iso || t.transaction_date_local || t.transaction_date || '';
       const hargaBeli = (t.harga_beli ?? t.product?.purchase_price) || '';
-      csv += `"${tanggal}","${t.transaction_number || ''}","${t.transaction_type || ''}","${t.related_party || ''}","${t.toko?.name || ''}","${t.warehouse?.name || ''}","${prodNames}","${prodCats}","${prodSubs}","${t.quantity || ''}","${t.unit || ''}","${hargaBeli}","${t.subtotal || ''}","${t.payment_status || ''}","${(t.notes || '').replace(/\n/g, ' ')}"\n`;
+      csv += `"${tanggal}","${t.transaction_number || ''}","${t.transaction_type || ''}","${t.related_party || ''}","${t.toko?.name || ''}","${t.warehouse?.name || ''}","${prodNames}","${prodCats}","${prodSubs}","${t.total_quantity || t.quantity || ''}","${t.remaining_stock || ''}","${t.unit?.name || t.unit?.symbol || ''}","${hargaBeli}","${t.subtotal || ''}","${t.payment_status || ''}","${(t.notes || '').replace(/\n/g, ' ')}"\n`;
     });
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -84,9 +188,6 @@ export default function Index({ transactions = { data: [], links: [], current_pa
     window.URL.revokeObjectURL(url);
     toast.success('Data berhasil diekspor');
   };
-
-  const data = transactionsState?.data || [];
-  const pager = transactionsState && Object.keys(transactionsState).length ? transactionsState : { current_page: 1, per_page: 15, links: [] };
 
   return (
     <DashboardLayout sidebarOpen={sidebarOpen}>
@@ -119,52 +220,101 @@ export default function Index({ transactions = { data: [], links: [], current_pa
         </div>
 
         <div className="bg-white shadow-sm rounded p-4">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm table-auto">
+          {/* Global Filter */}
+          <div className="mb-4">
+            <input
+              type="text"
+              placeholder="Cari transaksi..."
+              value={globalFilter}
+              onChange={(e) => setGlobalFilter(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-sm"
+            />
+          </div>
+
+          <ScrollArea className="w-full">
+            <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="text-left">
-                  <th className="px-2 py-1">#</th>
-                  <th className="px-2 py-1">Nomor</th>
-                  <th className="px-2 py-1">Tipe</th>
-                  <th className="px-2 py-1">Produk</th>
-                  <th className="px-2 py-1">Kategori</th>
-                  <th className="px-2 py-1">Subkategori</th>
-                  <th className="px-2 py-1">Qty</th>
-                  <th className="px-2 py-1">Harga Beli</th>
-                  <th className="px-2 py-1">Tanggal</th>
-                  <th className="px-2 py-1">Aksi</th>
-                </tr>
+                {table.getHeaderGroups().map((headerGroup) => (
+                  <tr key={headerGroup.id} className="border-b">
+                    {headerGroup.headers.map((header) => (
+                      <th
+                        key={header.id}
+                        className="px-2 py-3 text-left font-medium text-gray-900 cursor-pointer select-none"
+                        style={{ width: header.getSize() }}
+                        onClick={header.column.getToggleSortingHandler()}
+                      >
+                        <div className="flex items-center gap-1">
+                          {header.isPlaceholder
+                            ? null
+                            : flexRender(header.column.columnDef.header, header.getContext())}
+                          {header.column.getCanSort() && (
+                            <div className="flex flex-col">
+                              <ChevronUp
+                                className={`w-3 h-3 ${header.column.getIsSorted() === 'asc'
+                                    ? 'text-blue-600'
+                                    : 'text-gray-400'
+                                  }`}
+                              />
+                              <ChevronDown
+                                className={`w-3 h-3 -mt-1 ${header.column.getIsSorted() === 'desc'
+                                    ? 'text-blue-600'
+                                    : 'text-gray-400'
+                                  }`}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                ))}
               </thead>
               <tbody>
-                {data.map((r, idx) => (
-                  <tr key={r.id || idx} className="border-t">
-                    <td className="px-2 py-1">{idx + 1 + ((pager.current_page - 1) * pager.per_page || 0)}</td>
-                    <td className="px-2 py-1">{r.transaction_number}</td>
-                    <td className="px-2 py-1">{r.transaction_type}</td>
-                    <td className="px-2 py-1">{r.product?.name || r.product_name || (r.details && r.details[0]?.product?.name) || '-'}</td>
-                    <td className="px-2 py-1">{r.product?.category?.name || r.product?.category_name || '-'}</td>
-                    <td className="px-2 py-1">{r.product?.subcategory?.name || r.product?.subcategory_name || '-'}</td>
-                    <td className="px-2 py-1">{r.quantity || r.total_quantity || '-'}</td>
-                    <td className="px-2 py-1">{r.harga_beli ?? r.product?.purchase_price ?? '-'}</td>
-                    <td className="px-2 py-1">{fmtDate(r.transaction_datetime_iso || r.transaction_datetime_local || r.transaction_date)}</td>
-                    <td className="px-2 py-1"><Link href={route('transaction-histories.show', r.id)} className="text-blue-600">Lihat</Link></td>
+                {table.getRowModel().rows.map((row) => (
+                  <tr key={row.id} className="border-b hover:bg-gray-50">
+                    {row.getVisibleCells().map((cell) => (
+                      <td key={cell.id} className="px-2 py-3">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
-          </div>
+          </ScrollArea>
 
-          {/* simple pager */}
-          {pager.links && pager.links.length > 0 && (
-            <div className="mt-3 flex items-center justify-between">
-              <div className="text-sm text-gray-600">Halaman {pager.current_page} dari {pager.last_page || Math.ceil((pager.total || 0) / (pager.per_page || 15))}</div>
-              <div className="flex gap-2">
-                {pager.links.map((l, i) => (
-                  <button key={i} className={`px-2 py-1 rounded ${l.active ? 'bg-gray-200' : 'border'}`} disabled={!l.url} onClick={() => fetchTransactions({ page: (() => { try { return new URL(l.url).searchParams.get('page') || 1 } catch (e) { return 1 } })() })} dangerouslySetInnerHTML={{ __html: l.label }} />
-                ))}
-              </div>
+          {/* TanStack Table Pagination */}
+          <div className="mt-4 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                Menampilkan {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} sampai{' '}
+                {Math.min(
+                  (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                  table.getFilteredRowModel().rows.length
+                )}{' '}
+                dari {table.getFilteredRowModel().rows.length} hasil
+              </span>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+                className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Sebelumnya
+              </button>
+              <span className="text-sm text-gray-600">
+                Halaman {table.getState().pagination.pageIndex + 1} dari {table.getPageCount()}
+              </span>
+              <button
+                onClick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+                className="px-3 py-1 border border-gray-300 rounded-md disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+              >
+                Selanjutnya
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </DashboardLayout>

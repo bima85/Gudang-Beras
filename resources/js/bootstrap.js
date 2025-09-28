@@ -3,6 +3,10 @@ window.axios = axios;
 
 window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 
+// Setup ziggy-js route helper globally
+import { route } from 'ziggy-js';
+window.route = route;
+
 // Setup basic CSRF token interceptor
 window.axios.interceptors.request.use(function (config) {
     const token = document.head.querySelector('meta[name="csrf-token"]');

@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
@@ -14,7 +14,10 @@ import {
 } from "@/Components/ui/select";
 import { Textarea } from "@/Components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { CreditCard, DollarSign, Receipt, User, PiggyBank } from "lucide-react";
+import { CreditCard, DollarSign, Receipt, User, PiggyBank, History } from "lucide-react";
+
+// Import komponen riwayat transaksi customer
+import CustomerTransactionHistory from "./CustomerTransactionHistory";
 
 export default function PaymentSection({
     carts_total,
@@ -41,6 +44,14 @@ export default function PaymentSection({
     openCustomerModal,
     className,
 }) {
+    // State for transaction history visibility
+    const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+
+    // Reset transaction history visibility when customer changes
+    useEffect(() => {
+        setShowTransactionHistory(false);
+    }, [selectedCustomer]);
+
     // Enhanced safe number processing
     const rawTotal = parseFloat(carts_total);
     const rawDiscount = parseFloat(discount);
@@ -207,6 +218,21 @@ export default function PaymentSection({
                         </Button>
                     </div>
 
+                    {/* Transaction History Button */}
+                    {selectedCustomer && selectedCustomer !== "general" && (
+                        <div className="mt-2">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setShowTransactionHistory(!showTransactionHistory)}
+                                className="w-full"
+                            >
+                                <History className="w-4 h-4 mr-2" />
+                                {showTransactionHistory ? 'Sembunyikan Riwayat Transaksi' : 'Lihat Riwayat Transaksi'}
+                            </Button>
+                        </div>
+                    )}
+
                     {/* Display selected customer's deposit */}
                     {selectedCustomer &&
                         customers.find((c) => c.id === selectedCustomer)
@@ -226,6 +252,14 @@ export default function PaymentSection({
                             </div>
                         )}
                 </div>
+
+                {/* Customer Transaction History */}
+                {showTransactionHistory && (
+                    <CustomerTransactionHistory
+                        selectedCustomer={selectedCustomer}
+                        customers={customers}
+                    />
+                )}
 
                 {/* Deposit Payment Option */}
                 {selectedCustomer && customerDeposit > 0 && (

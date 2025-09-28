@@ -13,7 +13,6 @@ class StockCard extends Model
     {
         return $this->belongsTo(\App\Models\Toko::class);
     }
-    use HasFactory;
 
     protected $fillable = [
         'product_id',

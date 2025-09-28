@@ -177,17 +177,23 @@ const menuData = [
         dropdown: true,
         details: [
             {
-                title: "Stok Gudang",
+                title: "Manajemen Stok",
                 icon: "building-warehouse",
-                href: safeRoute("stocks.index"),
+                href: safeRoute("stocks.management"),
                 permissions: true
             },
-            {
-                title: "Stok Toko",
-                icon: "building-store",
-                href: safeRoute("stok-toko.index"),
-                permissions: true
-            },
+            // {
+            //     title: "Stok Gudang",
+            //     icon: "building-warehouse",
+            //     href: safeRoute("stocks.index"),
+            //     permissions: true
+            // },
+            // {
+            //     title: "Stok Toko",
+            //     icon: "building-store",
+            //     href: safeRoute("stok-toko.index"),
+            //     permissions: true
+            // },
             {
                 title: "Pergerakan Stok",
                 icon: "repeat",

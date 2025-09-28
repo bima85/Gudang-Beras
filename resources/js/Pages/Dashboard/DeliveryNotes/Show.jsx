@@ -268,7 +268,7 @@ export default function Show({ deliveryNote }) {
                                     {parseFloat(
                                         deliveryNote.qty_transferred
                                     ).toLocaleString("id-ID")}{" "}
-                                    {deliveryNote.unit}
+                                    {deliveryNote.unit?.name || deliveryNote.unit?.symbol || ''}
                                 </div>
                             </div>
                             <div>
@@ -382,20 +382,20 @@ export default function Show({ deliveryNote }) {
                             {["in_transit", "delivered"].includes(
                                 deliveryNote.status
                             ) && (
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-yellow-100 rounded-full">
-                                        <Truck className="w-4 h-4 text-yellow-600" />
-                                    </div>
-                                    <div>
-                                        <div className="font-medium">
-                                            Dalam Perjalanan
+                                    <div className="flex items-center gap-3">
+                                        <div className="p-2 bg-yellow-100 rounded-full">
+                                            <Truck className="w-4 h-4 text-yellow-600" />
                                         </div>
-                                        <div className="text-sm text-gray-500">
-                                            Barang sedang dikirim
+                                        <div>
+                                            <div className="font-medium">
+                                                Dalam Perjalanan
+                                            </div>
+                                            <div className="text-sm text-gray-500">
+                                                Barang sedang dikirim
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                )}
 
                             {/* Delivered */}
                             {deliveryNote.status === "delivered" &&

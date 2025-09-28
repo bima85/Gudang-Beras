@@ -77,8 +77,8 @@ export default function Menu() {
                 },
                 {
                     title: "Stok",
-                    href: route("stocks.index"),
-                    active: url === "/dashboard/stocks" ? true : false,
+                    href: route("stocks.management"),
+                    active: url === "/dashboard/stocks/management" ? true : false,
                     icon: <IconBox size={20} strokeWidth={1.5} />, // Ganti icon jika perlu
                     permissions: true, // Atur permission sesuai kebutuhan
                 },

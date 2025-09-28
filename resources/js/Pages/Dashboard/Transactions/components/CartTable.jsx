@@ -59,9 +59,8 @@ export default function CartTable({
                         Keranjang Belanja
                     </div>
                     <Badge variant="secondary" className="ml-2">
-                        {`${safeCarts.length || 0} item${
-                            (safeCarts.length || 0) > 1 ? "s" : ""
-                        }`}
+                        {`${safeCarts.length || 0} item${(safeCarts.length || 0) > 1 ? "s" : ""
+                            }`}
                     </Badge>
                 </CardTitle>
             </CardHeader>
@@ -132,7 +131,7 @@ export default function CartTable({
                                                             variant="secondary"
                                                             className="text-xs"
                                                         >
-                                                            {cart.unit.name}
+                                                            {cart.unit?.name}
                                                         </Badge>
                                                     )}
                                                     {cart.category?.name && (
@@ -207,22 +206,20 @@ export default function CartTable({
                                             </div>
                                         </TableCell>
                                         <TableCell className="text-right font-medium text-sm">
-                                            {`Rp ${
-                                                safePrice > 0
+                                            {`Rp ${safePrice > 0
                                                     ? Math.round(
-                                                          safePrice
-                                                      ).toLocaleString("id-ID")
+                                                        safePrice
+                                                    ).toLocaleString("id-ID")
                                                     : "0"
-                                            }`}
+                                                }`}
                                         </TableCell>
                                         <TableCell className="text-right font-semibold">
-                                            {`Rp ${
-                                                safeSubtotal > 0
+                                            {`Rp ${safeSubtotal > 0
                                                     ? Math.round(
-                                                          safeSubtotal
-                                                      ).toLocaleString("id-ID")
+                                                        safeSubtotal
+                                                    ).toLocaleString("id-ID")
                                                     : "0"
-                                            }`}
+                                                }`}
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <Button
@@ -247,9 +244,8 @@ export default function CartTable({
                 <div className="p-4 border-t bg-muted/20">
                     <div className="flex justify-between items-center">
                         <div className="text-sm text-muted-foreground">
-                            {`Total ${safeCarts.length || 0} item${
-                                (safeCarts.length || 0) > 1 ? "s" : ""
-                            }`}
+                            {`Total ${safeCarts.length || 0} item${(safeCarts.length || 0) > 1 ? "s" : ""
+                                }`}
                         </div>
                         <div className="text-right">
                             <p className="text-sm text-muted-foreground">

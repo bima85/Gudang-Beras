@@ -183,7 +183,11 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], fu
     // Get next transaction number for preview
     Route::get('/transactions/next-transaction-number', [TransactionController::class, 'nextTransactionNumber'])->name('transactions.nextTransactionNumber');
 
+    // Get customer transaction history for payment section
+    Route::get('/transactions/customer-history', [TransactionController::class, 'getCustomerTransactionHistory'])->name('transactions.customerHistory');
 
+    // Get transaction details for modal
+    Route::get('/transactions/{transaction}/details', [TransactionController::class, 'getTransactionDetails'])->name('transactions.details');
 
     // Manajemen Toko (resource)
     Route::resource('tokos', TokoController::class)
@@ -287,6 +291,7 @@ Route::group(['prefix' => 'dashboard', 'middleware' => ['auth', 'verified']], fu
     // Stock Views - Warehouse & Store Stocks
     Route::get('stocks', [\App\Http\Controllers\Apps\StockViewController::class, 'warehouseStocks'])->name('stocks.index');
     Route::get('stok-toko', [\App\Http\Controllers\Apps\StockViewController::class, 'storeStocks'])->name('stok-toko.index');
+    Route::get('stocks/management', [\App\Http\Controllers\Apps\StockViewController::class, 'management'])->name('stocks.management');
     Route::get('api/products/{product}/stocks', [\App\Http\Controllers\Apps\StockViewController::class, 'getProductStock'])->name('api.product.stocks');
 
     // Manajemen delivery notes (surat jalan otomatis)

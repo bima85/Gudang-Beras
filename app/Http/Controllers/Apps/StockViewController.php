@@ -98,4 +98,58 @@ class StockViewController extends Controller
             'total_store_stock' => $storeStocks->sum('qty_in_kg'),
         ]);
     }
+
+    /**
+     * Halaman manajemen stok gabungan
+     */
+    public function management(Request $request)
+    {
+        // Ambil data warehouse stocks dengan filter
+        $warehouseQuery = WarehouseStock::with(['product', 'warehouse', 'updatedBy'])
+            ->where('qty_in_kg', '>', 0);
+
+        // Filter berdasarkan warehouse
+        if ($request->filled('warehouse_id')) {
+            $warehouseQuery->where('warehouse_id', $request->warehouse_id);
+        }
+
+        // Filter berdasarkan produk
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $warehouseQuery->whereHas('product', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%");
+            });
+        }
+
+        $warehouseStocks = $warehouseQuery->latest('updated_at')->get();
+
+        // Ambil data store stocks dengan filter
+        $storeQuery = StoreStock::with(['product', 'toko', 'updatedBy'])
+            ->where('qty_in_kg', '>', 0);
+
+        // Filter berdasarkan toko
+        if ($request->filled('toko_id')) {
+            $storeQuery->where('toko_id', $request->toko_id);
+        }
+
+        // Filter berdasarkan produk
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $storeQuery->whereHas('product', function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                    ->orWhere('code', 'like', "%{$search}%");
+            });
+        }
+
+        $storeStocks = $storeQuery->latest('updated_at')->get();
+
+        return Inertia::render('Stocks/StockManagement', [
+            'warehouseStocks' => $warehouseStocks,
+            'storeStocks' => $storeStocks,
+            'warehouses' => Warehouse::select('id', 'name')->get(),
+            'tokos' => Toko::select('id', 'name')->get(),
+            'filters' => $request->only(['warehouse_id', 'toko_id', 'search'])
+        ]);
+    }
 }

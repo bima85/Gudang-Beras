@@ -271,22 +271,22 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, isMobile }) {
                             </button>
                         </div>
 
-                        <div className={`w-full p-4 transition-all duration-300 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-700/50`}>
-                            <div className="flex items-center gap-3">
-                                <Avatar className="h-12 w-12">
-                                    <AvatarImage src={auth.user.avatar || `https://ui-avatars.com/api/?name=${auth.user.name}`} alt={auth.user.name} />
-                                    <AvatarFallback>{auth.user.name.charAt(0).toUpperCase()}</AvatarFallback>
-                                </Avatar>
-                                <div className="flex flex-col gap-0.5">
-                                    <div className="text-sm font-semibold text-foreground capitalize">{auth.user.name}</div>
-                                    <div className="text-xs text-muted-foreground">{auth.user.email}</div>
+                        <ScrollArea className="flex-1">
+                            <div className={`w-full p-4 transition-all duration-300 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-700/50`}>
+                                <div className="flex items-center gap-3">
+                                    <Avatar className="h-12 w-12">
+                                        <AvatarImage src={auth.user.avatar || `https://ui-avatars.com/api/?name=${auth.user.name}`} alt={auth.user.name} />
+                                        <AvatarFallback>{auth.user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                    </Avatar>
+                                    <div className="flex flex-col gap-0.5">
+                                        <div className="text-sm font-semibold text-foreground capitalize">{auth.user.name}</div>
+                                        <div className="text-xs text-muted-foreground">{auth.user.email}</div>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <Separator />
+                            <Separator />
 
-                        <ScrollArea className="flex-1">
                             <div className="p-2">
                                 {normalizedMenu.map((item, index) => item.details.some((detail) => !!detail.permissions || (detail.subdetails && detail.subdetails.some((sub) => !!sub.permissions))) && (
                                     <div key={index} className="mb-4">
@@ -329,28 +329,28 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen, isMobile }) {
                         </div>
                     </div>
 
-                    {/* User Profile Section */}
-                    <div className={`w-full p-4 transition-all duration-300 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-700/50 ${!sidebarOpen ? "md:p-2 md:justify-center md:flex-col" : ""}`}>
-                        <div className={`flex items-center gap-3 ${!sidebarOpen ? "md:flex-col md:gap-1" : ""}`}>
-                            <Avatar className={`flex-shrink-0 transition-all duration-300 ${sidebarOpen ? "h-12 w-12" : "md:h-10 md:w-10"}`}>
-                                <AvatarImage src={auth.user.avatar || `https://ui-avatars.com/api/?name=${auth.user.name}`} alt={auth.user.name} />
-                                <AvatarFallback className="font-medium bg-primary text-primary-foreground">{auth.user.name.charAt(0).toUpperCase()}</AvatarFallback>
-                            </Avatar>
-
-                            <div className={`flex flex-col gap-1 transition-all duration-300 ${!sidebarOpen ? "md:hidden" : ""}`}>
-                                <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200"><User className="w-3 h-3 text-gray-600 dark:text-gray-300" />{auth.user.name}</div>
-                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><Mail className="w-3 h-3" />{auth.user.email}</div>
-                                <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><MapPin className="w-3 h-3" /><span className="font-medium">{sharedLocation ? sharedLocation : primaryRole ? roleInfo[primaryRole] ? roleInfo[primaryRole].label : primaryRole : "-"}</span></div>
-
-                                {roleBadges.length > 0 && (<div className="flex flex-wrap items-center gap-1 mt-2">{roleBadges}</div>)}
-                            </div>
-                        </div>
-                    </div>
-
-                    <Separator />
-
                     {/* Menu Navigation */}
                     <ScrollArea className="flex-1">
+                        {/* User Profile Section */}
+                        <div className={`w-full p-4 transition-all duration-300 bg-gray-50/50 dark:bg-gray-800/30 border-b border-gray-100 dark:border-gray-700/50 ${!sidebarOpen ? "md:p-2 md:justify-center md:flex-col" : ""}`}>
+                            <div className={`flex items-center gap-3 ${!sidebarOpen ? "md:flex-col md:gap-1" : ""}`}>
+                                <Avatar className={`flex-shrink-0 transition-all duration-300 ${sidebarOpen ? "h-12 w-12" : "md:h-10 md:w-10"}`}>
+                                    <AvatarImage src={auth.user.avatar || `https://ui-avatars.com/api/?name=${auth.user.name}`} alt={auth.user.name} />
+                                    <AvatarFallback className="font-medium bg-primary text-primary-foreground">{auth.user.name.charAt(0).toUpperCase()}</AvatarFallback>
+                                </Avatar>
+
+                                <div className={`flex flex-col gap-1 transition-all duration-300 ${!sidebarOpen ? "md:hidden" : ""}`}>
+                                    <div className="flex items-center gap-2 text-sm font-semibold text-gray-800 dark:text-gray-200"><User className="w-3 h-3 text-gray-600 dark:text-gray-300" />{auth.user.name}</div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><Mail className="w-3 h-3" />{auth.user.email}</div>
+                                    <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-300"><MapPin className="w-3 h-3" /><span className="font-medium">{sharedLocation ? sharedLocation : primaryRole ? roleInfo[primaryRole] ? roleInfo[primaryRole].label : primaryRole : "-"}</span></div>
+
+                                    {roleBadges.length > 0 && (<div className="flex flex-wrap items-center gap-1 mt-2">{roleBadges}</div>)}
+                                </div>
+                            </div>
+                        </div>
+
+                        <Separator />
+
                         <div className="p-2">
                             {normalizedMenu.map((item, index) => item.details.some((detail) => !!detail.permissions || (detail.subdetails && detail.subdetails.some((sub) => !!sub.permissions))) && (
                                 <div key={index} className="mb-4">

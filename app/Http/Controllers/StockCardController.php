@@ -13,12 +13,37 @@ use Inertia\Inertia;
 
 class StockCardController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $stockCards = StockCard::with(['product.category', 'product.subcategory', 'warehouse', 'toko', 'unit'])
+        $query = StockCard::with(['product.category', 'product.subcategory', 'warehouse', 'toko', 'unit'])
             ->orderBy('created_at')
-            ->orderBy('id')
-            ->get();
+            ->orderBy('id');
+
+        // Apply filters
+        if ($request->filled('product_search')) {
+            $search = $request->product_search;
+            $query->whereHas('product', function ($q) use ($search) {
+                $q->where('name', 'like', '%' . $search . '%');
+            });
+        }
+
+        if ($request->filled('start_date')) {
+            $query->whereDate('created_at', '>=', $request->start_date);
+        }
+
+        if ($request->filled('end_date')) {
+            $query->whereDate('created_at', '<=', $request->end_date);
+        }
+
+        if ($request->filled('location')) {
+            if ($request->location === 'warehouse') {
+                $query->whereNotNull('warehouse_id')->whereNull('toko_id');
+            } elseif ($request->location === 'store') {
+                $query->whereNotNull('toko_id')->whereNull('warehouse_id');
+            }
+        }
+
+        $stockCards = $query->paginate(50);
 
         // Update saldo with actual current stock and convert QTY to original unit
         foreach ($stockCards as $card) {
@@ -67,7 +92,7 @@ class StockCardController extends Controller
         }
 
         return Inertia::render('Dashboard/StockCards/Index', [
-            'stockCards' => ['data' => $stockCards],
+            'stockCards' => $stockCards,
         ]);
     }
 

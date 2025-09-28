@@ -234,10 +234,77 @@ class TransactionController extends Controller
     }
 
     /**
-     * Search product by barcode or name.
+     * Get detailed transaction information for modal display
      *
      * @param  \Illuminate\Http\Request  $request
+     * @param  int  $transactionId
      * @return \Illuminate\Http\JsonResponse
+     */
+    public function getTransactionDetails($transactionId)
+    {
+        $transaction = Transaction::with([
+            'customer',
+            'cashier',
+            'warehouse',
+            'details.product.category',
+            'details.product.subcategory'
+        ])->findOrFail($transactionId);
+
+        // Calculate outstanding balance
+        $paidAmount = ($transaction->cash ?? 0) + ($transaction->deposit_amount ?? 0);
+        $outstandingBalance = $transaction->is_tempo && $paidAmount < $transaction->grand_total
+            ? $transaction->grand_total - $paidAmount
+            : 0;
+
+        // Get purchase prices for products
+        $productIds = $transaction->details->pluck('product_id')->unique();
+        $purchasePrices = DB::table('purchase_items')
+            ->select('product_id', DB::raw('MAX(id) as max_id'))
+            ->whereIn('product_id', $productIds)
+            ->groupBy('product_id')
+            ->pluck('max_id', 'product_id');
+
+        $purchaseItemPrices = [];
+        if (count($purchasePrices)) {
+            $purchaseItemPrices = DB::table('purchase_items')
+                ->whereIn('id', $purchasePrices->values())
+                ->pluck('harga_pembelian', 'product_id');
+        }
+
+        $details = $transaction->details->map(function ($detail) use ($purchaseItemPrices) {
+            return [
+                'product' => $detail->product,
+                'quantity' => $detail->quantity,
+                'price' => $detail->price,
+                'purchase_price' => $purchaseItemPrices[$detail->product_id] ?? null,
+                'subtotal' => $detail->subtotal,
+            ];
+        });
+
+        return response()->json([
+            'transaction' => [
+                'id' => $transaction->id,
+                'invoice' => $transaction->invoice,
+                'transaction_number' => $transaction->transaction_number,
+                'grand_total' => $transaction->grand_total,
+                'cash' => $transaction->cash,
+                'deposit_amount' => $transaction->deposit_amount,
+                'change' => $transaction->change,
+                'discount' => $transaction->discount,
+                'is_tempo' => $transaction->is_tempo,
+                'tempo_due_date' => $transaction->tempo_due_date,
+                'created_at' => $transaction->created_at->format('d/m/Y H:i:s'),
+                'customer' => $transaction->customer,
+                'cashier' => $transaction->cashier,
+                'warehouse' => $transaction->warehouse,
+            ],
+            'details' => $details,
+            'outstanding_balance' => $outstandingBalance,
+        ]);
+    }
+
+    /**
+     * Search product by barcode or name.
      */
     public function searchProduct(Request $request)
     {
@@ -1584,6 +1651,93 @@ class TransactionController extends Controller
         return response()->json([
             'transaction_number' => $transactionNumber,
             'next_sequence' => $nextNumber,
+        ]);
+    }
+
+    /**
+     * Get customer transaction history for payment section
+     *
+     * @param  \Illuminate\Http\Request  $request
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function getCustomerTransactionHistory(Request $request)
+    {
+        $request->validate([
+            'customer_id' => 'required|integer|exists:customers,id',
+            'limit' => 'nullable|integer|min:1|max:50',
+            'date_from' => 'nullable|date',
+            'date_to' => 'nullable|date',
+        ]);
+
+        $customerId = $request->customer_id;
+        $limit = $request->limit ?? 10;
+        $dateFrom = $request->date_from;
+        $dateTo = $request->date_to;
+
+        $query = Transaction::with(['customer', 'details.product'])
+            ->where('customer_id', $customerId)
+            ->orderBy('created_at', 'desc');
+
+        if ($dateFrom) {
+            $query->whereDate('created_at', '>=', $dateFrom);
+        }
+
+        if ($dateTo) {
+            $query->whereDate('created_at', '<=', $dateTo);
+        }
+
+        $transactions = $query->limit($limit)->get();
+
+        // Calculate outstanding balance (capital) - amount still owed by customer
+        $outstandingBalance = 0;
+        foreach ($transactions as $transaction) {
+            $paidAmount = ($transaction->cash ?? 0) + ($transaction->deposit_amount ?? 0);
+            if ($transaction->is_tempo && $paidAmount < $transaction->grand_total) {
+                $outstandingBalance += ($transaction->grand_total - $paidAmount);
+            }
+        }
+
+        // Calculate summary statistics
+        $totalTransactions = $transactions->count();
+        $totalAmount = $transactions->sum('grand_total');
+        $totalPaid = $transactions->sum(function ($transaction) {
+            return ($transaction->cash ?? 0) + ($transaction->deposit_amount ?? 0);
+        });
+        $totalDepositUsed = $transactions->sum('deposit_amount');
+
+        return response()->json([
+            'transactions' => $transactions->map(function ($transaction) {
+                return [
+                    'id' => $transaction->id,
+                    'invoice' => $transaction->invoice,
+                    'transaction_number' => $transaction->transaction_number,
+                    'grand_total' => $transaction->grand_total,
+                    'deposit_amount' => $transaction->deposit_amount,
+                    'cash' => $transaction->cash,
+                    'change' => $transaction->change,
+                    'discount' => $transaction->discount,
+                    'created_at' => $transaction->created_at->format('Y-m-d H:i:s'),
+                    'date' => $transaction->created_at->format('d/m/Y'),
+                    'time' => $transaction->created_at->format('H:i'),
+                    'is_tempo' => $transaction->is_tempo,
+                    'tempo_due_date' => $transaction->tempo_due_date,
+                    'details' => $transaction->details->map(function ($detail) {
+                        return [
+                            'product_name' => $detail->product->name ?? 'Unknown Product',
+                            'quantity' => $detail->quantity,
+                            'price' => $detail->price,
+                            'subtotal' => $detail->subtotal,
+                        ];
+                    }),
+                ];
+            }),
+            'summary' => [
+                'total_transactions' => $totalTransactions,
+                'total_amount' => $totalAmount,
+                'total_paid' => $totalPaid,
+                'total_deposit_used' => $totalDepositUsed,
+                'outstanding_balance' => $outstandingBalance,
+            ],
         ]);
     }
 }
