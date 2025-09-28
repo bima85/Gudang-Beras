@@ -30,7 +30,7 @@ Aplikasi Point of Sales yang dikustomisasi khusus untuk manajemen gudang beras d
 | 10  | Purchase Management                   | ✅ Done        |
 | 11  | Sales Transactions                    | ✅ Done        |
 | 12  | Print Invoice                         | ✅ Done        |
-| 13  | Laporan Penjualan                     | 🔄 On progress |
+| 13  | Laporan Penjualan                     | ✅ Done        |
 | 14  | Stock Movements Tracking              | ✅ Done        |
 | 15  | Modern UI dengan Shadcn               | ✅ Done        |
 
