@@ -368,8 +368,8 @@ export default function Recap({
                                           <tr className="text-left text-xs text-muted-foreground">
 
                                             <th className="p-2">Produk</th>
-                                              <th className="p-2">Kategori</th>
-                                              <th className="p-2">Subkategori</th>
+                                            <th className="p-2">Kategori</th>
+                                            <th className="p-2">Subkategori</th>
                                             <th className="p-2 text-right">Qty</th>
                                             <th className="p-2 text-right">Unit</th>
                                             <th className="p-2 text-right">Harga Jual</th>
@@ -398,8 +398,19 @@ export default function Recap({
                                               <tr key={idx} className="odd:bg-white even:bg-slate-50">
 
                                                 <td className="p-2">{d.product?.name || d.product_name || '-'}</td>
-                                                <td className="p-2">{d.product?.categoryRelation?.name || '-'}</td>
-                                                <td className="p-2">{d.product?.subcategory?.name || '-'}</td>
+                                                <td className="p-2">{
+                                                  d.product?.categoryRelation?.name
+                                                  || d.product?.category?.name
+                                                  || d.product?.category_relation?.name
+                                                  || d.product?.category_name
+                                                  || '-'
+                                                }</td>
+                                                <td className="p-2">{
+                                                  d.product?.subcategory?.name
+                                                  || d.product?.subcategory_name
+                                                  || d.product?.sub_category_name
+                                                  || '-'
+                                                }</td>
                                                 <td className="p-2 text-right">{qty}</td>
                                                 <td className="p-2 text-right">{unit}</td>
                                                 <td className="p-2 text-right">{Number(sell).toLocaleString()}</td>
