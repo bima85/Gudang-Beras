@@ -382,8 +382,9 @@ export default function Recap({
                                           {(row.original.details || []).map((d, idx) => {
                                             const qty = d.qty || 0;
                                             const sell = d.price || 0;
-                                            // Prefer server-provided canonical fields `harga_beli` and `unit_name`
-                                            const hpp = d.product?.purchase_price || d.harga_beli || 0;
+                                            // Prefer server-provided canonical field `harga_beli` (attached by backend) then product purchase price.
+                                            // Use nullish coalescing (??) so a valid 0 is preserved.
+                                            const hpp = d.harga_beli ?? d.product?.purchase_price ?? 0;
                                             const hargaBeli = d.harga_beli ?? d.product?.purchase_price ?? d.product?.harga_pembelian ?? d.harga_pembelian ?? d.purchase_price ?? d.product?.purchasePrice ?? 0;
                                             const unit = d.unit_name || d.unit?.name || d.satuan || d.product?.unit?.name || d.product?.unit_name || "-";
                                             const subtotal = (d.subtotal !== undefined && d.subtotal !== null) ? d.subtotal : sell * qty;
@@ -400,8 +401,8 @@ export default function Recap({
                                                 <td className="p-2 text-right">{Number(sell).toLocaleString()}</td>
                                                 <td className="p-2 text-right">{Number(hpp).toLocaleString()}</td>
                                                 <td className="p-2 text-right">{hargaBeli ? Number(hargaBeli).toLocaleString() : '-'}</td>
-                                                <td className="p-2 text-right">{Number(subtotal).toLocaleString()}</td>
                                                 <td className="p-2 text-right">{Number(lineProfit).toLocaleString()}</td>
+                                                <td className="p-2 text-right">{Number(subtotal).toLocaleString()}</td>
                                                 <td className="p-2 text-right">{Number(lineMargin).toFixed(2)}%</td>
                                               </tr>
                                             );
