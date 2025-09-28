@@ -377,47 +377,25 @@ class RecapController extends Controller
         // Normalize and attach harga_beli, unit_name, and purchase source info to each detail
         foreach ($transactions as $trx) {
             foreach ($trx->details as $d) {
-                $purchasePrice = 0;
+                // Use the same resolution logic as the JSON/data endpoints: prefer product purchase_price then detail fields,
+                // and use PricingService to respect historical purchase_items when available.
+                $defaultPurchase = $d->product->purchase_price ?? $d->harga_pembelian ?? $d->purchase_price ?? 0;
+                $trxDateLocal = $trx->created_at->setTimezone('Asia/Jakarta')->toDateString();
+                $purchasePrice = PricingService::getPurchasePrice($d->product_id ?? null, $trxDateLocal, $defaultPurchase);
+
+                // If still 0, try preloaded purchase items collection as fallback (keeps existing behavior)
                 $purchaseSource = null;
                 $lastBuyDate = null;
-
-                if (isset($d->product) && isset($d->product->purchase_price) && $d->product->purchase_price) {
-                    $purchasePrice = $d->product->purchase_price;
-                    $purchaseSource = 'product.purchase_price';
-                } elseif (isset($d->harga_pembelian) && $d->harga_pembelian) {
-                    $purchasePrice = $d->harga_pembelian;
-                    $purchaseSource = 'detail.harga_pembelian';
-                } elseif (isset($d->purchase_price) && $d->purchase_price) {
-                    $purchasePrice = $d->purchase_price;
-                    $purchaseSource = 'detail.purchase_price';
-                } else {
-                    // try DB purchase_items last before trx
-                    if (isset($d->product_id) && $d->product_id) {
-                        $trxDateLocal = $trx->created_at->setTimezone('Asia/Jakarta')->toDateString();
-                        $last = PurchaseItem::join('purchases', 'purchase_items.purchase_id', '=', 'purchases.id')
-                            ->where('purchase_items.product_id', $d->product_id)
-                            ->whereDate('purchases.purchase_date', '<=', $trxDateLocal)
-                            ->orderByDesc('purchases.purchase_date')
-                            ->select('purchase_items.harga_pembelian', 'purchases.purchase_date')
-                            ->first();
-                        if ($last !== null) {
-                            $purchasePrice = $last->harga_pembelian;
-                            $purchaseSource = 'purchase_items.last_before_trx';
-                            $lastBuyDate = $last->purchase_date;
-                        }
-                    }
-                    // fallback: try preloaded purchase items collection
-                    if ((float)$purchasePrice === 0.0 && isset($purchasesItems) && $purchasesItems instanceof \Illuminate\Support\Collection) {
-                        $candidate = $purchasesItems->where('product_id', $d->product_id)
-                            ->sortByDesc(function ($pi) {
-                                return $pi->purchase->purchase_date ?? null;
-                            })
-                            ->first();
-                        if ($candidate && !empty($candidate->harga_pembelian)) {
-                            $purchasePrice = $candidate->harga_pembelian;
-                            $purchaseSource = 'purchase_items.preloaded';
-                            $lastBuyDate = $candidate->purchase->purchase_date ?? null;
-                        }
+                if ((float)$purchasePrice === 0.0 && isset($purchasesItems) && $purchasesItems instanceof \Illuminate\Support\Collection) {
+                    $candidate = $purchasesItems->where('product_id', $d->product_id)
+                        ->sortByDesc(function ($pi) {
+                            return $pi->purchase->purchase_date ?? null;
+                        })
+                        ->first();
+                    if ($candidate && !empty($candidate->harga_pembelian)) {
+                        $purchasePrice = $candidate->harga_pembelian;
+                        $purchaseSource = 'purchase_items.preloaded';
+                        $lastBuyDate = $candidate->purchase->purchase_date ?? null;
                     }
                 }
 
@@ -437,6 +415,7 @@ class RecapController extends Controller
                 }
                 $d->unit_name = $unitName;
             }
+
             // compute per-transaction aggregates using attached harga_beli
             $cost = 0;
             $profit = 0;
@@ -533,55 +512,10 @@ class RecapController extends Controller
         $detailRows = [];
         foreach ($transactions as $trx) {
             foreach ($trx->details as $d) {
-                // determine purchase price and source
-                $purchasePrice = 0;
-                $purchaseSource = 'none';
-                // reset last buy date per detail
-                $lastBuyDate = null;
-                if (isset($d->product) && isset($d->product->purchase_price) && $d->product->purchase_price) {
-                    $purchasePrice = $d->product->purchase_price;
-                    $purchaseSource = 'product.purchase_price';
-                } elseif (isset($d->harga_pembelian) && $d->harga_pembelian) {
-                    $purchasePrice = $d->harga_pembelian;
-                    $purchaseSource = 'detail.harga_pembelian';
-                } elseif (isset($d->purchase_price) && $d->purchase_price) {
-                    $purchasePrice = $d->purchase_price;
-                    $purchaseSource = 'detail.purchase_price';
-                } else {
-                    if (isset($d->product_id) && $d->product_id) {
-                        $trxDateLocal = $trx->created_at->setTimezone('Asia/Jakarta')->toDateString();
-                        $last = PurchaseItem::join('purchases', 'purchase_items.purchase_id', '=', 'purchases.id')
-                            ->where('purchase_items.product_id', $d->product_id)
-                            ->whereDate('purchases.purchase_date', '<=', $trxDateLocal)
-                            ->orderByDesc('purchases.purchase_date')
-                            ->select('purchase_items.harga_pembelian', 'purchases.purchase_date')
-                            ->first();
-                        if ($last !== null) {
-                            $purchasePrice = $last->harga_pembelian;
-                            $purchaseSource = 'purchase_items.last_before_trx';
-                            $lastBuyDate = $last->purchase_date;
-                        } else {
-                            // fallback: check preloaded PurchaseItem collection
-                            if (isset($purchasesItems) && $purchasesItems instanceof \Illuminate\Support\Collection) {
-                                $candidate = $purchasesItems->where('product_id', $d->product_id)
-                                    ->sortByDesc(function ($pi) {
-                                        return $pi->purchase->purchase_date ?? null;
-                                    })
-                                    ->first();
-                                if ($candidate && !empty($candidate->harga_pembelian)) {
-                                    $purchasePrice = $candidate->harga_pembelian;
-                                    $purchaseSource = 'purchase_items.preloaded';
-                                    $lastBuyDate = $candidate->purchase->purchase_date ?? null;
-                                }
-                            }
-                        }
-                    }
-                }
-
                 $unitSell = isset($d->price) ? $d->price : 0;
                 $qty = isset($d->qty) ? $d->qty : 0;
-                $profitPerUnit = ($unitSell - $purchasePrice);
-                $profitLine = $profitPerUnit * $qty;
+                $purchasePrice = $d->harga_beli ?? 0;
+                $profitLine = PricingService::calculateProfit($unitSell, $purchasePrice, $qty);
 
                 // Export columns required by user (exact order)
                 $detailRows[] = [
@@ -593,7 +527,8 @@ class RecapController extends Controller
                     'Harga Beli' => $purchasePrice,
                     'Profit' => $profitLine,
                     'Subtotal' => $unitSell * $qty,
-                    'Margin (%)' => $unitSell * $qty > 0 ? ($profitLine / ($unitSell * $qty)) * 100 : 0,
+                    // supply decimal ratio (e.g. 0.25) so Excel percentage format displays correctly
+                    'Margin (%)' => $unitSell * $qty > 0 ? ($profitLine / ($unitSell * $qty)) : 0,
                 ];
             }
         }
@@ -678,7 +613,8 @@ class RecapController extends Controller
                             'F' => $rp, // Harga Beli
                             'G' => $rp, // Profit
                             'H' => $rp, // Subtotal
-                            'I' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_PERCENTAGE, // Margin (%)
+                            // Use custom numeric percentage (value is a ratio e.g. 0.25 for 25%) - ensure we supply percentage as decimal when building rows
+                            'I' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_PERCENTAGE_00, // Margin (%) with 2 decimals
                         ];
                     }
                 };
