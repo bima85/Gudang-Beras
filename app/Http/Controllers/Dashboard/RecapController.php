@@ -585,19 +585,15 @@ class RecapController extends Controller
 
                 // Export columns required by user (exact order)
                 $detailRows[] = [
-                    'Tanggal' => $trx->created_at->setTimezone('Asia/Jakarta')->format('Y-m-d H:i:s'),
-                    'Invoice' => $trx->invoice_number ?? $trx->id,
-                    'Kasir' => $trx->cashier->name ?? '-',
-                    'Pelanggan' => $trx->customer->name ?? '-',
                     'Produk' => $d->product->name ?? ($d->product_name ?? '-'),
-                    'Satuan' => $d->unit->name ?? ($d->unit_name ?? ($d->satuan ?? '-')),
                     'Qty' => $qty,
+                    'Unit' => $d->unit->name ?? ($d->unit_name ?? ($d->satuan ?? '-')),
                     'Harga Jual' => $unitSell,
+                    'HPP' => $purchasePrice,
                     'Harga Beli' => $purchasePrice,
-                    'Subtotal Jual' => $unitSell * $qty,
-                    'Subtotal Beli' => $purchasePrice * $qty,
                     'Profit' => $profitLine,
-                    'Metode' => $trx->payment_method,
+                    'Subtotal' => $unitSell * $qty,
+                    'Margin (%)' => $unitSell * $qty > 0 ? ($profitLine / ($unitSell * $qty)) * 100 : 0,
                 ];
             }
         }
@@ -673,18 +669,16 @@ class RecapController extends Controller
                     public function columnFormats(): array
                     {
                         // Details columns mapping based on order used when building detailRows
-                        // Details columns mapping based on order used when building detailRows
-                        // A Tanggal, B Invoice, C Kasir, D Pelanggan, E Produk, F Satuan, G Qty, H Harga Jual, I Harga Beli, J Subtotal Jual, K Subtotal Beli, L Profit, M Metode, N Sumber Harga Beli, O Tanggal Pembelian Sumber
+                        // A Produk (text), B Qty (number), C Unit (text), D Harga Jual (rp), E HPP (rp), F Harga Beli (rp), G Profit (rp), H Subtotal (rp), I Margin (%) (percentage)
                         $rp = '"Rp" #,##0;[Red]-"Rp" #,##0';
                         return [
-                            'G' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER, // Qty
-                            'H' => $rp, // Harga Jual
-                            'I' => $rp, // Harga Beli
-                            'J' => $rp, // Subtotal Jual
-                            'K' => $rp, // Subtotal Beli
-                            'L' => $rp, // Profit
-                            // N: Sumber Harga Beli (text), O: Tanggal Pembelian Sumber (datetime)
-                            'O' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_DATE_DATETIME,
+                            'B' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_NUMBER, // Qty
+                            'D' => $rp, // Harga Jual
+                            'E' => $rp, // HPP
+                            'F' => $rp, // Harga Beli
+                            'G' => $rp, // Profit
+                            'H' => $rp, // Subtotal
+                            'I' => \PhpOffice\PhpSpreadsheet\Style\NumberFormat::FORMAT_PERCENTAGE, // Margin (%)
                         ];
                     }
                 };
