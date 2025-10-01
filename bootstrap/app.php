@@ -11,10 +11,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->web(append: [
+        // Always register our HandleInertiaRequests middleware.
+        // Add the AddLinkHeadersForPreloadedAssets middleware only in production to
+        // avoid preloading headers during local development which can cause
+        // "preloaded but not used" console warnings when assets are served differently.
+        $webAppend = [
             \App\Http\Middleware\HandleInertiaRequests::class,
-            \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class,
-        ]);
+        ];
+
+        // Use the env helper; enable preloaded link headers only in production by default.
+        if ((function_exists('env') && env('APP_ENV') === 'production') || getenv('APP_ENV') === 'production') {
+            $webAppend[] = \Illuminate\Http\Middleware\AddLinkHeadersForPreloadedAssets::class;
+        }
+
+        $middleware->web(append: $webAppend);
 
         // Register Spatie Permission middleware aliases
         $middleware->alias([

@@ -8,7 +8,6 @@ import PurchaseItemInput from "./PurchaseItemInput";
 import PurchaseItemsTable from "./PurchaseItemsTable";
 import TokoManualModal from "./TokoManualModal";
 import SupplierManualModal from "./SupplierManualModal";
-import GudangManualModal from "./GudangManualModal";
 import ProductQuickModal from "./ProductQuickModal";
 import UnitManualModal from "./UnitManualModal";
 import BackToDashboard from "@/Components/Dashboard/BackToDashboard";
@@ -29,7 +28,6 @@ export default function Create(props) {
     }, [timbanganGlobal]);
     const {
         suppliers = [],
-        warehouses = [],
         products = [],
         units = [],
         categories = [],
@@ -92,10 +90,6 @@ export default function Create(props) {
                 toko_name: "",
                 toko_address: "",
                 toko_phone: "",
-                warehouse_id: "",
-                warehouse_name: "",
-                warehouse_address: "",
-                warehouse_phone: "",
                 purchase_date: "",
                 phone: "",
                 address: "",
@@ -118,17 +112,14 @@ export default function Create(props) {
             // Reset modal states
             setShowTokoModal(false);
             setShowSupplierModal(false);
-            setShowGudangModal(false);
 
             // Reset manual forms
             setManualToko({ name: "", address: "", phone: "" });
             setManualSupplier({ name: "", address: "", phone: "" });
-            setManualGudang({ name: "", address: "", phone: "" });
 
             // Reset state arrays to original props
             setTokos(tokosProp);
             setSuppliersState(suppliers);
-            setWarehousesState(warehouses);
 
             // Show success message
             Swal.fire({
@@ -261,10 +252,6 @@ export default function Create(props) {
         toko_name: "",
         toko_address: "",
         toko_phone: "",
-        warehouse_id: "",
-        warehouse_name: "",
-        warehouse_address: "",
-        warehouse_phone: "",
         purchase_date: "",
         phone: "",
         address: "",
@@ -434,77 +421,6 @@ export default function Create(props) {
             });
         } finally {
             setManualSupplierSubmitting(false);
-        }
-    };
-
-    // State untuk modal tambah gudang manual
-    const [showGudangModal, setShowGudangModal] = useState(false);
-    const [manualGudang, setManualGudang] = useState({
-        name: "",
-        address: "",
-        phone: "",
-    });
-    const [warehousesState, setWarehousesState] = useState(warehouses);
-    const handleManualGudangChange = (e) => {
-        setManualGudang({
-            ...manualGudang,
-            [e.target.name]: e.target.value,
-        });
-    };
-    const handleManualGudangSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            const warehouseStoreUrl =
-                typeof route === "function"
-                    ? route("dashboard.warehouses.store")
-                    : "/warehouses";
-            let csrfToken = "";
-            const meta = document.querySelector('meta[name="csrf-token"]');
-            if (meta) {
-                csrfToken = meta.getAttribute("content");
-            } else if (window.Laravel && window.Laravel.csrfToken) {
-                csrfToken = window.Laravel.csrfToken;
-            }
-            const response = await fetch(warehouseStoreUrl, {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                    "X-Requested-With": "XMLHttpRequest",
-                    "X-CSRF-TOKEN": csrfToken,
-                },
-                body: JSON.stringify({
-                    name: manualGudang.name,
-                    address: manualGudang.address,
-                    phone: manualGudang.phone,
-                    code: manualGudang.name
-                        ? manualGudang.name
-                            .replace(/\s+/g, "_")
-                            .toUpperCase()
-                            .slice(0, 20)
-                        : `GDG_${Date.now()}`,
-                }),
-            });
-            if (!response.ok) {
-                let msg = "Gagal menambah gudang";
-                try {
-                    const errJson = await response.json();
-                    msg += ": " + (errJson.message || JSON.stringify(errJson));
-                } catch { }
-                throw new Error(msg);
-            }
-            const newWarehouse = await response.json();
-            console.log("Response gudang baru:", newWarehouse);
-            setWarehousesState((prev) => [...prev, newWarehouse]);
-            setData("warehouse_id", newWarehouse.id);
-            setData("warehouse_name", newWarehouse.name);
-            setData("warehouse_address", newWarehouse.address);
-            setData("warehouse_phone", newWarehouse.phone);
-            setShowGudangModal(false);
-        } catch (err) {
-            console.error("Error tambah gudang manual:", err);
-            alert("Gagal menambah gudang: " + err.message);
         }
     };
 
@@ -1414,8 +1330,8 @@ export default function Create(props) {
             const subtotal = qty * unitConversion * harga;
             subtotalSum += subtotal;
             const feeRate = parseFloat(item.kuli_fee) || 0;
-            // fee per item = qty_total * fee_rate (apply unit conversion to qty)
-            kuliSum += qty * unitConversion * feeRate;
+            // fee per item = flat fee (not multiplied by qty)
+            kuliSum += feeRate;
             // timbangan: (qty_timbang - qty_input) * unit_conversion * harga_satuan
             const selisihTimbangan = (qtyTimbangan - qty) * unitConversion * harga;
             timbanganSum += selisihTimbangan;
@@ -1512,7 +1428,6 @@ export default function Create(props) {
                                         data={data}
                                         suppliers={suppliersState}
                                         tokos={tokos}
-                                        warehouses={warehousesState}
                                         handleChange={handleChange}
                                         setData={setData}
                                         location={props.location}
@@ -1542,17 +1457,6 @@ export default function Create(props) {
                                         }
                                         manualSupplierErrors={manualSupplierErrors}
                                         manualSupplierSubmitting={manualSupplierSubmitting}
-                                        // Gudang
-                                        showGudangModal={showGudangModal}
-                                        setShowGudangModal={setShowGudangModal}
-                                        manualGudang={manualGudang}
-                                        setManualGudang={setManualGudang}
-                                        handleManualGudangChange={
-                                            handleManualGudangChange
-                                        }
-                                        handleManualGudangSubmit={
-                                            handleManualGudangSubmit
-                                        }
                                     />
                                 </div>
                             </div>
@@ -1762,14 +1666,6 @@ export default function Create(props) {
                                 onSubmit={handleManualSupplierSubmit}
                                 manualSupplier={manualSupplier}
                                 onChange={handleManualSupplierChange}
-                            />
-                            {/* Modal Tambah Gudang Manual */}
-                            <GudangManualModal
-                                show={showGudangModal}
-                                onClose={() => setShowGudangModal(false)}
-                                onSubmit={handleManualGudangSubmit}
-                                manualGudang={manualGudang}
-                                onChange={handleManualGudangChange}
                             />
                             {/* Modal Tambah Unit Manual */}
                             <UnitManualModal

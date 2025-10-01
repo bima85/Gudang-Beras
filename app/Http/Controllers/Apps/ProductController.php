@@ -39,9 +39,13 @@ class ProductController extends Controller
 
         $products = Product::when(request()->search, function ($query) {
             $query->where('name', 'like', '%' . request()->search . '%')
-                ->orWhere('barcode', 'like', '%' . request()->search . '%');
+                ->orWhere('barcode', 'like', '%' . request()->search . '%')
+                ->orWhereHas('supplier', function ($q) {
+                    $q->where('name', 'like', '%' . request()->search . '%')
+                        ->orWhere('owner', 'like', '%' . request()->search . '%');
+                });
         })
-            ->with(['category', 'subcategory', 'unit'])
+            ->with(['category', 'subcategory', 'unit', 'supplier'])
             ->latest()->paginate(10)
             ->withQueryString();
 
@@ -67,11 +71,13 @@ class ProductController extends Controller
         $categories = Category::select('id', 'name', 'code')->orderBy('name')->get();
         $units = Unit::select('id', 'name', 'symbol', 'conversion_to_kg', 'is_default')->orderBy('name')->get();
         $subcategories = Subcategory::select('id', 'name', 'code', 'category_id')->orderBy('name')->get();
+        $suppliers = \App\Models\Supplier::select('id', 'name', 'owner')->orderBy('name')->get();
 
         return Inertia::render('Dashboard/Products/Create', [
             'categories' => $categories,
             'units' => $units,
             'subcategories' => $subcategories,
+            'suppliers' => $suppliers,
         ]);
     }
 
@@ -99,6 +105,7 @@ class ProductController extends Controller
                 'category_id' => 'nullable|integer|exists:categories,id',
                 'subcategory_id' => 'nullable|integer|exists:subcategories,id',
                 'unit_id' => 'nullable|integer|exists:units,id',
+                'supplier_id' => 'nullable|integer|exists:suppliers,id',
                 'description' => 'nullable|string',
                 'barcode' => 'nullable|string|max:100|unique:products,barcode',
             ]);
@@ -109,6 +116,7 @@ class ProductController extends Controller
                 'category_id' => 'required|integer|exists:categories,id',
                 'subcategory_id' => 'required|integer|exists:subcategories,id',
                 'unit_id' => 'required|integer|exists:units,id',
+                'supplier_id' => 'nullable|integer|exists:suppliers,id',
                 'min_stock' => 'required|numeric|min:0',
                 'description' => 'nullable|string',
             ], [
@@ -121,6 +129,7 @@ class ProductController extends Controller
                 'subcategory_id.exists' => 'Subkategori tidak valid.',
                 'unit_id.required' => 'Satuan wajib dipilih.',
                 'unit_id.exists' => 'Satuan tidak valid.',
+                'supplier_id.exists' => 'Supplier tidak valid.',
                 'min_stock.required' => 'Stok minimal wajib diisi.',
             ]);
         }
@@ -136,6 +145,7 @@ class ProductController extends Controller
                 $productData['barcode'] = $request->barcode ?? 'BRC_' . Str::random(8);
                 $productData['category_id'] = $request->category_id;
                 $productData['subcategory_id'] = $request->subcategory_id;
+                $productData['supplier_id'] = $request->supplier_id;
 
                 // Only set unit_id if provided and valid, otherwise leave null
                 if ($request->unit_id) {
@@ -158,6 +168,7 @@ class ProductController extends Controller
                 $productData['category_id'] = $request->category_id;
                 $productData['subcategory_id'] = $request->subcategory_id;
                 $productData['unit_id'] = $request->unit_id;
+                $productData['supplier_id'] = $request->supplier_id;
                 $productData['min_stock'] = $request->min_stock;
             }
 
@@ -179,6 +190,7 @@ class ProductController extends Controller
                     'category_id' => $product->category_id,
                     'subcategory_id' => $product->subcategory_id,
                     'unit_id' => $product->unit_id,
+                    'supplier_id' => $product->supplier_id,
                     'message' => 'Product created successfully.'
                 ], 201);
             }
@@ -225,16 +237,18 @@ class ProductController extends Controller
             abort(403, 'Unauthorized');
         }
 
-        $product = $product->load('category', 'unit', 'subcategory');
+        $product = $product->load('category', 'unit', 'subcategory', 'supplier');
         $categories = Category::select('id', 'name')->orderBy('name')->get();
         $units = Unit::select('id', 'name', 'symbol', 'conversion_to_kg', 'is_default')->orderBy('name')->get();
         $subcategories = Subcategory::select('id', 'name', 'category_id')->orderBy('name')->get();
+        $suppliers = \App\Models\Supplier::select('id', 'name', 'owner')->orderBy('name')->get();
 
         return Inertia::render('Dashboard/Products/Edit', [
             'product' => $product,
             'categories' => $categories,
             'units' => $units,
             'subcategories' => $subcategories,
+            'suppliers' => $suppliers,
         ]);
     }
 
@@ -259,6 +273,7 @@ class ProductController extends Controller
             'category_id' => 'required|integer|exists:categories,id',
             'subcategory_id' => 'required|integer|exists:subcategories,id',
             'unit_id' => 'required|integer|exists:units,id',
+            'supplier_id' => 'nullable|integer|exists:suppliers,id',
             'min_stock' => 'required|numeric|min:0',
             'description' => 'nullable|string',
         ], [
@@ -271,6 +286,7 @@ class ProductController extends Controller
             'subcategory_id.exists' => 'Subkategori tidak valid.',
             'unit_id.required' => 'Satuan wajib dipilih.',
             'unit_id.exists' => 'Satuan tidak valid.',
+            'supplier_id.exists' => 'Supplier tidak valid.',
             'min_stock.required' => 'Stok minimal wajib diisi.',
         ]);
 
@@ -281,6 +297,7 @@ class ProductController extends Controller
                 'category_id' => $request->category_id,
                 'subcategory_id' => $request->subcategory_id,
                 'unit_id' => $request->unit_id,
+                'supplier_id' => $request->supplier_id,
                 'min_stock' => $request->min_stock,
                 'description' => $request->description,
             ]);

@@ -28,6 +28,7 @@ class Product extends Model
         'category_id',     // FK to categories
         'subcategory_id',  // FK to subcategories  
         'unit_id',         // FK to units
+        'supplier_id',     // FK to suppliers
         'barcode',
         'location',        // New field
         'purchase_price',
@@ -66,6 +67,16 @@ class Product extends Model
     public function unit(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(Unit::class, 'unit_id');
+    }
+
+    /**
+     * supplier
+     *
+     * @return \Illuminate\Database\Eloquent\Relations\BelongsTo
+     */
+    public function supplier(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 
     /**

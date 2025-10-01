@@ -51,7 +51,7 @@ class RecapController extends Controller
         $endDateUtc = $effectiveEndLocal ? $effectiveEndLocal->utc() : null;
 
         // Query transaksi penjualan dengan timezone Asia/Jakarta
-    $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit']);
+        $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit']);
         if ($startDateUtc && $endDateUtc) {
             $query->whereBetween('created_at', [
                 $startDateUtc->format('Y-m-d H:i:s'),
@@ -248,7 +248,7 @@ class RecapController extends Controller
      */
     public function sampleJson(Request $request)
     {
-    $trx = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit'])->orderByDesc('created_at')->first();
+        $trx = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit'])->orderByDesc('created_at')->first();
         if (!$trx) {
             return response()->json(['message' => 'No transactions found'], 404);
         }
@@ -307,7 +307,7 @@ class RecapController extends Controller
         $perPage = (int) $request->input('per_page', 20);
         if (!in_array($perPage, $allowedPerPage)) $perPage = 20;
 
-    $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit']);
+        $query = Transaction::with(['cashier', 'customer', 'details.product.categoryRelation', 'details.product.subcategory', 'details.product.unit', 'details.unit']);
         if ($start && $end) {
             $startLocal = \Carbon\Carbon::parse($start, 'Asia/Jakarta')->startOfDay()->utc();
             $endLocal = \Carbon\Carbon::parse($end, 'Asia/Jakarta')->endOfDay()->utc();

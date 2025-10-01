@@ -8,7 +8,7 @@ import Input from "@/Components/Dashboard/Input";
 import toast from "react-hot-toast";
 import InputSelect from "@/Components/Dashboard/InputSelect";
 
-export default function Edit({ categories, product, subcategories, units }) {
+export default function Edit({ categories, product, subcategories, units, owners, suppliers }) {
     const { errors } = usePage().props;
     const { data, setData, post, processing, recentlySuccessful, reset } =
         useForm({
@@ -16,6 +16,7 @@ export default function Edit({ categories, product, subcategories, units }) {
             category_id: product.category_id || "",
             subcategory_id: product.subcategory_id || "",
             unit_id: product.unit_id || "",
+            supplier_id: product.supplier_id || "",
             barcode: product.barcode || "",
             min_stock: product.min_stock || "",
             description: product.description || "",
@@ -33,7 +34,10 @@ export default function Edit({ categories, product, subcategories, units }) {
             : null
     );
     const [selectedUnit, setSelectedUnit] = useState(
-        product.unit_id ? units.find((u) => u.id === product.unit_id) : null
+        product.unit_id && units ? units.find((u) => u.id === product.unit_id) : null
+    );
+    const [selectedSupplier, setSelectedSupplier] = useState(
+        product.supplier_id && suppliers ? suppliers.find((s) => s.id === product.supplier_id) : null
     );
     const [toastId, setToastId] = useState(null);
 
@@ -52,7 +56,7 @@ export default function Edit({ categories, product, subcategories, units }) {
                 ) || null
             );
         }
-        if (product.unit_id && units.length) {
+        if (product.unit_id && units && units.length) {
             setSelectedUnit(
                 units.find((unit) => unit.id === product.unit_id) || null
             );
@@ -90,7 +94,7 @@ export default function Edit({ categories, product, subcategories, units }) {
     useEffect(() => {
         return () => {
             reset();
-            router.reload({ only: ["errors"], onSuccess: () => {} });
+            router.reload({ only: ["errors"], onSuccess: () => { } });
         };
     }, []);
 
@@ -109,6 +113,11 @@ export default function Edit({ categories, product, subcategories, units }) {
     const setSelectedUnitHandler = (value) => {
         setSelectedUnit(value);
         setData("unit_id", value ? value.id : "");
+    };
+
+    const setSelectedSupplierHandler = (value) => {
+        setSelectedSupplier(value);
+        setData("supplier_id", value ? value.id : "");
     };
 
     const handleSubmit = (e) => {
@@ -131,7 +140,7 @@ export default function Edit({ categories, product, subcategories, units }) {
         router.visit(route("products.index"), {
             preserveState: false,
             onSuccess: () => {
-                router.reload({ only: ["errors"], onSuccess: () => {} });
+                router.reload({ only: ["errors"], onSuccess: () => { } });
             },
         });
     };
@@ -226,7 +235,7 @@ export default function Edit({ categories, product, subcategories, units }) {
                         {/* Satuan */}
                         <InputSelect
                             label="Satuan"
-                            data={units}
+                            data={units || []}
                             selected={selectedUnit}
                             setSelected={setSelectedUnitHandler}
                             placeholder="Pilih satuan"
@@ -234,6 +243,28 @@ export default function Edit({ categories, product, subcategories, units }) {
                             displayKey="name"
                             className="w-full col-span-2 sm:col-span-1"
                         />
+
+                        {/* Supplier */}
+                        <InputSelect
+                            label="Supplier"
+                            data={suppliers || []}
+                            selected={selectedSupplier}
+                            setSelected={setSelectedSupplierHandler}
+                            placeholder="Pilih supplier"
+                            error={errors.supplier_id}
+                            displayKey="name"
+                            className="w-full col-span-2 sm:col-span-1"
+                        />
+
+                        {/* Owner (dari supplier) */}
+                        <div className="col-span-2 sm:col-span-1">
+                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                                Owner
+                            </label>
+                            <div className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                                {selectedSupplier?.owner || "Pilih supplier terlebih dahulu"}
+                            </div>
+                        </div>
 
                         {/* Stok Minimal */}
                         <Input

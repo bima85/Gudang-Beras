@@ -274,7 +274,10 @@ class TransactionController extends Controller
         $details = $transaction->details->map(function ($detail) use ($purchaseItemPrices) {
             return [
                 'product' => $detail->product,
-                'quantity' => $detail->quantity,
+                // normalize quantity fields: use 'qty' (database column) and also 'quantity' for compatibility
+                'qty' => $detail->qty ?? $detail->quantity ?? 0,
+                'quantity' => $detail->qty ?? $detail->quantity ?? 0,
+                'unit' => $detail->unit ?? null,
                 'price' => $detail->price,
                 'purchase_price' => $purchaseItemPrices[$detail->product_id] ?? null,
                 'subtotal' => $detail->subtotal,
@@ -955,6 +958,12 @@ class TransactionController extends Controller
                 $qty_kg = floatval($item['qty']) * $conversion;
 
                 // Simpan detail transaksi
+                // Store subtotal using qty in kg * price to be consistent with profit and stock calculations
+                $calculatedSubtotal = floatval($qty_kg) * floatval($item['price']);
+                if (is_nan($calculatedSubtotal) || !is_finite($calculatedSubtotal)) {
+                    $calculatedSubtotal = floatval($item['qty']) * floatval($item['price']);
+                }
+
                 $detailModel = $transaction->details()->create([
                     'transaction_id' => $transaction->id,
                     'product_id' => $item['product_id'],
@@ -962,7 +971,7 @@ class TransactionController extends Controller
                     'qty' => $item['qty'],
                     'price' => $item['price'],
                     'warehouse_id' => $request->warehouse_id,
-                    'subtotal' => $item['qty'] * $item['price'],
+                    'subtotal' => $calculatedSubtotal,
                 ]);
 
                 // Hitung keuntungan
@@ -1674,7 +1683,8 @@ class TransactionController extends Controller
         $dateFrom = $request->date_from;
         $dateTo = $request->date_to;
 
-        $query = Transaction::with(['customer', 'details.product'])
+        // Ensure we eager-load the transaction detail unit relation so frontend can display unit names
+        $query = Transaction::with(['customer', 'details.product', 'details.unit'])
             ->where('customer_id', $customerId)
             ->orderBy('created_at', 'desc');
 
@@ -1722,9 +1732,12 @@ class TransactionController extends Controller
                     'is_tempo' => $transaction->is_tempo,
                     'tempo_due_date' => $transaction->tempo_due_date,
                     'details' => $transaction->details->map(function ($detail) {
+                        // TransactionDetail stores the count in 'qty' column; provide both 'qty' and 'quantity'
                         return [
                             'product_name' => $detail->product->name ?? 'Unknown Product',
-                            'quantity' => $detail->quantity,
+                            'qty' => $detail->qty ?? $detail->quantity ?? 0,
+                            'quantity' => $detail->qty ?? $detail->quantity ?? 0,
+                            'unit' => $detail->unit ?? null,
                             'price' => $detail->price,
                             'subtotal' => $detail->subtotal,
                         ];

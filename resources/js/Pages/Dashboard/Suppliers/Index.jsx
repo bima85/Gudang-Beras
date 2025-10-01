@@ -1,149 +1,275 @@
-import React from "react";
+import React, { useState } from "react";
 import DashboardLayout from "@/Layouts/DashboardLayout";
-import { Head, usePage } from "@inertiajs/react";
-import Button from "@/Components/Dashboard/Button";
+import { Head, Link, router, usePage } from "@inertiajs/react";
+import { Button } from "@/Components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
+import { Input } from "@/Components/ui/input";
 import {
     IconCirclePlus,
-    IconDatabaseOff,
     IconPencilCog,
     IconTrash,
     IconEyeBolt,
+    IconSearch,
+    IconDatabaseOff,
+    IconFilter,
 } from "@tabler/icons-react";
-import Search from "@/Components/Dashboard/Search";
-import * as Table from "@/Components/Dashboard/Table";
-import Pagination from "@/Components/Dashboard/Pagination";
+import {
+    useReactTable,
+    getCoreRowModel,
+    getPaginationRowModel,
+    getSortedRowModel,
+    getFilteredRowModel,
+    flexRender,
+} from "@tanstack/react-table";
 
 export default function Index({ suppliers }) {
     const { roles, permissions, errors } = usePage().props;
 
+    const [globalFilter, setGlobalFilter] = useState("");
+    const [sorting, setSorting] = useState([]);
+    const [columnFilters, setColumnFilters] = useState([]);
+
+    const columns = [
+        {
+            accessorKey: "name",
+            header: "Nama",
+            cell: ({ row }) => (
+                <div className="font-medium">{row.getValue("name")}</div>
+            ),
+        },
+        {
+            accessorKey: "phone",
+            header: "No. Handphone",
+            cell: ({ row }) => <div>{row.getValue("phone")}</div>,
+        },
+        {
+            accessorKey: "address",
+            header: "Alamat",
+            cell: ({ row }) => (
+                <div className="max-w-[200px] truncate" title={row.getValue("address")}>
+                    {row.getValue("address")}
+                </div>
+            ),
+        },
+        {
+            id: "actions",
+            header: "Aksi",
+            enableColumnFilter: false,
+            cell: ({ row }) => {
+                const supplier = row.original;
+                return (
+                    <div className="flex gap-1 flex-wrap">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            asChild
+                        >
+                            <Link href={route("suppliers.edit", supplier.id)}>
+                                <IconPencilCog size={14} />
+                            </Link>
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            onClick={() => handleDelete(supplier.id)}
+                        >
+                            <IconTrash size={14} />
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-8 w-8 p-0"
+                            asChild
+                        >
+                            <Link href={route("suppliers.show", supplier.id)}>
+                                <IconEyeBolt size={14} />
+                            </Link>
+                        </Button>
+                    </div>
+                );
+            },
+        },
+    ];
+
+    const table = useReactTable({
+        data: suppliers,
+        columns,
+        getCoreRowModel: getCoreRowModel(),
+        getPaginationRowModel: getPaginationRowModel(),
+        getSortedRowModel: getSortedRowModel(),
+        getFilteredRowModel: getFilteredRowModel(),
+        onSortingChange: setSorting,
+        onGlobalFilterChange: setGlobalFilter,
+        onColumnFiltersChange: setColumnFilters,
+        state: {
+            sorting,
+            globalFilter,
+            columnFilters,
+        },
+        initialState: {
+            pagination: {
+                pageSize: 10,
+            },
+        },
+    });
+
+    const handleDelete = (id) => {
+        if (confirm("Apakah kamu yakin ingin menghapus data ini?")) {
+            router.delete(route("suppliers.destroy", id));
+        }
+    };
+
     return (
         <>
             <Head title="Supplier" />
-            <div className="mb-2">
-                <div className="flex justify-between items-center gap-2">
-                    <Button
-                        type={"link"}
-                        icon={<IconCirclePlus size={20} strokeWidth={1.5} />}
-                        className={
-                            "border bg-white text-gray-700 dark:bg-gray-950 dark:border-gray-800 dark:text-gray-200"
-                        }
-                        label={"Tambah Data Supplier"}
-                        href={route("suppliers.create")}
-                    />
-                    <div className="w-full md:w-4/12">
-                        <Search
-                            url={route("suppliers.index")}
-                            placeholder="Cari data berdasarkan nama supplier..."
-                        />
+            <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                    <Button asChild className="w-full sm:w-auto">
+                        <Link href={route("suppliers.create")}>
+                            <IconCirclePlus size={16} />
+                            Tambah Data Supplier
+                        </Link>
+                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                        <div className="relative w-full sm:w-80">
+                            <IconSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                            <Input
+                                placeholder="Cari supplier..."
+                                value={globalFilter ?? ""}
+                                onChange={(event) => setGlobalFilter(event.target.value)}
+                                className="pl-9"
+                            />
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setGlobalFilter("");
+                                setColumnFilters([]);
+                            }}
+                            className="w-full sm:w-auto"
+                        >
+                            <IconFilter size={16} />
+                            Hapus Filter
+                        </Button>
                     </div>
                 </div>
-            </div>
-            <Table.Card title={"Data Supplier"}>
-                <Table.Table>
-                    <Table.Thead>
-                        <tr>
-                            <Table.Th className="w-10">No</Table.Th>
-                            <Table.Th className="w-40">Nama</Table.Th>
-                            <Table.Th className="w-40">No. Handphone</Table.Th>
-                            <Table.Th className="w-40">Alamat</Table.Th>
-                            <Table.Th></Table.Th>
-                        </tr>
-                    </Table.Thead>
-                    <Table.Tbody>
-                        {suppliers.length ? (
-                            suppliers.map((supplier, i) => (
-                                <tr
-                                    className="hover:bg-gray-100 dark:hover:bg-gray-900"
-                                    key={i}
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Data Supplier</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border overflow-x-auto">
+                            <Table>
+                                <TableHeader>
+                                    {table.getHeaderGroups().map((headerGroup) => (
+                                        <TableRow key={headerGroup.id}>
+                                            {headerGroup.headers.map((header) => (
+                                                <TableHead
+                                                    key={header.id}
+                                                    className="cursor-pointer select-none"
+                                                    onClick={header.column.getToggleSortingHandler()}
+                                                >
+                                                    {header.isPlaceholder
+                                                        ? null
+                                                        : flexRender(
+                                                            header.column.columnDef.header,
+                                                            header.getContext()
+                                                        )}
+                                                    {{
+                                                        asc: " 🔼",
+                                                        desc: " 🔽",
+                                                    }[header.column.getIsSorted()] ?? null}
+                                                </TableHead>
+                                            ))}
+                                        </TableRow>
+                                    ))}
+                                    {/* Filter Row */}
+                                    <TableRow>
+                                        {table.getHeaderGroups()[0].headers.map((header) => (
+                                            <TableHead key={`filter-${header.id}`} className="p-2">
+                                                {header.column.getCanFilter() ? (
+                                                    <Input
+                                                        placeholder={`Filter ${header.column.columnDef.header}...`}
+                                                        value={header.column.getFilterValue() ?? ""}
+                                                        onChange={(event) =>
+                                                            header.column.setFilterValue(event.target.value)
+                                                        }
+                                                        className="h-8 text-xs"
+                                                    />
+                                                ) : null}
+                                            </TableHead>
+                                        ))}
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {table.getRowModel().rows?.length ? (
+                                        table.getRowModel().rows.map((row) => (
+                                            <TableRow
+                                                key={row.id}
+                                                data-state={row.getIsSelected() && "selected"}
+                                            >
+                                                {row.getVisibleCells().map((cell) => (
+                                                    <TableCell key={cell.id}>
+                                                        {flexRender(
+                                                            cell.column.columnDef.cell,
+                                                            cell.getContext()
+                                                        )}
+                                                    </TableCell>
+                                                ))}
+                                            </TableRow>
+                                        ))
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell
+                                                colSpan={columns.length}
+                                                className="h-24 text-center"
+                                            >
+                                                <div className="flex flex-col items-center justify-center space-y-2">
+                                                    <IconDatabaseOff className="h-8 w-8 text-muted-foreground" />
+                                                    <span className="text-muted-foreground">
+                                                        Tidak ada data supplier ditemukan.
+                                                    </span>
+                                                </div>
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                        <div className="flex items-center justify-between space-x-2 py-4">
+                            <div className="text-sm text-muted-foreground">
+                                Menampilkan {table.getState().pagination.pageIndex * table.getState().pagination.pageSize + 1} sampai{" "}
+                                {Math.min(
+                                    (table.getState().pagination.pageIndex + 1) * table.getState().pagination.pageSize,
+                                    table.getFilteredRowModel().rows.length
+                                )}{" "}
+                                dari {table.getFilteredRowModel().rows.length} hasil
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => table.previousPage()}
+                                    disabled={!table.getCanPreviousPage()}
                                 >
-                                    <Table.Td className="text-center">
-                                        {i + 1}
-                                    </Table.Td>
-                                    <Table.Td>{supplier.name}</Table.Td>
-                                    <Table.Td>{supplier.phone}</Table.Td>
-                                    <Table.Td>{supplier.address}</Table.Td>
-                                    <Table.Td>
-                                        <div className="flex gap-2">
-                                            <Button
-                                                type={"edit"}
-                                                icon={
-                                                    <IconPencilCog
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className={
-                                                    "border bg-orange-100 border-orange-300 text-orange-500 hover:bg-orange-200 dark:bg-orange-950 dark:border-orange-800 dark:text-gray-300  dark:hover:bg-orange-900"
-                                                }
-                                                href={route(
-                                                    "suppliers.edit",
-                                                    supplier.id
-                                                )}
-                                            />
-                                            <Button
-                                                type={"delete"}
-                                                icon={
-                                                    <IconTrash
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className={
-                                                    "border bg-rose-100 border-rose-300 text-rose-500 hover:bg-rose-200 dark:bg-rose-950 dark:border-rose-800 dark:text-gray-300  dark:hover:bg-rose-900"
-                                                }
-                                                url={route(
-                                                    "suppliers.destroy",
-                                                    supplier.id
-                                                )}
-                                            />
-                                            <Button
-                                                type={"link"}
-                                                icon={
-                                                    <IconEyeBolt
-                                                        size={16}
-                                                        strokeWidth={1.5}
-                                                    />
-                                                }
-                                                className={
-                                                    "border bg-green-100 border-green-300 text-green-700 hover:bg-green-200 dark:bg-green-950 dark:border-green-800 dark:text-gray-300 dark:hover:bg-green-900"
-                                                }
-                                                href={route(
-                                                    "suppliers.show",
-                                                    supplier.id
-                                                )}
-                                                label={"Detail"}
-                                            />
-                                        </div>
-                                    </Table.Td>
-                                </tr>
-                            ))
-                        ) : (
-                            <Table.Empty
-                                colSpan={5}
-                                message={
-                                    <>
-                                        <div className="flex justify-center items-center text-center mb-2">
-                                            <IconDatabaseOff
-                                                size={24}
-                                                strokeWidth={1.5}
-                                                className="text-gray-500 dark:text-white"
-                                            />
-                                        </div>
-                                        <span className="text-gray-500">
-                                            Data supplier
-                                        </span>{" "}
-                                        <span className="text-rose-500 underline underline-offset-2">
-                                            tidak ditemukan.
-                                        </span>
-                                    </>
-                                }
-                            />
-                        )}
-                    </Table.Tbody>
-                </Table.Table>
-            </Table.Card>
-            {/* Pagination jika diperlukan */}
-            {/* {suppliers.last_page !== 1 && (<Pagination links={suppliers.links} />)} */}
+                                    Sebelumnya
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => table.nextPage()}
+                                    disabled={!table.getCanNextPage()}
+                                >
+                                    Selanjutnya
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
         </>
     );
 }

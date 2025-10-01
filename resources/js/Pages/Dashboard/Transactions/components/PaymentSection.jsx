@@ -46,6 +46,7 @@ export default function PaymentSection({
 }) {
     // State for transaction history visibility
     const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+    // Dev helper removed: keep history rendering tied to user action only
 
     // Reset transaction history visibility when customer changes
     useEffect(() => {

@@ -26,6 +26,11 @@ class UnitConverter
             return $qty * ($unit->conversion_to_kg ?? 1);
         }
 
+        // Jika unit adalah null atau bukan string, fallback
+        if (!is_string($unit)) {
+            return $qty; // Default jika tidak valid
+        }
+
         // Jika unit adalah string nama unit
         $unitName = strtolower(trim($unit));
 

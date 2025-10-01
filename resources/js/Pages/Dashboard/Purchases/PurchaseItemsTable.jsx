@@ -41,19 +41,11 @@ export default function PurchaseItemsTable({
     });
     const totalSubtotals = subtotals.reduce((sum, val) => sum + val, 0);
 
-    // Hitung total fee kuli berdasarkan tiap item
+    // Hitung total fee kuli berdasarkan tiap item (flat fee per item)
     const kuliTotal = items.reduce((sum, item) => {
         if (!item) return sum;
-        const qty = parseFloat(item.qty) || 0;
-        let unitConversion = 1;
-        if (item.unit_id && Array.isArray(units)) {
-            const unitObj = units.find((u) => String(u.id) === String(item.unit_id));
-            if (unitObj && unitObj.conversion_to_kg) {
-                unitConversion = parseFloat(unitObj.conversion_to_kg) || 1;
-            }
-        }
         const feeRate = parseFloat(item.kuli_fee) || 0;
-        return sum - qty * unitConversion * feeRate;
+        return sum + feeRate;
     }, 0);
 
     const kuliRates = items.filter(Boolean).map((it) => parseFloat(it.kuli_fee) || 0);
@@ -207,7 +199,7 @@ export default function PurchaseItemsTable({
                                     <button type="button" onClick={() => { typeof onKuliFeeChange === "function" && onKuliFeeChange(0); typeof onKuliFeeCheckboxChange === "function" && onKuliFeeCheckboxChange(false); }} className="px-2 py-1 text-sm text-red-600 bg-white border border-gray-200 rounded-md hover:bg-gray-50">Reset</button>
                                 </div> */}
 
-                                <div className="text-sm text-gray-700">Total Fee Kuli: <span className="font-medium">{kuliTotal.toLocaleString("id-ID")}</span></div>
+                                <div className="text-sm text-gray-700">Total Fee Kuli: <span className="font-medium">Rp {kuliTotal.toLocaleString("id-ID")}</span></div>
 
                                 <div className="flex items-center mt-2 space-x-2">
                                     <label className="inline-flex items-center text-sm text-gray-600">

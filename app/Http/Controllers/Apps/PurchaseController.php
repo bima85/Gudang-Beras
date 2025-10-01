@@ -285,358 +285,381 @@ class PurchaseController extends Controller
                     'qty_toko' => $qtyToko
                 ]);
             } else {
-                // Validasi alokasi manual
+                // Validasi alokasi manual, adjust jika tidak sesuai
                 $totalAlokasi = $qtyGudang + $qtyToko;
                 if (abs($totalAlokasi - $totalQty) > 0.01) { // Toleransi untuk floating point
-                    throw new \Illuminate\Validation\ValidationException(
-                        validator([], []),
-                        ['items.' . $key => ['Total alokasi (' . $totalAlokasi . ') tidak sesuai dengan qty pembelian (' . $totalQty . ')']]
-                    );
+                    // Adjust qty_toko agar total sesuai
+                    $qtyToko = $totalQty - $qtyGudang;
+                    if ($qtyToko < 0) {
+                        $qtyGudang = $totalQty;
+                        $qtyToko = 0;
+                    }
+                    $validated['items'][$key]['qty_gudang'] = $qtyGudang;
+                    $validated['items'][$key]['qty_toko'] = $qtyToko;
+
+                    Log::info('[PurchaseController] Alokasi disesuaikan otomatis', [
+                        'product_id' => $item['product_id'],
+                        'original_qty_gudang' => $item['qty_gudang'],
+                        'original_qty_toko' => $item['qty_toko'],
+                        'adjusted_qty_gudang' => $qtyGudang,
+                        'adjusted_qty_toko' => $qtyToko,
+                        'total_qty' => $totalQty
+                    ]);
                 }
             }
         }
 
-        return DB::transaction(function () use ($validated, $request) {
-            // Supplier logic
-            $supplier = null;
-            if (!empty($validated['supplier_name'])) {
-                $supplier = Supplier::where('name', $validated['supplier_name'])->first();
-                if (!$supplier) {
-                    $supplier = Supplier::create([
-                        'name' => $validated['supplier_name'],
-                        'phone' => $validated['phone'] ?? null,
-                        'address' => $validated['address'] ?? null,
-                    ]);
-                } else {
-                    if (
-                        (isset($validated['phone']) && $validated['phone'] && $supplier->phone !== $validated['phone']) ||
-                        (isset($validated['address']) && $validated['address'] && $supplier->address !== $validated['address'])
-                    ) {
-                        $supplier->update([
-                            'phone' => $validated['phone'] ?? $supplier->phone,
-                            'address' => $validated['address'] ?? $supplier->address,
+        try {
+            return DB::transaction(function () use ($validated, $request) {
+                // Supplier logic
+                $supplier = null;
+                if (!empty($validated['supplier_name'])) {
+                    $supplier = Supplier::where('name', $validated['supplier_name'])->first();
+                    if (!$supplier) {
+                        $supplier = Supplier::create([
+                            'name' => $validated['supplier_name'],
+                            'phone' => $validated['phone'] ?? null,
+                            'address' => $validated['address'] ?? null,
                         ]);
+                    } else {
+                        if (
+                            (isset($validated['phone']) && $validated['phone'] && $supplier->phone !== $validated['phone']) ||
+                            (isset($validated['address']) && $validated['address'] && $supplier->address !== $validated['address'])
+                        ) {
+                            $supplier->update([
+                                'phone' => $validated['phone'] ?? $supplier->phone,
+                                'address' => $validated['address'] ?? $supplier->address,
+                            ]);
+                        }
                     }
                 }
-            }
 
-            // Gudang logic - Readonly, hanya menggunakan warehouse yang sudah ada
-            $warehouse = null;
-            if (!empty($validated['warehouse_id'])) {
-                $warehouse = Warehouse::find($validated['warehouse_id']);
-            }
+                // Gudang logic - Readonly, hanya menggunakan warehouse yang sudah ada
+                $warehouse = null;
+                if (!empty($validated['warehouse_id'])) {
+                    $warehouse = Warehouse::find($validated['warehouse_id']);
+                }
 
-            $totalPembelian = 0;
-            $itemSubtotals = [];
-            $totalQtyKg = 0; // untuk perhitungan fee kuli dan timbangan
+                $totalPembelian = 0;
+                $itemSubtotals = [];
+                $totalQtyKg = 0; // untuk perhitungan fee kuli dan timbangan
 
-            // Hitung total qty kg terlebih dahulu
-            foreach ($validated['items'] as $item) {
-                $unit = Unit::find($item['unit_id']);
-                $conversion = $unit ? $unit->conversion_to_kg : 1;
-                $totalQtyKg += $item['qty'] * $conversion;
-            }
+                // Hitung total qty kg terlebih dahulu
+                foreach ($validated['items'] as $item) {
+                    $unit = Unit::find($item['unit_id']);
+                    $conversion = $unit ? $unit->conversion_to_kg : 1;
+                    $totalQtyKg += $item['qty'] * $conversion;
+                }
 
-            // Fee kuli dan timbangan (flat rate berdasarkan total qty kg)
-            $kuliFeeRate = 0;
-            if (count($validated['items']) > 0 && isset($validated['items'][0]['kuli_fee'])) {
-                $kuliFeeRate = floatval($validated['items'][0]['kuli_fee']);
-            }
-            $kuliFee = $totalQtyKg * $kuliFeeRate;
+                // Fee kuli dan timbangan (flat rate berdasarkan total qty kg)
+                $kuliFeeRate = 0;
+                if (count($validated['items']) > 0 && isset($validated['items'][0]['kuli_fee'])) {
+                    $kuliFeeRate = floatval($validated['items'][0]['kuli_fee']);
+                }
+                $kuliFee = $totalQtyKg * $kuliFeeRate;
 
-            // Perubahan: anggap input 'timbangan' dari frontend adalah total nominal (Rp total)
-            // bukan tarif per-kg. Jadi baca langsung nilai total yang dikirim.
-            $totalTimbangan = 0;
-            if (count($validated['items']) > 0 && isset($validated['items'][0]['timbangan'])) {
-                // Frontend mengirimkan 'timbangan' di setiap item sebagai nilai total (sama untuk semua item),
-                // ambil nilai tersebut sebagai total timbangan.
-                $totalTimbangan = floatval($validated['items'][0]['timbangan']);
-            }
+                // Perubahan: anggap input 'timbangan' dari frontend adalah total nominal (Rp total)
+                // bukan tarif per-kg. Jadi baca langsung nilai total yang dikirim.
+                $totalTimbangan = 0;
+                if (count($validated['items']) > 0 && isset($validated['items'][0]['timbangan'])) {
+                    // Frontend mengirimkan 'timbangan' di setiap item sebagai nilai total (sama untuk semua item),
+                    // ambil nilai tersebut sebagai total timbangan.
+                    $totalTimbangan = floatval($validated['items'][0]['timbangan']);
+                }
 
-            // Hitung subtotal per item dengan proporsi fee kuli dan timbangan
-            foreach ($validated['items'] as $item) {
-                $unit = Unit::find($item['unit_id']);
-                $conversion = $unit ? $unit->conversion_to_kg : 1;
-                $itemQtyKg = $item['qty'] * $conversion;
+                // Hitung subtotal per item dengan proporsi fee kuli dan timbangan
+                foreach ($validated['items'] as $item) {
+                    $unit = Unit::find($item['unit_id']);
+                    $conversion = $unit ? $unit->conversion_to_kg : 1;
+                    $itemQtyKg = $item['qty'] * $conversion;
 
-                // Subtotal dasar (qty * harga)
-                $baseSubtotal = $itemQtyKg * $item['harga_pembelian'];
+                    // Subtotal dasar (qty * harga)
+                    $baseSubtotal = $itemQtyKg * $item['harga_pembelian'];
 
-                // Proporsi fee kuli dan timbangan untuk item ini
-                $itemKuliFee = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $kuliFee : 0;
-                $itemTimbangan = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $totalTimbangan : 0;
+                    // Proporsi fee kuli dan timbangan untuk item ini
+                    $itemKuliFee = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $kuliFee : 0;
+                    $itemTimbangan = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $totalTimbangan : 0;
 
-                // Subtotal final termasuk fee kuli dan timbangan
-                $finalSubtotal = $baseSubtotal + $itemKuliFee + $itemTimbangan;
+                    // Subtotal final termasuk fee kuli dan timbangan
+                    $finalSubtotal = $baseSubtotal + $itemKuliFee + $itemTimbangan;
 
-                $itemSubtotals[] = [
-                    'item' => $item,
-                    'subtotal' => $finalSubtotal, // sudah termasuk proporsi fee kuli dan timbangan
-                    'conversion' => $conversion,
-                    'base_subtotal' => $baseSubtotal,
-                    'item_kuli_fee' => $itemKuliFee,
-                    'item_timbangan' => $itemTimbangan,
-                ];
-                $totalPembelian += $baseSubtotal;
-            }
+                    $itemSubtotals[] = [
+                        'item' => $item,
+                        'subtotal' => $finalSubtotal, // sudah termasuk proporsi fee kuli dan timbangan
+                        'conversion' => $conversion,
+                        'base_subtotal' => $baseSubtotal,
+                        'item_kuli_fee' => $itemKuliFee,
+                        'item_timbangan' => $itemTimbangan,
+                    ];
+                    $totalPembelian += $baseSubtotal;
+                }
 
-            $totalFinal = $totalPembelian + $kuliFee + $totalTimbangan;
+                $totalFinal = $totalPembelian + $kuliFee + $totalTimbangan;
 
-            Log::info('Total subtotal pembelian:', ['total_subtotal' => $totalPembelian]);
-            Log::info('Total qty dalam kg:', ['total_qty_kg' => $totalQtyKg]);
-            Log::info('Fee kuli rate:', ['kuli_fee_rate' => $kuliFeeRate]);
-            Log::info('Fee kuli total:', ['fee_kuli_total' => $kuliFee]);
-            Log::info('Total timbangan (nominal):', ['total_timbangan' => $totalTimbangan]);
-            Log::info('Total akhir pembelian:', ['total_final' => $totalFinal]);
+                Log::info('Total subtotal pembelian:', ['total_subtotal' => $totalPembelian]);
+                Log::info('Total qty dalam kg:', ['total_qty_kg' => $totalQtyKg]);
+                Log::info('Fee kuli rate:', ['kuli_fee_rate' => $kuliFeeRate]);
+                Log::info('Fee kuli total:', ['fee_kuli_total' => $kuliFee]);
+                Log::info('Total timbangan (nominal):', ['total_timbangan' => $totalTimbangan]);
+                Log::info('Total akhir pembelian:', ['total_final' => $totalFinal]);
 
-            $today = date('Y/m/d', strtotime($validated['purchase_date']));
-            // Ambil last purchase untuk tanggal yang sama dengan SELECT ... FOR UPDATE
-            // agar concurrent request tidak menghasilkan nomor invoice yang sama.
-            $lastTodayPurchase = DB::table('purchases')
-                ->whereDate('purchase_date', $validated['purchase_date'])
-                ->orderBy('id', 'desc')
-                ->lockForUpdate()
-                ->first();
+                $today = date('Y/m/d', strtotime($validated['purchase_date']));
+                // Ambil last purchase untuk tanggal yang sama dengan SELECT ... FOR UPDATE
+                // agar concurrent request tidak menghasilkan nomor invoice yang sama.
+                $lastTodayPurchase = DB::table('purchases')
+                    ->whereDate('purchase_date', $validated['purchase_date'])
+                    ->orderBy('id', 'desc')
+                    ->lockForUpdate()
+                    ->first();
 
-            $nextTodayNumber = 1;
-            if ($lastTodayPurchase && isset($lastTodayPurchase->invoice_number)) {
-                preg_match('/PB-\d{4}\/\d{2}\/\d{2}-(\d{3})/', $lastTodayPurchase->invoice_number, $matches);
-                $lastSeq = isset($matches[1]) ? intval($matches[1]) : 0;
-                $nextTodayNumber = $lastSeq + 1;
-            }
-            $invoiceNumber = 'PB-' . $today . '-' . str_pad($nextTodayNumber, 3, '0', STR_PAD_LEFT);
+                $nextTodayNumber = 1;
+                if ($lastTodayPurchase && isset($lastTodayPurchase->invoice_number)) {
+                    preg_match('/PB-\d{4}\/\d{2}\/\d{2}-(\d{3})/', $lastTodayPurchase->invoice_number, $matches);
+                    $lastSeq = isset($matches[1]) ? intval($matches[1]) : 0;
+                    $nextTodayNumber = $lastSeq + 1;
+                }
+                $invoiceNumber = 'PB-' . $today . '-' . str_pad($nextTodayNumber, 3, '0', STR_PAD_LEFT);
 
-            $purchase = Purchase::create([
-                'invoice_number' => $invoiceNumber,
-                'supplier_id' => $supplier ? $supplier->id : null,
-                'warehouse_id' => $warehouse ? $warehouse->id : null,
-                'toko_id' => $validated['toko_id'] ?? null,
-                'purchase_date' => $validated['purchase_date'],
-                'total' => $totalFinal, // Total termasuk fee kuli dan timbangan
-                'user_id' => Auth::id(),
-            ]);
-
-            // Integrasikan StockUpdateService untuk distribusi stok
-            $toko = null;
-            foreach ($itemSubtotals as $itemData) {
-                $item = $itemData['item'];
-                $subtotal = $itemData['subtotal'];
-
-                // Simpan item pembelian
-                $purchaseItem = $purchase->items()->create([
+                $purchase = Purchase::create([
+                    'invoice_number' => $invoiceNumber,
+                    'supplier_id' => $supplier ? $supplier->id : null,
+                    'warehouse_id' => $warehouse ? $warehouse->id : null,
+                    'toko_id' => $validated['toko_id'] ?? null,
+                    'purchase_date' => $validated['purchase_date'],
+                    'total' => $totalFinal, // Total termasuk fee kuli dan timbangan
                     'user_id' => Auth::id(),
-                    'product_id' => $item['product_id'],
-                    'unit_id' => $item['unit_id'],
-                    'category_id' => $item['category_id'],
-                    'subcategory_id' => $item['subcategory_id'] ?? null,
-                    'qty' => $item['qty'],
-                    'qty_gudang' => $item['qty_gudang'] ?? 0,
-                    'qty_toko' => $item['qty_toko'] ?? 0,
-                    'harga_pembelian' => $item['harga_pembelian'],
-                    'subtotal' => $subtotal, // sudah termasuk proporsi fee kuli dan timbangan
-                    'kuli_fee' => $itemData['item_kuli_fee'], // porsi kuli fee untuk item ini
-                    'timbangan' => $itemData['item_timbangan'], // porsi timbangan untuk item ini
                 ]);
 
-                // Siapkan distribusi stok menggunakan helper baru
-                $distribution = [];
+                // Integrasikan StockUpdateService untuk distribusi stok
+                $toko = null;
+                foreach ($itemSubtotals as $itemData) {
+                    $item = $itemData['item'];
+                    $subtotal = $itemData['subtotal'];
 
-                // Distribusi ke gudang
-                if (!empty($item['qty_gudang']) && $item['qty_gudang'] > 0) {
-                    $unit = Unit::find($item['unit_id']);
-                    $distribution['warehouse'] = [
-                        'qty' => $item['qty_gudang'],
-                        'unit' => $unit
-                    ];
-                }
-
-                // Distribusi ke toko
-                if (!empty($item['qty_toko']) && $item['qty_toko'] > 0) {
-                    $unit = Unit::find($item['unit_id']);
-                    $distribution['store'] = [
-                        'qty' => $item['qty_toko'],
-                        'unit' => $unit
-                    ];
-
-                    // Cari atau buat data toko
-                    $toko = \App\Models\Toko::firstOrCreate([
-                        'name' => $validated['toko_name'] ?? 'Toko',
-                    ], [
-                        'address' => $validated['toko_address'] ?? null,
-                        'phone' => $validated['toko_phone'] ?? null,
-                        'description' => 'Auto created from pembelian',
-                    ]);
-
-                    // Set toko_id pada purchase
-                    if (empty($purchase->toko_id)) {
-                        $purchase->toko_id = $toko->id;
-                    }
-                }
-
-                // Update stok menggunakan service baru
-                if (!empty($distribution)) {
-                    $tokoId = isset($toko) && isset($toko->id) ? $toko->id : null;
-                    $stockUpdateResult = StockUpdateService::updateStockAfterPurchase(
-                        $item['product_id'],
-                        $distribution,
-                        $warehouse ? $warehouse->id : null,
-                        $tokoId,
-                        Auth::id()
-                    );
-
-                    if (!$stockUpdateResult) {
-                        Log::error('[PurchaseController] Gagal update stok setelah pembelian', [
-                            'product_id' => $item['product_id'],
-                            'distribution' => $distribution
-                        ]);
-                        throw new \Exception('Gagal mengupdate stok untuk produk ID: ' . $item['product_id']);
-                    }
-
-                    Log::info('[PurchaseController] Stok berhasil diupdate dengan StockUpdateService', [
+                    // Simpan item pembelian
+                    $purchaseItem = $purchase->items()->create([
+                        'user_id' => Auth::id(),
                         'product_id' => $item['product_id'],
-                        'warehouse_qty' => $distribution['warehouse']['qty'] ?? 0,
-                        'store_qty' => $distribution['store']['qty'] ?? 0
+                        'unit_id' => $item['unit_id'],
+                        'category_id' => $item['category_id'],
+                        'subcategory_id' => $item['subcategory_id'] ?? null,
+                        'qty' => $item['qty'],
+                        'qty_gudang' => $item['qty_gudang'] ?? 0,
+                        'qty_toko' => $item['qty_toko'] ?? 0,
+                        'harga_pembelian' => $item['harga_pembelian'],
+                        'subtotal' => $subtotal, // sudah termasuk proporsi fee kuli dan timbangan
+                        'kuli_fee' => $itemData['item_kuli_fee'], // porsi kuli fee untuk item ini
+                        'timbangan' => $itemData['item_timbangan'], // porsi timbangan untuk item ini
                     ]);
 
-                    // Record stock movements untuk tracking
-                    try {
-                        // Record movement untuk gudang jika ada
-                        if (isset($distribution['warehouse']) && $distribution['warehouse']['qty'] > 0) {
-                            $unit = $distribution['warehouse']['unit'];
-                            $qtyInKg = $distribution['warehouse']['qty'] * ($unit ? $unit->conversion_to_kg : 1);
+                    // Siapkan distribusi stok menggunakan helper baru
+                    $distribution = [];
 
-                            StockMovement::recordMovement(
-                                $item['product_id'],
-                                $warehouse ? $warehouse->id : null,
-                                'purchase',
-                                $qtyInKg,
-                                null, // balance will be calculated
-                                'purchase',
-                                $purchase->id,
-                                'Pembelian - ' . $purchase->invoice_number,
-                                Auth::id()
-                            );
-
-                            Log::info('[PurchaseController] Stock movement gudang tercatat', [
-                                'product_id' => $item['product_id'],
-                                'warehouse_id' => $warehouse ? $warehouse->id : null,
-                                'qty_kg' => $qtyInKg
-                            ]);
+                    // Distribusi ke gudang
+                    if (!empty($item['qty_gudang']) && $item['qty_gudang'] > 0) {
+                        $unit = Unit::find($item['unit_id']);
+                        if (!$unit) {
+                            throw new \Exception("Unit not found for id: " . $item['unit_id']);
                         }
+                        $distribution['warehouse'] = [
+                            'qty' => $item['qty_gudang'],
+                            'unit' => $unit
+                        ];
+                    }
 
-                        // Record movement untuk toko jika ada
-                        if (isset($distribution['store']) && $distribution['store']['qty'] > 0) {
-                            $unit = $distribution['store']['unit'];
-                            $qtyInKg = $distribution['store']['qty'] * ($unit ? $unit->conversion_to_kg : 1);
-
-                            StockMovement::recordTokoMovement(
-                                $item['product_id'],
-                                $toko->id ?? null,
-                                'purchase',
-                                $qtyInKg,
-                                'purchase',
-                                $purchase->id,
-                                'Pembelian - ' . $purchase->invoice_number,
-                                Auth::id()
-                            );
-
-                            Log::info('[PurchaseController] Stock movement toko tercatat', [
-                                'product_id' => $item['product_id'],
-                                'toko_id' => $toko->id ?? null,
-                                'qty_kg' => $qtyInKg
-                            ]);
+                    // Distribusi ke toko
+                    if (!empty($item['qty_toko']) && $item['qty_toko'] > 0) {
+                        $unit = Unit::find($item['unit_id']);
+                        if (!$unit) {
+                            throw new \Exception("Unit not found for id: " . $item['unit_id']);
                         }
-                    } catch (\Exception $e) {
-                        Log::error('[PurchaseController] Gagal mencatat stock movement', [
-                            'error' => $e->getMessage(),
-                            'product_id' => $item['product_id']
+                        $distribution['store'] = [
+                            'qty' => $item['qty_toko'],
+                            'unit' => $unit
+                        ];
+
+                        // Cari atau buat data toko
+                        $toko = \App\Models\Toko::firstOrCreate([
+                            'name' => $validated['toko_name'] ?? 'Toko',
+                        ], [
+                            'address' => $validated['toko_address'] ?? null,
+                            'phone' => $validated['toko_phone'] ?? null,
+                            'description' => 'Auto created from pembelian',
                         ]);
-                        // Tidak throw exception karena stock sudah terupdate, ini hanya untuk tracking
+
+                        // Set toko_id pada purchase
+                        if (empty($purchase->toko_id)) {
+                            $purchase->toko_id = $toko->id;
+                        }
+                    }
+
+                    // Update stok menggunakan service baru
+                    if (!empty($distribution)) {
+                        $tokoId = isset($toko) && isset($toko->id) ? $toko->id : null;
+                        $stockUpdateResult = StockUpdateService::updateStockAfterPurchase(
+                            $item['product_id'],
+                            $distribution,
+                            $warehouse ? $warehouse->id : null,
+                            $tokoId,
+                            Auth::id()
+                        );
+
+                        if (!$stockUpdateResult) {
+                            Log::error('[PurchaseController] Gagal update stok setelah pembelian', [
+                                'product_id' => $item['product_id'],
+                                'distribution' => $distribution
+                            ]);
+                            throw new \Exception('Gagal mengupdate stok untuk produk ID: ' . $item['product_id']);
+                        }
+
+                        Log::info('[PurchaseController] Stok berhasil diupdate dengan StockUpdateService', [
+                            'product_id' => $item['product_id'],
+                            'warehouse_qty' => $distribution['warehouse']['qty'] ?? 0,
+                            'store_qty' => $distribution['store']['qty'] ?? 0
+                        ]);
+
+                        // Record stock movements untuk tracking
+                        try {
+                            // Record movement untuk gudang jika ada
+                            if (isset($distribution['warehouse']) && $distribution['warehouse']['qty'] > 0) {
+                                $unit = $distribution['warehouse']['unit'];
+                                $qtyInKg = $distribution['warehouse']['qty'] * ($unit ? $unit->conversion_to_kg : 1);
+
+                                StockMovement::recordMovement(
+                                    $item['product_id'],
+                                    $warehouse ? $warehouse->id : null,
+                                    'purchase',
+                                    $qtyInKg,
+                                    null, // balance will be calculated
+                                    'purchase',
+                                    $purchase->id,
+                                    'Pembelian - ' . $purchase->invoice_number,
+                                    Auth::id()
+                                );
+
+                                Log::info('[PurchaseController] Stock movement gudang tercatat', [
+                                    'product_id' => $item['product_id'],
+                                    'warehouse_id' => $warehouse ? $warehouse->id : null,
+                                    'qty_kg' => $qtyInKg
+                                ]);
+                            }
+
+                            // Record movement untuk toko jika ada
+                            if (isset($distribution['store']) && $distribution['store']['qty'] > 0) {
+                                $unit = $distribution['store']['unit'];
+                                $qtyInKg = $distribution['store']['qty'] * ($unit ? $unit->conversion_to_kg : 1);
+
+                                StockMovement::recordTokoMovement(
+                                    $item['product_id'],
+                                    $toko->id ?? null,
+                                    'purchase',
+                                    $qtyInKg,
+                                    'purchase',
+                                    $purchase->id,
+                                    'Pembelian - ' . $purchase->invoice_number,
+                                    Auth::id()
+                                );
+
+                                Log::info('[PurchaseController] Stock movement toko tercatat', [
+                                    'product_id' => $item['product_id'],
+                                    'toko_id' => $toko->id ?? null,
+                                    'qty_kg' => $qtyInKg
+                                ]);
+                            }
+                        } catch (\Exception $e) {
+                            Log::error('[PurchaseController] Gagal mencatat stock movement', [
+                                'error' => $e->getMessage(),
+                                'product_id' => $item['product_id']
+                            ]);
+                            // Tidak throw exception karena stock sudah terupdate, ini hanya untuk tracking
+                        }
                     }
                 }
-            }
 
-            // Simpan purchase jika toko_id baru saja diisi sehingga StockCardService bisa melihatnya
-            if ($purchase->isDirty('toko_id')) {
-                $purchase->save();
-            }
+                // Simpan purchase jika toko_id baru saja diisi sehingga StockCardService bisa melihatnya
+                if ($purchase->isDirty('toko_id')) {
+                    $purchase->save();
+                }
 
-            StockCardService::recordInFromPurchase($purchase);
+                StockCardService::recordInFromPurchase($purchase);
 
-            // Record TransactionHistory entries for this purchase (one per item)
-            try {
-                foreach ($purchase->items as $pItem) {
-                    $unit = Unit::find($pItem->unit_id);
-                    $unitName = $unit ? $unit->name : null;
+                // Record TransactionHistory entries for this purchase (one per item)
+                try {
+                    foreach ($purchase->items as $pItem) {
+                        $unit = Unit::find($pItem->unit_id);
+                        $unitName = $unit ? $unit->name : null;
 
-                    // attempt to derive stock_before/after from product->stock (stored in kg canonical)
-                    $product = Product::find($pItem->product_id);
-                    $stockBefore = $product ? ($product->stock ?? null) : null;
+                        // attempt to derive stock_before/after from product->stock (stored in kg canonical)
+                        $product = Product::find($pItem->product_id);
+                        $stockBefore = $product ? ($product->stock ?? null) : null;
 
-                    // quantity in original unit
-                    $qty = $pItem->qty;
+                        // quantity in original unit
+                        $qty = $pItem->qty;
 
-                    // compute subtotal if not present
-                    $subtotal = $pItem->subtotal ?? ($qty * ($pItem->harga_pembelian ?? 0));
+                        // compute subtotal if not present
+                        $subtotal = $pItem->subtotal ?? ($qty * ($pItem->harga_pembelian ?? 0));
 
-                    // Ensure transaction_number is unique per history row by appending the purchase item id
-                    // This prevents duplicate-key errors when a purchase has multiple items but the
-                    // transaction_histories.transaction_number column is declared UNIQUE.
-                    $thNumber = $purchase->invoice_number . '-' . $pItem->id;
-                    Log::debug('[TransactionHistory] creating', ['transaction_number' => $thNumber, 'purchase_id' => $purchase->id, 'purchase_item_id' => $pItem->id]);
+                        // Ensure transaction_number is unique per history row by appending the purchase item id
+                        // This prevents duplicate-key errors when a purchase has multiple items but the
+                        // transaction_histories.transaction_number column is declared UNIQUE.
+                        $thNumber = $purchase->invoice_number . '-' . $pItem->id;
+                        Log::debug('[TransactionHistory] creating', ['transaction_number' => $thNumber, 'purchase_id' => $purchase->id, 'purchase_item_id' => $pItem->id]);
 
-                    $th = \App\Models\TransactionHistory::create([
-                        'transaction_number' => $thNumber,
-                        'transaction_type' => 'purchase',
-                        'transaction_date' => $purchase->purchase_date,
-                        // record the actual time the purchase was saved in WIB
-                        'transaction_time' => \Carbon\Carbon::now('Asia/Jakarta')->format('H:i:s'),
-                        'related_party' => $purchase->supplier ? $purchase->supplier->name : ($purchase->toko ? $purchase->toko->name : null),
-                        'toko_id' => $purchase->toko_id,
-                        // warehouse_id column removed from schema; omit it
-                        'product_id' => $pItem->product_id,
-                        'quantity' => $qty,
-                        'unit' => $unitName,
-                        'price' => $pItem->harga_pembelian ?? 0,
-                        'subtotal' => $subtotal,
-                        'kuli_fee' => $pItem->kuli_fee ?? 0,
-                        'timbangan' => $pItem->timbangan ?? null,
-                        'stock_before' => $stockBefore ?? 0,
-                        'stock_after' => $product ? ($product->stock ?? 0) : 0,
-                        'payment_status' => null,
-                        'notes' => 'Auto-recorded from Purchase #' . $purchase->id,
-                        'created_by' => Auth::id(),
+                        $th = \App\Models\TransactionHistory::create([
+                            'transaction_number' => $thNumber,
+                            'transaction_type' => 'purchase',
+                            'transaction_date' => $purchase->purchase_date,
+                            // record the actual time the purchase was saved in WIB
+                            'transaction_time' => \Carbon\Carbon::now('Asia/Jakarta')->format('H:i:s'),
+                            'related_party' => $purchase->supplier ? $purchase->supplier->name : ($purchase->toko ? $purchase->toko->name : null),
+                            'toko_id' => $purchase->toko_id,
+                            // warehouse_id column removed from schema; omit it
+                            'product_id' => $pItem->product_id,
+                            'quantity' => $qty,
+                            'unit' => $unitName,
+                            'price' => $pItem->harga_pembelian ?? 0,
+                            'subtotal' => $subtotal,
+                            'kuli_fee' => $pItem->kuli_fee ?? 0,
+                            'timbangan' => $pItem->timbangan ?? null,
+                            'stock_before' => $stockBefore ?? 0,
+                            'stock_after' => $product ? ($product->stock ?? 0) : 0,
+                            'payment_status' => null,
+                            'notes' => 'Auto-recorded from Purchase #' . $purchase->id,
+                            'created_by' => Auth::id(),
+                        ]);
+                        try {
+                            event(new \App\Events\TransactionHistoryCreated($th));
+                        } catch (\Throwable $e) {
+                            Log::warning('Failed to broadcast TransactionHistoryCreated (purchase): ' . $e->getMessage());
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to record TransactionHistory for purchase', ['error' => $e->getMessage(), 'purchase_id' => $purchase->id]);
+                    // let transaction continue; history is best-effort
+                }
+
+                if ($request->hasHeader('X-Inertia')) {
+                    // Untuk request Inertia, redirect ke halaman create dengan flash message.
+                    session()->flash('lastPurchaseId', $purchase->id);
+                    session()->flash('successMessage', 'Pembelian berhasil disimpan dengan nomor invoice ' . $invoiceNumber . '. Form telah direset untuk transaksi baru.');
+                    return redirect()->route('purchases.create');
+                }
+
+                // If the client explicitly expects JSON but it's NOT an Inertia request,
+                // return JSON. Do not return plain JSON for Inertia requests.
+                if (($request->wantsJson() || $request->ajax()) && !$request->hasHeader('X-Inertia')) {
+                    return response()->json([
+                        'success' => true,
+                        'lastPurchaseId' => $purchase->id,
                     ]);
-                    try {
-                        event(new \App\Events\TransactionHistoryCreated($th));
-                    } catch (\Throwable $e) {
-                        Log::warning('Failed to broadcast TransactionHistoryCreated (purchase): ' . $e->getMessage());
-                    }
                 }
-            } catch (\Exception $e) {
-                Log::error('Failed to record TransactionHistory for purchase', ['error' => $e->getMessage(), 'purchase_id' => $purchase->id]);
-                // let transaction continue; history is best-effort
-            }
 
-            if ($request->hasHeader('X-Inertia')) {
-                // Untuk request Inertia, kembalikan respon Inertia yang valid.
-                // Simpan sementara lastPurchaseId di session lalu render kembali halaman Create
-                session()->flash('lastPurchaseId', $purchase->id);
-                session()->flash('successMessage', 'Pembelian berhasil disimpan dengan nomor invoice ' . $invoiceNumber . '. Form telah direset untuk transaksi baru.');
-                return $this->create();
-            }
-
-            // If the client explicitly expects JSON but it's NOT an Inertia request,
-            // return JSON. Do not return plain JSON for Inertia requests.
-            if (($request->wantsJson() || $request->ajax()) && !$request->hasHeader('X-Inertia')) {
-                return response()->json([
-                    'success' => true,
-                    'lastPurchaseId' => $purchase->id,
-                ]);
-            }
-
-            return redirect()->route('purchases.receipt', $purchase->id);
-        });
+                return redirect()->route('purchases.receipt', $purchase->id);
+            });
+        } catch (\Exception $e) {
+            Log::error('Error in purchase store transaction', ['error' => $e->getMessage()]);
+            return redirect()->route('purchases.create')->withErrors(['error' => 'Failed to save purchase: ' . $e->getMessage()]);
+        }
     }
 
     /**

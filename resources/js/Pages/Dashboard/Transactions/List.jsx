@@ -5,7 +5,8 @@ import { Head, Link, router, usePage } from "@inertiajs/react";
 import Input from "@/Components/Dashboard/Input";
 
 export default function List() {
-    const { transactions = [] } = usePage().props;
+    const page = usePage();
+    const { transactions = [], auth } = page.props;
     const [search, setSearch] = useState("");
 
     // Contoh penggunaan useEffect jika ingin fetch/filter data
@@ -85,9 +86,7 @@ export default function List() {
                                         </Link>
                                         {/** Tombol buat surat jalan: hanya untuk role gudang/admin/super-admin dan jika transaksi sudah dibayar */}
                                         {(() => {
-                                            const roles =
-                                                usePage().props.auth?.user
-                                                    ?.roles || [];
+                                            const roles = auth?.user?.roles || [];
                                             const allowed = roles.some((r) =>
                                                 [
                                                     "super-admin",

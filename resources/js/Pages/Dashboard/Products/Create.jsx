@@ -8,13 +8,14 @@ import Input from "@/Components/Dashboard/Input";
 import toast from "react-hot-toast";
 import InputSelect from "@/Components/Dashboard/InputSelect";
 
-export default function Create({ categories, units, subcategories }) {
+export default function Create({ categories, units, subcategories, suppliers }) {
     const { errors } = usePage().props;
     const { data, setData, post, processing } = useForm({
         name: "",
         category_id: "",
         subcategory_id: "",
         unit_id: "",
+        supplier_id: "",
         barcode: "",
         image: "",
         min_stock: "",
@@ -26,6 +27,7 @@ export default function Create({ categories, units, subcategories }) {
     const [selectedCategory, setSelectedCategory] = useState(null);
     const [filteredSubcategories, setFilteredSubcategories] = useState([]);
     const [selectedSubcategory, setSelectedSubcategory] = useState(null);
+    const [selectedSupplier, setSelectedSupplier] = useState(null);
 
     // (dihapus, dipindahkan ke dalam fungsi komponen)
 
@@ -103,6 +105,11 @@ export default function Create({ categories, units, subcategories }) {
     const setSelectedSubcategoryHandler = (value) => {
         setSelectedSubcategory(value);
         setData("subcategory_id", value ? Number(value.id) : "");
+    };
+
+    const setSelectedSupplierHandler = (value) => {
+        setSelectedSupplier(value);
+        setData("supplier_id", value ? Number(value.id) : "");
     };
 
     // Track manual edits to barcode so auto-generation won't override
@@ -243,9 +250,9 @@ export default function Create({ categories, units, subcategories }) {
                     <div className="col-span-12 md:col-span-6">
                         <InputSelect
                             label="Satuan"
-                            data={units}
+                            data={units || []}
                             selected={
-                                units.find((u) => u.id === data.unit_id) || null
+                                units && units.find((u) => u.id === data.unit_id) || null
                             }
                             setSelected={(unit) =>
                                 setData("unit_id", unit ? unit.id : "")
@@ -254,6 +261,29 @@ export default function Create({ categories, units, subcategories }) {
                             error={errors.unit_id}
                             displayKey="name"
                         />
+                    </div>
+
+                    {/* Supplier */}
+                    <div className="col-span-12 md:col-span-6">
+                        <InputSelect
+                            label="Supplier"
+                            data={suppliers}
+                            selected={selectedSupplier}
+                            setSelected={setSelectedSupplierHandler}
+                            placeholder="Pilih supplier"
+                            error={errors.supplier_id}
+                            displayKey="name"
+                        />
+                    </div>
+
+                    {/* Owner (dari supplier) */}
+                    <div className="col-span-12 md:col-span-6">
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            Owner
+                        </label>
+                        <div className="px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-gray-100">
+                            {selectedSupplier?.owner || "Pilih supplier terlebih dahulu"}
+                        </div>
                     </div>
 
                     {/* Stok Minimal */}
