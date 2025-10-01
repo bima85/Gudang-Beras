@@ -21,6 +21,9 @@ import {
    IconDatabaseOff,
    IconChevronDown,
    IconChevronRight,
+   IconArrowUp,
+   IconArrowDown,
+   IconArrowsSort,
 } from "@tabler/icons-react";
 import EmptyState from "@/Components/Dashboard/EmptyState";
 import Search from "@/Components/Dashboard/Search";
@@ -35,7 +38,10 @@ import {
    flexRender,
 } from "@tanstack/react-table";
 
-function Index({ products, errors }) {
+import ProductStatsCards from "@/Components/Dashboard/ProductStatsCards";
+import ProductTableSkeleton from "@/Components/Dashboard/ProductTableSkeleton";
+
+function Index({ products, stats, errors }) {
    // Fungsi hapus produk
    const handleDelete = (id, name) => {
       if (confirm(`Yakin ingin menghapus produk "${name}"?`)) {
@@ -45,6 +51,7 @@ function Index({ products, errors }) {
 
    // State untuk search
    const [search, setSearch] = useState("");
+   const [isLoading, setIsLoading] = useState(false);
 
    // State untuk expanded groups - initialize with all groups expanded
    const [expandedGroups, setExpandedGroups] = useState(() => new Set());
@@ -64,13 +71,19 @@ function Index({ products, errors }) {
    // Fungsi handle cari
    const handleSearch = (e) => {
       e.preventDefault();
-      router.get(route("products.index"), { search });
+      setIsLoading(true);
+      router.get(route("products.index"), { search }, {
+         onFinish: () => setIsLoading(false)
+      });
    };
 
    // Fungsi handle reset
    const handleReset = () => {
       setSearch("");
-      router.get(route("products.index"));
+      setIsLoading(true);
+      router.get(route("products.index"), {}, {
+         onFinish: () => setIsLoading(false)
+      });
    };
 
    // Prepare data for Tanstack Table with grouping
@@ -181,13 +194,57 @@ function Index({ products, errors }) {
          {
             accessorKey: "name",
             header: "Nama Produk",
-            cell: ({ getValue }) => getValue() || "-",
+            cell: ({ getValue, row }) => {
+               const stock = row.original.stock || 0;
+               const minStock = row.original.min_stock || 0;
+               const stockStatus = stock <= 0 ? 'out' : stock <= minStock ? 'low' : 'good';
+               
+               return (
+                  <div className="flex items-center gap-2">
+                     <span>{getValue() || "-"}</span>
+                     {stockStatus === 'out' && (
+                        <Badge variant="destructive" className="text-xs">
+                           Habis
+                        </Badge>
+                     )}
+                     {stockStatus === 'low' && (
+                        <Badge variant="warning" className="text-xs bg-yellow-100 text-yellow-800 hover:bg-yellow-100">
+                           Stok Rendah
+                        </Badge>
+                     )}
+                     {stockStatus === 'good' && stock > 0 && (
+                        <Badge variant="secondary" className="text-xs bg-green-100 text-green-800 hover:bg-green-100">
+                           Tersedia
+                        </Badge>
+                     )}
+                  </div>
+               );
+            },
+         },
+         {
+            accessorKey: "stock",
+            header: "Stok",
+            cell: ({ getValue, row }) => {
+               const stock = getValue() || 0;
+               const minStock = row.original.min_stock || 0;
+               const stockStatus = stock <= 0 ? 'text-red-600' : stock <= minStock ? 'text-yellow-600' : 'text-green-600';
+               
+               return (
+                  <span className={`font-medium ${stockStatus}`}>
+                     {stock} kg
+                  </span>
+               );
+            },
          },
 
          {
             accessorKey: "categoryName",
             header: "Kategori",
-            cell: ({ getValue }) => getValue(),
+            cell: ({ getValue }) => (
+               <Badge variant="outline" className="text-xs">
+                  {getValue()}
+               </Badge>
+            ),
          },
          {
             accessorKey: "subcategoryName",
@@ -221,22 +278,25 @@ function Index({ products, errors }) {
             cell: ({ row }) => {
                if (row.original.isGroup) return null; // No actions for group rows
                return (
-                  <div className="flex gap-2">
-                     <Button variant="ghost" size="sm" asChild>
+                  <div className="flex gap-1">
+                     <Button variant="ghost" size="sm" asChild className="h-8 px-2">
                         <Link
                            href={route("products.edit", row.original.id)}
-                           className="inline-flex items-center px-2 py-1"
+                           className="inline-flex items-center gap-1 text-xs hover:bg-blue-50 hover:text-blue-600 transition-colors"
                         >
+                           <IconPencilCog size={14} />
                            Edit
                         </Link>
                      </Button>
                      <Button
-                        variant="destructive"
+                        variant="ghost"
                         size="sm"
+                        className="h-8 px-2 text-xs hover:bg-red-50 hover:text-red-600 transition-colors"
                         onClick={() =>
                            handleDelete(row.original.id, row.original.name)
                         }
                      >
+                        <IconTrash size={14} />
                         Hapus
                      </Button>
                   </div>
@@ -258,8 +318,14 @@ function Index({ products, errors }) {
       getSortedRowModel: getSortedRowModel(),
       initialState: {
          pagination: {
-            pageSize: 10,
+            pageSize: 15,
          },
+         sorting: [
+            {
+               id: "name",
+               desc: false,
+            },
+         ],
       },
    });
 
@@ -283,6 +349,9 @@ function Index({ products, errors }) {
       <DashboardLayout>
          <div className="min-h-screen p-4 sm:p-6">
             <Head title="Daftar Produk" />
+
+            {/* Stats Cards */}
+            <ProductStatsCards stats={stats} />
 
             <Card className="mb-6">
                <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -334,88 +403,112 @@ function Index({ products, errors }) {
                      </div>
                   )}
 
-                  <div className="rounded-md border">
-                     <Table>
-                        <TableHeader>
-                           {table.getHeaderGroups().map((headerGroup) => (
-                              <TableRow key={headerGroup.id}>
-                                 {headerGroup.headers.map((header) => (
-                                    <TableHead key={header.id}>
-                                       {header.isPlaceholder
-                                          ? null
-                                          : flexRender(
-                                             header.column.columnDef.header,
-                                             header.getContext()
-                                          )}
-                                    </TableHead>
-                                 ))}
-                              </TableRow>
-                           ))}
-                        </TableHeader>
-                        <TableBody>
-                           {table.getRowModel().rows?.length ? (
-                              table.getRowModel().rows.map((row) => {
-                                 if (row.original.isGroup) {
-                                    // Render group header row
-                                    return (
-                                       <TableRow key={row.id} className="bg-muted/30">
-                                          <TableCell colSpan={columns.length} className="py-3">
-                                             <div
-                                                className="flex items-center gap-2 cursor-pointer hover:bg-muted/50 rounded px-2 py-1 -mx-2 -my-1"
-                                                onClick={() => toggleGroupExpansion(row.original.groupKey)}
-                                             >
-                                                {row.original.isExpanded ? (
-                                                   <IconChevronDown size={16} className="text-muted-foreground" />
-                                                ) : (
-                                                   <IconChevronRight size={16} className="text-muted-foreground" />
+                  {isLoading ? (
+                     <ProductTableSkeleton />
+                  ) : (
+                     <div className="rounded-md border">
+                        <Table>
+                           <TableHeader>
+                              {table.getHeaderGroups().map((headerGroup) => (
+                                 <TableRow key={headerGroup.id}>
+                                    {headerGroup.headers.map((header) => (
+                                       <TableHead 
+                                          key={header.id}
+                                          className={header.column.getCanSort() ? "cursor-pointer select-none hover:bg-muted/50 transition-colors" : ""}
+                                          onClick={header.column.getToggleSortingHandler()}
+                                       >
+                                          <div className="flex items-center gap-2">
+                                             {header.isPlaceholder
+                                                ? null
+                                                : flexRender(
+                                                   header.column.columnDef.header,
+                                                   header.getContext()
                                                 )}
-                                                <Badge variant="secondary" className="text-xs">
-                                                   Grup: {row.original.ownerName}
-                                                </Badge>
-                                                <span className="text-sm text-muted-foreground">
-                                                   ({row.original.products.length} produk)
-                                                </span>
-                                             </div>
-                                          </TableCell>
+                                             {header.column.getCanSort() && (
+                                                <div className="flex flex-col">
+                                                   {header.column.getIsSorted() === "asc" && (
+                                                      <IconArrowUp size={14} className="text-primary" />
+                                                   )}
+                                                   {header.column.getIsSorted() === "desc" && (
+                                                      <IconArrowDown size={14} className="text-primary" />
+                                                   )}
+                                                   {!header.column.getIsSorted() && (
+                                                      <IconArrowsSort size={14} className="text-muted-foreground opacity-50" />
+                                                   )}
+                                                </div>
+                                             )}
+                                          </div>
+                                       </TableHead>
+                                    ))}
+                                 </TableRow>
+                              ))}
+                           </TableHeader>
+                           <TableBody>
+                              {table.getRowModel().rows?.length ? (
+                                 table.getRowModel().rows.map((row) => {
+                                    if (row.original.isGroup) {
+                                       // Render group header row
+                                       return (
+                                          <TableRow key={row.id} className="bg-muted/30 hover:bg-muted/40 transition-colors">
+                                             <TableCell colSpan={columns.length} className="py-3">
+                                                <div
+                                                   className="flex items-center gap-2 cursor-pointer hover:bg-muted/60 rounded px-2 py-1 -mx-2 -my-1 transition-colors"
+                                                   onClick={() => toggleGroupExpansion(row.original.groupKey)}
+                                                >
+                                                   {row.original.isExpanded ? (
+                                                      <IconChevronDown size={16} className="text-muted-foreground" />
+                                                   ) : (
+                                                      <IconChevronRight size={16} className="text-muted-foreground" />
+                                                   )}
+                                                   <Badge variant="secondary" className="text-xs">
+                                                      Grup: {row.original.ownerName}
+                                                   </Badge>
+                                                   <span className="text-sm text-muted-foreground">
+                                                      ({row.original.products.length} produk)
+                                                   </span>
+                                                </div>
+                                             </TableCell>
+                                          </TableRow>
+                                       );
+                                    }
+
+                                    // Render regular product row
+                                    return (
+                                       <TableRow
+                                          key={row.id}
+                                          data-state={
+                                             row.getIsSelected() && "selected"
+                                          }
+                                          className="hover:bg-muted/50 transition-colors"
+                                       >
+                                          {row.getVisibleCells().map((cell) => (
+                                             <TableCell key={cell.id}>
+                                                {flexRender(
+                                                   cell.column.columnDef.cell,
+                                                   cell.getContext()
+                                                )}
+                                             </TableCell>
+                                          ))}
                                        </TableRow>
                                     );
-                                 }
-
-                                 // Render regular product row
-                                 return (
-                                    <TableRow
-                                       key={row.id}
-                                       data-state={
-                                          row.getIsSelected() && "selected"
-                                       }
+                                 })
+                              ) : (
+                                 <TableRow>
+                                    <TableCell
+                                       colSpan={columns.length}
+                                       className="h-24 text-center"
                                     >
-                                       {row.getVisibleCells().map((cell) => (
-                                          <TableCell key={cell.id}>
-                                             {flexRender(
-                                                cell.column.columnDef.cell,
-                                                cell.getContext()
-                                             )}
-                                          </TableCell>
-                                       ))}
-                                    </TableRow>
-                                 );
-                              })
-                           ) : (
-                              <TableRow>
-                                 <TableCell
-                                    colSpan={columns.length}
-                                    className="h-24 text-center"
-                                 >
-                                    <EmptyState
-                                       title="Data produk belum ada"
-                                       description="Silakan tambahkan produk baru."
-                                    />
-                                 </TableCell>
-                              </TableRow>
-                           )}
-                        </TableBody>
-                     </Table>
-                  </div>
+                                       <EmptyState
+                                          title="Data produk belum ada"
+                                          description="Silakan tambahkan produk baru."
+                                       />
+                                    </TableCell>
+                                 </TableRow>
+                              )}
+                           </TableBody>
+                        </Table>
+                     </div>
+                  )}
                </CardContent>
             </Card>
 

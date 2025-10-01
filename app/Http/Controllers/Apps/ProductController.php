@@ -46,11 +46,25 @@ class ProductController extends Controller
                 });
         })
             ->with(['category', 'subcategory', 'unit', 'supplier'])
-            ->latest()->paginate(10)
+            ->latest()->paginate(15)
             ->withQueryString();
+
+        // Calculate product statistics
+        $totalProducts = Product::count();
+        $outOfStock = Product::where('stock', '<=', 0)->count();
+        $lowStock = Product::whereRaw('stock > 0 AND stock <= min_stock')->count();
+        $inStock = $totalProducts - $outOfStock - $lowStock;
+
+        $stats = [
+            'total' => $totalProducts,
+            'inStock' => $inStock,
+            'lowStock' => $lowStock,
+            'outOfStock' => $outOfStock,
+        ];
 
         return Inertia::render('Dashboard/Products/Index', [
             'products' => $products,
+            'stats' => $stats,
             'filters' => request()->only(['search']),
         ]);
     }
