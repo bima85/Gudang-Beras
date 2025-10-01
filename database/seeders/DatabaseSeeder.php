@@ -27,8 +27,8 @@ class DatabaseSeeder extends Seeder
             UnitSeeder::class,
             // Basic data for testing (categories, warehouses, tokos, products)
             BasicDataSeeder::class,
-            // Product categories and subcategories with specific products
-            ProductCategorySeeder::class,
+            // Complete product data with suppliers and products (replaces ProductCategorySeeder)
+            ProductSeeder::class,
             // Ensure delivery permission exists and is assigned to gudang/super-admin
             EnsureDeliveryPermissionSeeder::class,
             // Ensure core roles and permissions exist and are assigned
