@@ -196,17 +196,21 @@ export default function ProductForm({
                         </Button>
                         <Button
                             onClick={() => {
+                                // Reset all filters
                                 setBarcode("");
-                                // Show all products
-                                if (searchProduct) {
+                                setSelectedCategory(null);
+                                setSelectedSubcategory(null);
+                                setSelectedProduct(null);
+                                // Trigger search with empty barcode to show all products
+                                if (searchProduct && typeof searchProduct === 'function') {
                                     searchProduct("", selectedWarehouse, null);
                                 }
                             }}
                             disabled={isLoadingProduct}
                             variant="outline"
                             size="sm"
-                            className="px-3"
-                            title="Tampilkan semua produk"
+                            className="px-3 hover:bg-blue-50 hover:border-blue-500"
+                            title="Reset pencarian & tampilkan semua produk"
                         >
                             <Package className="w-4 h-4" />
                         </Button>

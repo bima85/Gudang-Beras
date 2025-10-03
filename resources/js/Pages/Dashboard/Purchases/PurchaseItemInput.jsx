@@ -34,32 +34,64 @@ export default function PurchaseItemInput({
    const formItemIndex = isFormMode ? data.items.length - 1 : null;
    const currentItem = isFormMode ? data.items[formItemIndex] : item;
 
-   // Automatically set qty_toko = qty when checkbox is not checked
+   // Auto-calculate qty_toko based on qty and qty_gudang
    useEffect(() => {
-      if (!showQtyFields) {
-         const qtyValue = parseFloat(currentItem?.qty) || 0;
-         const qtyToko = parseFloat(currentItem?.qty_toko || 0);
-         if (qtyValue !== qtyToko) {
+      const totalQty = parseFloat(currentItem?.qty) || 0;
+      const qtyGudang = parseFloat(currentItem?.qty_gudang) || 0;
+
+      let calculatedQtyToko = 0;
+
+      if (showQtyFields) {
+         // When checkbox is checked: qty_toko = qty - qty_gudang
+         if (totalQty > 0) {
+            calculatedQtyToko = totalQty - qtyGudang;
+            if (calculatedQtyToko < 0) calculatedQtyToko = 0;
+         } else if (qtyGudang > 0) {
+            // If only gudang is entered, auto-set main qty
             if (isFormMode) {
                const newItems = [...data.items];
-               newItems[formItemIndex] = { ...newItems[formItemIndex], qty_toko: 0 };
+               newItems[formItemIndex] = {
+                  ...newItems[formItemIndex],
+                  qty: qtyGudang,
+                  qty_toko: 0
+               };
                setData("items", newItems);
-            } else if (onChange) {
-               onChange({ target: { name: "qty_toko", value: "" } });
+               return;
             }
          }
-         // Clear qty_gudang when checkbox is not checked
-         if (currentItem?.qty_gudang) {
+      } else {
+         // When checkbox is not checked: qty_toko = qty (all goes to shop)
+         calculatedQtyToko = totalQty;
+         // Also clear qty_gudang
+         if (currentItem?.qty_gudang && currentItem.qty_gudang !== 0) {
             if (isFormMode) {
                const newItems = [...data.items];
-               newItems[formItemIndex] = { ...newItems[formItemIndex], qty_gudang: 0 };
+               newItems[formItemIndex] = {
+                  ...newItems[formItemIndex],
+                  qty_gudang: 0,
+                  qty_toko: calculatedQtyToko
+               };
                setData("items", newItems);
-            } else if (onChange) {
-               onChange({ target: { name: "qty_gudang", value: "" } });
+               return;
             }
          }
       }
-   }, [currentItem?.qty, showQtyFields, currentItem?.qty_toko, currentItem?.qty_gudang]);
+
+      // Update qty_toko if it has changed
+      const currentQtyToko = parseFloat(currentItem?.qty_toko) || 0;
+      if (Math.abs(calculatedQtyToko - currentQtyToko) > 0.001) {
+         if (isFormMode) {
+            const newItems = [...data.items];
+            newItems[formItemIndex] = {
+               ...newItems[formItemIndex],
+               qty_toko: calculatedQtyToko
+            };
+            setData("items", newItems);
+         } else if (onChange) {
+            onChange({ target: { name: "qty_toko", value: calculatedQtyToko } });
+         }
+      }
+   }, [currentItem?.qty, currentItem?.qty_gudang, showQtyFields]);
 
    const handleFieldChange = (e) => {
       const { name, value } = e.target;
@@ -81,12 +113,6 @@ export default function PurchaseItemInput({
    // Display helper for qty_gudang
    const displayQtyGudang = (() => {
       const q = currentItem?.qty_gudang;
-      if (q === 0 || q === "0") return "";
-      return q ?? "";
-   })();
-   // Display helper for qty_toko
-   const displayQtyToko = (() => {
-      const q = currentItem?.qty_toko;
       if (q === 0 || q === "0") return "";
       return q ?? "";
    })();
@@ -428,7 +454,7 @@ export default function PurchaseItemInput({
             {/* Distribusi Qty Checkbox */}
             <div className="md:col-span-1">
                <label className="block mb-1 text-sm font-medium text-gray-700">
-                  Distribusi Qty
+                  Alokasi Gudang
                </label>
                <div className="flex items-center">
                   <input
@@ -439,18 +465,17 @@ export default function PurchaseItemInput({
                      className="mr-2"
                   />
                   <label htmlFor="showQtyFields" className="text-sm text-gray-700">
-                     Pisah Qty Toko & Gudang
+                     Atur Qty Gudang
                   </label>
                </div>
             </div>
 
             {showQtyFields ? (
                <>
-
                   {/* Qty Gudang */}
                   <div className="md:col-span-1">
                      <label className="block mb-1 text-sm font-medium text-gray-700">
-                        Qty Gudang
+                        Qty Stok Gudang
                      </label>
                      <Input
                         type="number"
@@ -463,21 +488,15 @@ export default function PurchaseItemInput({
                         placeholder="0"
                      />
                   </div>
-                  {/* Qty Toko */}
+
+                  {/* Qty Toko (Read-only, Auto-calculated) */}
                   <div className="md:col-span-1">
                      <label className="block mb-1 text-sm font-medium text-gray-700">
-                        Qty Toko
+                        Qty Stok Toko (Auto)
                      </label>
-                     <Input
-                        type="number"
-                        name="qty_toko"
-                        min="0"
-                        step="0.01"
-                        value={displayQtyToko}
-                        onChange={handleFieldChange}
-                        className="text-base"
-                        placeholder="0"
-                     />
+                     <div className="h-10 flex items-center px-3 bg-gray-50 rounded border border-gray-200 text-base font-medium text-gray-700">
+                        {currentItem?.qty_toko || 0}
+                     </div>
                   </div>
 
                   {/* Harga Beli */}

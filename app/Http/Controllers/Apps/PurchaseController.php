@@ -257,41 +257,49 @@ class PurchaseController extends Controller
             throw $e;
         }
 
-        // PERBAIKAN: Tambah logika alokasi otomatis jika qty_gudang dan qty_toko kosong
+        // PERBAIKAN: Tambah logika alokasi berdasarkan input qty dan qty_gudang
         foreach ($validated['items'] as $key => $item) {
             $totalQty = floatval($item['qty']);
             $qtyGudang = floatval($item['qty_gudang'] ?? 0);
             $qtyToko = floatval($item['qty_toko'] ?? 0);
 
-            // Jika alokasi belum diatur (keduanya 0), buat alokasi otomatis
-            if ($qtyGudang == 0 && $qtyToko == 0) {
-                // Default: 50% ke gudang, 50% ke toko
-                $qtyGudang = round($totalQty * 0.5, 2);
-                $qtyToko = round($totalQty * 0.5, 2);
+            // Logic for QTY allocation:
+            // 1) If only QTY is input (no warehouse qty), stock goes to shop
+            // 2) If both QTY and warehouse QTY are input, stock goes to both
+            // 3) If only warehouse QTY is input (no main QTY), stock goes to warehouse only
 
-                // Pastikan total alokasi sama dengan qty total
-                $totalAlokasi = $qtyGudang + $qtyToko;
-                if (abs($totalAlokasi - $totalQty) > 0.01) { // Toleransi untuk floating point
-                    $qtyGudang = $totalQty - $qtyToko; // Adjust gudang
-                }
+            if ($totalQty > 0 && $qtyGudang == 0 && $qtyToko == 0) {
+                // Case 1: Only QTY input - all goes to shop
+                $qtyToko = $totalQty;
+                $qtyGudang = 0;
 
-                $validated['items'][$key]['qty_gudang'] = $qtyGudang;
-                $validated['items'][$key]['qty_toko'] = $qtyToko;
+                Log::info('[PurchaseController] Alokasi ke toko saja (no warehouse qty)', [
+                    'product_id' => $item['product_id'],
+                    'total_qty' => $totalQty,
+                    'qty_toko' => $qtyToko
+                ]);
+            } elseif ($totalQty > 0 && $qtyGudang > 0) {
+                // Case 2: Both QTY and warehouse QTY input - split between both
+                $qtyToko = $totalQty - $qtyGudang;
+                if ($qtyToko < 0) $qtyToko = 0; // Prevent negative
 
-                Log::info('[PurchaseController] Alokasi otomatis 50%-50% dibuat', [
+                Log::info('[PurchaseController] Alokasi ke gudang dan toko', [
                     'product_id' => $item['product_id'],
                     'total_qty' => $totalQty,
                     'qty_gudang' => $qtyGudang,
                     'qty_toko' => $qtyToko
                 ]);
+            } elseif ($totalQty == 0 && $qtyGudang > 0) {
+                // Case 3: Only warehouse QTY input - all goes to warehouse
+                $totalQty = $qtyGudang;
+                $qtyToko = 0;
+
+                Log::info('[PurchaseController] Alokasi ke gudang saja (no main qty)', [
+                    'product_id' => $item['product_id'],
+                    'qty_gudang' => $qtyGudang
+                ]);
             } else {
-                // Jika user hanya mengisi qty_toko (tanpa qty_gudang), biarkan qty_gudang tetap 0
-                // Jika user hanya mengisi qty_gudang (tanpa qty_toko), biarkan qty_toko tetap 0
-                // Tidak perlu adjust otomatis jika user sudah mengisi salah satu
-
-                $validated['items'][$key]['qty_gudang'] = $qtyGudang;
-                $validated['items'][$key]['qty_toko'] = $qtyToko;
-
+                // If user manually set both qty_gudang and qty_toko, use those values
                 Log::info('[PurchaseController] Alokasi manual diterima', [
                     'product_id' => $item['product_id'],
                     'qty_gudang' => $qtyGudang,
@@ -299,6 +307,10 @@ class PurchaseController extends Controller
                     'total_qty' => $totalQty
                 ]);
             }
+
+            $validated['items'][$key]['qty'] = $totalQty;
+            $validated['items'][$key]['qty_gudang'] = $qtyGudang;
+            $validated['items'][$key]['qty_toko'] = $qtyToko;
         }
 
         try {
@@ -872,6 +884,7 @@ class PurchaseController extends Controller
     {
         try {
             $date = $request->query('date');
+            $supplierId = $request->query('supplier_id');
 
             if (!$date) {
                 return response()->json(['error' => 'Date parameter is required'], 400);
@@ -885,8 +898,23 @@ class PurchaseController extends Controller
             // Format date for invoice number (YYYY/MM/DD)
             $formattedDate = str_replace('-', '/', $date);
 
-            // Find existing invoice numbers for this date
-            $existingInvoices = Purchase::where('invoice_number', 'like', "PB-{$formattedDate}-%")
+            // Generate supplier code if supplier is selected
+            $supplierCode = '';
+            if ($supplierId) {
+                $supplier = Supplier::find($supplierId);
+                if ($supplier) {
+                    // Generate supplier code from first 3 letters of name (uppercase)
+                    $supplierCode = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $supplier->name), 0, 3));
+                    if (strlen($supplierCode) < 3) {
+                        $supplierCode = str_pad($supplierCode, 3, 'X');
+                    }
+                    $supplierCode = '-' . $supplierCode;
+                }
+            }
+
+            // Find existing invoice numbers for this date and supplier
+            $likePattern = "PB{$supplierCode}-{$formattedDate}-%";
+            $existingInvoices = Purchase::where('invoice_number', 'like', $likePattern)
                 ->pluck('invoice_number')
                 ->toArray();
 
@@ -894,9 +922,10 @@ class PurchaseController extends Controller
             $sequences = [];
             foreach ($existingInvoices as $invoice) {
                 $parts = explode('-', $invoice);
-                if (count($parts) === 3) {
-                    $seq = (int) $parts[2];
-                    $sequences[] = $seq;
+                // Expected format: PB-SUP-YYYY/MM/DD-XXX or PB-YYYY/MM/DD-XXX
+                $lastPart = end($parts);
+                if (is_numeric($lastPart)) {
+                    $sequences[] = (int) $lastPart;
                 }
             }
 
@@ -905,15 +934,17 @@ class PurchaseController extends Controller
             $nextSeqFormatted = str_pad($nextSeq, 3, '0', STR_PAD_LEFT);
 
             // Generate invoice number
-            $invoiceNumber = "PB-{$formattedDate}-{$nextSeqFormatted}";
+            $invoiceNumber = "PB{$supplierCode}-{$formattedDate}-{$nextSeqFormatted}";
 
             return response()->json([
                 'invoice_number' => $invoiceNumber,
-                'invoice_seq' => $nextSeqFormatted
+                'invoice_seq' => $nextSeqFormatted,
+                'supplier_code' => $supplierCode ? ltrim($supplierCode, '-') : null
             ]);
         } catch (\Exception $e) {
             Log::error('Error generating next invoice number', [
                 'date' => $date ?? null,
+                'supplier_id' => $supplierId ?? null,
                 'error' => $e->getMessage(),
                 'user_id' => Auth::id()
             ]);
