@@ -25,6 +25,7 @@ export default function ProductQuickModal({
     units = [],
     categories = [],
     subcategories = [],
+    supplierId = null,
     onCreated,
 }) {
     const [loading, setLoading] = useState(false);
@@ -36,6 +37,7 @@ export default function ProductQuickModal({
         description: "",
         category_id: null,
         subcategory_id: null,
+        supplier_id: null,
     });
 
     useEffect(() => {
@@ -48,9 +50,16 @@ export default function ProductQuickModal({
                     initial.unit_id || (units && units[0] ? units[0].id : ""),
                 name: initial.name || "",
                 barcode: initial.barcode || "",
+                supplier_id: supplierId || null,
+            }));
+        } else {
+            // Jika tidak ada initial data, tetap set supplier_id dari props
+            setData((d) => ({
+                ...d,
+                supplier_id: supplierId || null,
             }));
         }
-    }, [initial, show]);
+    }, [initial, show, supplierId]);
 
     if (!show) return null;
 
@@ -90,15 +99,16 @@ export default function ProductQuickModal({
                 code: data.barcode
                     ? data.barcode
                     : (data.name || "")
-                          .replace(/\s+/g, "_")
-                          .toUpperCase()
-                          .slice(0, 20),
+                        .replace(/\s+/g, "_")
+                        .toUpperCase()
+                        .slice(0, 20),
                 barcode: data.barcode || `PRD_${Date.now()}`,
                 description: data.description || data.name,
                 category_id: data.category_id || null,
                 subcategory_id: data.subcategory_id || null,
                 unit_id: data.unit_id || null,
                 min_stock: data.min_stock !== undefined ? data.min_stock : 0,
+                supplier_id: data.supplier_id || null,
             };
 
             const url =

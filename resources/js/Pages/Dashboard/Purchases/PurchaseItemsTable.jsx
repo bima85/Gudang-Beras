@@ -10,6 +10,7 @@ import {
 } from "@/Components/ui/table";
 import { Input } from "@/Components/ui/input";
 import { Button } from "@/Components/ui/button";
+import { CardHeader, CardTitle } from "@/Components/ui/card";
 
 export default function PurchaseItemsTable({
     items = [],
@@ -17,6 +18,7 @@ export default function PurchaseItemsTable({
     units = [],
     categories = [],
     subcategories = [],
+    supplierName = "",
     onRemove,
     onKuliFeeCheckboxChange,
     onKuliFeeChange,
@@ -56,7 +58,7 @@ export default function PurchaseItemsTable({
     const timbanganFlat = Number(timbanganGlobal) || 0;
     const totalTimbangan = -timbanganFlat;
 
-    const totalFinal = totalSubtotals + kuliTotal + totalTimbangan;
+    const totalFinal = totalSubtotals - kuliTotal + totalTimbangan;
 
     // Local state to toggle timbangan input visibility
     const [showTimbangan, setShowTimbangan] = React.useState(Boolean(Number(timbanganGlobal)));
@@ -64,8 +66,118 @@ export default function PurchaseItemsTable({
         setShowTimbangan(Boolean(Number(timbanganGlobal)));
     }, [timbanganGlobal]);
 
+    // State untuk format currency di input fee kuli
+    const [kuliFeeDisplay, setKuliFeeDisplay] = React.useState("");
+
+    // State untuk format currency di input harga per item (array untuk setiap item)
+    const [hargaDisplays, setHargaDisplays] = React.useState({});
+
+    // State untuk format currency di input timbangan
+    const [timbanganDisplay, setTimbanganDisplay] = React.useState("");
+
+    // Update display ketika kuliRate berubah
+    React.useEffect(() => {
+        if (kuliRate > 0) {
+            setKuliFeeDisplay(kuliRate.toLocaleString("id-ID"));
+        } else {
+            setKuliFeeDisplay("");
+        }
+    }, [kuliRate]);
+
+    // Update display harga ketika items berubah
+    React.useEffect(() => {
+        const newDisplays = {};
+        items.filter(Boolean).forEach((item, idx) => {
+            if (item.harga_pembelian > 0) {
+                newDisplays[idx] = item.harga_pembelian.toLocaleString("id-ID");
+            } else {
+                newDisplays[idx] = "";
+            }
+        });
+        setHargaDisplays(newDisplays);
+    }, [items]);
+
+    // Update display timbangan ketika timbanganGlobal berubah
+    React.useEffect(() => {
+        if (timbanganGlobal > 0) {
+            setTimbanganDisplay(timbanganGlobal.toLocaleString("id-ID"));
+        } else {
+            setTimbanganDisplay("");
+        }
+    }, [timbanganGlobal]);
+
+    // Handler untuk format currency input fee kuli
+    const handleKuliFeeInput = (e) => {
+        const value = e.target.value;
+        // Remove non-digit characters
+        const numericValue = value.replace(/\D/g, "");
+        const numberValue = Number(numericValue) || 0;
+
+        // Update parent dengan nilai numeric
+        if (typeof onKuliFeeChange === "function") {
+            onKuliFeeChange(numberValue);
+        }
+
+        // Update display dengan format
+        if (numericValue) {
+            setKuliFeeDisplay(numberValue.toLocaleString("id-ID"));
+        } else {
+            setKuliFeeDisplay("");
+        }
+    };
+
+    // Handler untuk format currency input harga per item
+    const handleHargaInput = (idx, item, value) => {
+        // Remove non-digit characters
+        const numericValue = value.replace(/\D/g, "");
+        const numberValue = Number(numericValue) || 0;
+
+        // Update item
+        const updatedItem = { ...item, harga_pembelian: numberValue };
+        onItemUpdate(idx, updatedItem);
+
+        // Update display dengan format
+        setHargaDisplays(prev => ({
+            ...prev,
+            [idx]: numericValue ? numberValue.toLocaleString("id-ID") : ""
+        }));
+    };
+
+    // Handler untuk format currency input timbangan
+    const handleTimbanganInput = (e) => {
+        const value = e.target.value;
+        // Remove non-digit characters
+        const numericValue = value.replace(/\D/g, "");
+        const numberValue = Number(numericValue) || 0;
+
+        // Update parent dengan nilai numeric
+        setTimbanganGlobal(numberValue);
+
+        // Update display dengan format
+        if (numericValue) {
+            setTimbanganDisplay(numberValue.toLocaleString("id-ID"));
+        } else {
+            setTimbanganDisplay("");
+        }
+    };
+
     return (
-        <div className="mt-4">
+        <div className="mt-4 ">
+            {/* Supplier Info Header */}
+            {supplierName && (
+                <div className="mb-3 m-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-center gap-2">
+                        <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                        </svg>
+                        <div>
+                            <span className="text-lg text-blue-600 font-medium">Supplier</span>
+                            <p className="text-sm font-semibold text-blue-900">{supplierName}</p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <Table>
                 <TableHeader>
                     <TableRow>
@@ -95,7 +207,7 @@ export default function PurchaseItemsTable({
                         }
                         const subtotal = qty * unitConversion * harga;
                         const kuliFlat = parseFloat(item.kuli_fee) || 0;
-                        const displaySubtotal = subtotal - kuliFlat;
+                        const displaySubtotal = subtotal; // Fee kuli adalah PENAMBAHAN biaya
 
                         return (
                             <TableRow key={idx}>
@@ -105,9 +217,9 @@ export default function PurchaseItemsTable({
                                         <span className="font-medium text-sm">
                                             {products.find((p) => p.id == item.product_id)?.name || "-"}
                                         </span>
-                                        <span className="text-xs text-muted-foreground">
+                                        {/* <span className="text-xs text-muted-foreground">
                                             {units.find((u) => u.id == item.unit_id)?.name || ""}
-                                        </span>
+                                        </span> */}
                                     </div>
                                 </TableCell>
                                 <TableCell className="text-sm text-muted-foreground">
@@ -162,23 +274,23 @@ export default function PurchaseItemsTable({
                                     />
                                 </TableCell>
                                 <TableCell className="text-right">
-                                    <Input
-                                        type="number"
-                                        value={item.harga_pembelian || ""}
-                                        onChange={(e) => {
-                                            const newHarga = parseFloat(e.target.value) || 0;
-                                            const updatedItem = { ...item, harga_pembelian: newHarga };
-                                            onItemUpdate(idx, updatedItem);
-                                        }}
-                                        className="w-28 h-8 text-right px-2"
-                                        min="0"
-                                        step="0.01"
-                                    />
+                                    <div className="relative">
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                                            Rp
+                                        </span>
+                                        <Input
+                                            type="text"
+                                            value={hargaDisplays[idx] || ""}
+                                            onChange={(e) => handleHargaInput(idx, item, e.target.value)}
+                                            className="w-28 h-8 text-right px-2 pl-7"
+                                            placeholder="0"
+                                        />
+                                    </div>
                                 </TableCell>
-                                <TableCell className="text-right font-medium">{"Rp " + displaySubtotal.toLocaleString("id-ID")}
-                                    {kuliFlat !== 0 && (
-                                        <div className="text-xs text-gray-500">(- Fee Kuli Rp {kuliFlat.toLocaleString('id-ID')})</div>
-                                    )}
+                                <TableCell className="sm:text-right text-center sm:w-28 md:w-32 font-medium">{"Rp " + displaySubtotal.toLocaleString("id-ID")}
+                                    {/* {kuliFlat !== 0 && (
+                                        <div className="text-xs text-gray-500">(+ Fee Kuli Rp {kuliFlat.toLocaleString('id-ID')})</div>
+                                    )} */}
                                 </TableCell>
                                 <TableCell>
                                     <Button type="button" variant="destructive" size="sm" onClick={() => onRemove(idx)} className="px-2 py-1">Hapus</Button>
@@ -209,7 +321,20 @@ export default function PurchaseItemsTable({
 
                                 {items.some((it) => it && it._kuli_manual) && (
                                     <div className="mt-2">
-                                        <Input type="number" name="kuli_fee" min="0" value={kuliRate || ""} onChange={(e) => typeof onKuliFeeChange === "function" && onKuliFeeChange(Number(e.target.value) || 0)} className="h-8" />
+                                        <div className="relative">
+                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                                                Rp
+                                            </span>
+                                            <Input
+                                                type="text"
+                                                name="kuli_fee"
+                                                value={kuliFeeDisplay}
+                                                onChange={handleKuliFeeInput}
+                                                className="h-8 pl-10"
+                                                placeholder="0"
+                                            />
+                                        </div>
+
                                     </div>
                                 )}
                             </div>
@@ -224,29 +349,41 @@ export default function PurchaseItemsTable({
                                     Aktifkan Timbangan (Total Rp)
                                 </label>
                                 {showTimbangan && (
-                                    <Input type="number" name="timbangan" value={timbanganGlobal} onChange={(e) => setTimbanganGlobal(Number(e.target.value) || "")} placeholder="Total Timbangan (Rp)" className="h-8 w-36" step="0.01" />
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-500">
+                                            Rp
+                                        </span>
+                                        <Input
+                                            type="text"
+                                            name="timbangan"
+                                            value={timbanganDisplay}
+                                            onChange={handleTimbanganInput}
+                                            placeholder="0"
+                                            className="h-8 w-36 pl-8"
+                                        />
+                                    </div>
                                 )}
                             </div>
                         </TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={8} className="font-bold text-right bg-muted/50">Total Timbangan</TableCell>
-                        <TableCell colSpan={3} className="bg-muted/50">
+                        {/* <TableCell colSpan={8} className="font-bold text-right bg-muted/50">Total Timbangan</TableCell> */}
+                        {/* <TableCell colSpan={3} className="bg-muted/50">
                             <div className="text-sm font-medium">{totalTimbangan >= 0 ? "+" : ""}{totalTimbangan.toLocaleString("id-ID")}
                                 <div className="text-xs text-gray-500 mt-1">{totalTimbangan >= 0 ? "Penambahan nilai total" : "Pengurangan nilai total"}</div>
                             </div>
-                        </TableCell>
+                        </TableCell> */}
                     </TableRow>
                     <TableRow>
                         <TableCell colSpan={8} className="font-bold text-right" hidden>Total (incl. Fee Kuli)</TableCell>
                         <TableCell colSpan={3} className="font-bold text-right" hidden>{totalFinal.toLocaleString("id-ID")}</TableCell>
                     </TableRow>
                     <TableRow>
-                        <TableCell colSpan={8} className="font-bold text-right bg-muted/20">Total Subtotal (incl. Fee Kuli + Timbangan)</TableCell>
-                        <TableCell colSpan={3} className="font-bold text-right bg-muted/20">{totalFinal.toLocaleString("id-ID")}</TableCell>
+                        <TableCell colSpan={8} className="font-bold text-right bg-muted/20  text-xl">Total Subtotal  </TableCell>
+                        <TableCell colSpan={3} className="font-bold  text-right bg-muted/20 text-xl">Rp  {totalFinal.toLocaleString("id-ID")}</TableCell>
                     </TableRow>
                 </TableFooter>
             </Table>
-        </div>
+        </div >
     );
 }

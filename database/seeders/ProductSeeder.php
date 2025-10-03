@@ -34,6 +34,14 @@ class ProductSeeder extends Seeder
             'Ketan' => 'Subkategori Ketan untuk beras ketan'
          ];
 
+         // Default minimum stock thresholds per subcategory
+         $defaultMinStock = [
+            'C4' => 50,
+            'Rojolele' => 30,
+            'Wangi' => 25,
+            'Ketan' => 20,
+         ];
+
          foreach ($subcategoryData as $name => $description) {
             $subcategories[$name] = Subcategory::firstOrCreate([
                'name' => $name,
@@ -331,7 +339,9 @@ class ProductSeeder extends Seeder
                   $counter++;
                }
 
-               Product::firstOrCreate([
+               $minStock = $defaultMinStock[$productData['subcategory']] ?? 20;
+
+               Product::updateOrCreate([
                   'name' => $productData['name'],
                   'supplier_id' => $supplier->id,
                ], [
@@ -340,7 +350,7 @@ class ProductSeeder extends Seeder
                   'barcode' => $barcode,
                   'purchase_price' => 0,
                   'sell_price' => 0,
-                  'stock' => 0,
+                  'min_stock' => $minStock,
                   'description' => null,
                ]);
 

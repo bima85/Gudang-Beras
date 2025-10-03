@@ -135,6 +135,8 @@ export default function PurchaseReport() {
     // Calculate totals
     const totals = purchases?.data?.reduce(
         (acc, purchase) => {
+            // Note: item.subtotal already includes kuli_fee and timbangan
+            // So we calculate the base subtotal separately
             const purchaseTotal =
                 purchase.items?.reduce(
                     (sum, item) => sum + (item.subtotal || 0),
@@ -322,9 +324,8 @@ export default function PurchaseReport() {
                                     className="flex items-center justify-center gap-1.5 px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 border border-gray-200 rounded-md transition-all duration-200 hover:shadow-md dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300 dark:border-gray-600"
                                 >
                                     <RefreshCw
-                                        className={`w-3.5 h-3.5 ${
-                                            isLoading ? "animate-spin" : ""
-                                        }`}
+                                        className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""
+                                            }`}
                                     />
                                     Reset Filter
                                 </Button>
@@ -524,14 +525,13 @@ export default function PurchaseReport() {
                                                                 }
                                                             >
                                                                 <div
-                                                                    className={`transition-transform duration-300 ${
-                                                                        expanded[
+                                                                    className={`transition-transform duration-300 ${expanded[
                                                                             purchase
                                                                                 .id
                                                                         ]
                                                                             ? "rotate-90"
                                                                             : ""
-                                                                    }`}
+                                                                        }`}
                                                                 >
                                                                     <ChevronRight className="w-3 h-3" />
                                                                 </div>
@@ -598,7 +598,7 @@ export default function PurchaseReport() {
                                                             <div className="text-base font-bold text-gray-900 dark:text-white">
                                                                 {formatPrice(
                                                                     purchase.total_pembelian ||
-                                                                        purchase.total
+                                                                    purchase.total
                                                                 )}
                                                             </div>
                                                         </td>
@@ -651,7 +651,7 @@ export default function PurchaseReport() {
                                                     {expanded[purchase.id] &&
                                                         purchase.items &&
                                                         purchase.items.length >
-                                                            0 && (
+                                                        0 && (
                                                             <tr>
                                                                 <td
                                                                     colSpan={8}
@@ -935,12 +935,11 @@ export default function PurchaseReport() {
                                                                 );
                                                             }
                                                         }}
-                                                        className={`w-8 h-8 text-xs font-medium rounded-md transition-all duration-200 ${
-                                                            pageNum ===
-                                                            purchases.current_page
+                                                        className={`w-8 h-8 text-xs font-medium rounded-md transition-all duration-200 ${pageNum ===
+                                                                purchases.current_page
                                                                 ? "bg-gradient-to-r from-blue-600 to-blue-700 text-white shadow-md transform scale-105"
                                                                 : "text-gray-700 bg-white/70 backdrop-blur-sm border border-gray-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md dark:bg-gray-700/70 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
-                                                        }`}
+                                                            }`}
                                                     >
                                                         {pageNum}
                                                     </button>
@@ -951,25 +950,25 @@ export default function PurchaseReport() {
 
                                     {purchases.current_page <
                                         purchases.last_page && (
-                                        <button
-                                            onClick={() => {
-                                                const page =
-                                                    purchases.current_page + 1;
-                                                Inertia.get(
-                                                    route(
-                                                        "purchase-report.index"
-                                                    ),
-                                                    { ...filter, page }
-                                                );
-                                            }}
-                                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-md transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md dark:bg-gray-700/70 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
-                                        >
-                                            <span className="hidden sm:inline">
-                                                Next
-                                            </span>
-                                            <ChevronRight className="w-3 h-3" />
-                                        </button>
-                                    )}
+                                            <button
+                                                onClick={() => {
+                                                    const page =
+                                                        purchases.current_page + 1;
+                                                    Inertia.get(
+                                                        route(
+                                                            "purchase-report.index"
+                                                        ),
+                                                        { ...filter, page }
+                                                    );
+                                                }}
+                                                className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white/70 backdrop-blur-sm border border-gray-200 rounded-md transition-all duration-200 hover:bg-gray-50 hover:border-gray-300 hover:shadow-md dark:bg-gray-700/70 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-600"
+                                            >
+                                                <span className="hidden sm:inline">
+                                                    Next
+                                                </span>
+                                                <ChevronRight className="w-3 h-3" />
+                                            </button>
+                                        )}
                                 </div>
                             </div>
                         </div>

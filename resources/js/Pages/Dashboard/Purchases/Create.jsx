@@ -9,6 +9,8 @@ import PurchaseItemsTable from "./PurchaseItemsTable";
 import TokoManualModal from "./TokoManualModal";
 import SupplierManualModal from "./SupplierManualModal";
 import ProductQuickModal from "./ProductQuickModal";
+import CategoryQuickModal from "./CategoryQuickModal";
+import SubcategoryQuickModal from "./SubcategoryQuickModal";
 import UnitManualModal from "./UnitManualModal";
 import BackToDashboard from "@/Components/Dashboard/BackToDashboard";
 import { Clock } from "lucide-react";
@@ -16,6 +18,8 @@ import { Card } from "@/Components/ui/card";
 import { CardHeader, CardTitle } from "@/Components/ui/card";
 export default function Create(props) {
     const [timbanganGlobal, setTimbanganGlobal] = useState(0);
+    // State untuk supplier yang dipilih (untuk cascading filter)
+    const [selectedSupplierId, setSelectedSupplierId] = useState(null);
     // Realtime clock for the form
     const [currentTime, setCurrentTime] = useState(new Date());
     const formattedTime = currentTime.toLocaleTimeString("id-ID", {
@@ -43,9 +47,18 @@ export default function Create(props) {
     const [subcategoriesState, setSubcategoriesState] = useState(subcategories);
     const [productsState, setProductsState] = useState(products);
     const [unitsState, setUnitsState] = useState(units);
+    // local state for suppliers and tokos
+    const [suppliersState, setSuppliersState] = useState(suppliers);
+    const [tokos, setTokos] = useState(tokosProp);
     // product quick-create modal state
     const [showProductQuickModal, setShowProductQuickModal] = useState(false);
     const [productQuickInitial, setProductQuickInitial] = useState(null);
+    // category quick-create modal state
+    const [showCategoryQuickModal, setShowCategoryQuickModal] = useState(false);
+    const [categoryQuickInitial, setCategoryQuickInitial] = useState(null);
+    // subcategory quick-create modal state
+    const [showSubcategoryQuickModal, setShowSubcategoryQuickModal] = useState(false);
+    const [subcategoryQuickInitial, setSubcategoryQuickInitial] = useState(null);
     React.useEffect(() => {
         let needCleanup = false;
         try {
@@ -258,6 +271,51 @@ export default function Create(props) {
         items: itemsInit,
     });
 
+    // Update selectedSupplierId saat supplier_name berubah
+    React.useEffect(() => {
+        if (data.supplier_name) {
+            const supplier = suppliersState.find(s => s.name === data.supplier_name);
+            if (supplier) {
+                setSelectedSupplierId(supplier.id);
+            } else {
+                setSelectedSupplierId(null);
+            }
+        } else {
+            setSelectedSupplierId(null);
+        }
+    }, [data.supplier_name, suppliersState]);    // Filter products, categories, subcategories berdasarkan supplier
+    const filteredProducts = React.useMemo(() => {
+        if (!selectedSupplierId) return productsState;
+
+        // Use loose comparison to handle string/number mismatch
+        return productsState.filter(p =>
+            String(p.supplier_id) === String(selectedSupplierId) ||
+            Number(p.supplier_id) === Number(selectedSupplierId)
+        );
+    }, [selectedSupplierId, productsState]); const filteredCategories = React.useMemo(() => {
+        if (!selectedSupplierId) return categoriesState;
+        // Get unique categories from filtered products
+        const categoryIds = [...new Set(filteredProducts.map(p => p.category_id))];
+        return categoriesState.filter(c => categoryIds.includes(c.id));
+    }, [selectedSupplierId, filteredProducts, categoriesState]);
+
+    const filteredSubcategories = React.useMemo(() => {
+        if (!selectedSupplierId) return subcategoriesState;
+        // Get unique subcategories from filtered products
+        const subcategoryIds = [...new Set(filteredProducts.map(p => p.subcategory_id))];
+        return subcategoriesState.filter(sc => subcategoryIds.includes(sc.id));
+    }, [selectedSupplierId, filteredProducts, subcategoriesState]);
+
+    // Get nama supplier berdasarkan selectedSupplierId (untuk ditampilkan di table)
+    const selectedSupplierName = React.useMemo(() => {
+        if (!selectedSupplierId) return "";
+        const supplier = suppliersState.find(s =>
+            String(s.id) === String(selectedSupplierId) ||
+            Number(s.id) === Number(selectedSupplierId)
+        );
+        return supplier ? supplier.name : "";
+    }, [selectedSupplierId, suppliersState]);
+
     // State untuk modal tambah toko manual
     const [showTokoModal, setShowTokoModal] = useState(false);
     const [manualToko, setManualToko] = useState({
@@ -265,8 +323,6 @@ export default function Create(props) {
         address: "",
         phone: "",
     });
-    // State lokal untuk dropdown toko
-    const [tokos, setTokos] = useState(tokosProp);
 
     // Handler input modal toko
     const handleManualTokoChange = (e) => {
@@ -335,7 +391,7 @@ export default function Create(props) {
     });
     const [manualSupplierErrors, setManualSupplierErrors] = useState({});
     const [manualSupplierSubmitting, setManualSupplierSubmitting] = useState(false);
-    const [suppliersState, setSuppliersState] = useState(suppliers);
+
     const handleManualSupplierChange = (e) => {
         setManualSupplier({
             ...manualSupplier,
@@ -576,221 +632,32 @@ export default function Create(props) {
 
     // Handlers untuk menambah Kategori / Subkategori / Produk dari inline add buttons
     const handleAddCategory = async (name) => {
-        try {
-            let categoryName = name;
-            if (!categoryName) {
-                categoryName = window.prompt("Nama kategori baru");
-            }
-            if (!categoryName || !categoryName.trim()) return;
-
-            const url = "/dashboard/categories";
-            const csrfToken = await getCsrfToken();
-
-            // ask for a description because backend validation may require it
-            let categoryDescription = "";
-            try {
-                categoryDescription = window.prompt(
-                    "Deskripsi kategori (wajib jika diminta):",
-                    ""
-                );
-            } catch (e) { }
-            if (!categoryDescription || !String(categoryDescription).trim()) {
-                categoryDescription = categoryName.trim();
-            }
-
-            const fetchOptions = {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                    "X-Requested-With": "XMLHttpRequest",
-                    "X-CSRF-TOKEN": csrfToken,
-                },
-                body: JSON.stringify({
-                    name: categoryName.trim(),
-                    code: genCode(categoryName, "CAT_"),
-                    description: String(categoryDescription).trim(),
-                }),
-            };
-
-            console.debug("POSTing new category to", url, fetchOptions);
-
-            const response = await fetch(url, fetchOptions);
-
-            if (!response.ok) {
-                console.error("Failed to add category", {
-                    url,
-                    status: response.status,
-                    statusText: response.statusText,
-                    headers: Array.from(response.headers.entries()),
-                });
-
-                // Try to capture body text and JSON for clearer error
-                let bodyText = "";
-                try {
-                    const clone = response.clone();
-                    bodyText = await clone.text();
-                    console.error("Response body:", bodyText);
-                } catch (e) {
-                    console.error("Failed to read response body text", e);
-                }
-
-                let msg = "Gagal menambah kategori";
-                try {
-                    const parsed = bodyText ? JSON.parse(bodyText) : null;
-                    if (parsed && parsed.message) {
-                        msg += ": " + parsed.message;
-                    } else if (bodyText) {
-                        msg += ": " + bodyText;
-                    }
-                } catch (e) {
-                    if (bodyText) msg += ": " + bodyText;
-                }
-
-                throw new Error(msg);
-            }
-
-            const newCat = await response.json();
-            setCategoriesState((prev) => [...prev, newCat]);
-
-            // Set ke draft item terakhir agar langsung terpilih
-            try {
-                const items = [...data.items];
-                if (items.length) {
-                    items[items.length - 1].category_id = String(newCat.id);
-                    setData("items", items);
-                }
-            } catch (e) { }
-
-            window.dispatchEvent(
-                new CustomEvent("purchase:category-created", { detail: newCat })
-            );
-        } catch (err) {
-            console.error("Error tambah kategori:", err);
-            try {
-                Swal.fire({
-                    title: "Gagal!",
-                    text: "Gagal menambah kategori: " + err.message,
-                    icon: "error",
-                    confirmButtonText: "OK",
-                });
-            } catch (e) {
-                alert("Gagal menambah kategori: " + err.message);
-            }
-        }
+        // Buka modal CategoryQuickModal
+        setCategoryQuickInitial({ name: name || "" });
+        setShowCategoryQuickModal(true);
     };
 
     const handleAddSubcategory = async (name, categoryId) => {
-        try {
-            let subName = name;
-            let catId =
-                categoryId ||
-                data.items[data.items.length - 1]?.category_id ||
-                null;
-            if (!subName) {
-                subName = window.prompt("Nama subkategori baru");
-            }
-            if (!subName || !subName.trim()) return;
-            if (!catId) {
-                alert(
-                    "Pilih kategori terlebih dahulu sebelum menambah subkategori."
-                );
-                return;
-            }
+        // Buka modal SubcategoryQuickModal
+        const catId =
+            categoryId ||
+            data.items[data.items.length - 1]?.category_id ||
+            null;
 
-            const url = "/dashboard/subcategories";
-            const csrfToken = await getCsrfToken();
-
-            // ask description for subcategory if backend requires it
-            let subDescription = "";
-            try {
-                subDescription = window.prompt(
-                    "Deskripsi subkategori (opsional jika tidak diperlukan):",
-                    ""
-                );
-            } catch (e) { }
-            if (!subDescription || !String(subDescription).trim()) {
-                subDescription = subName.trim();
-            }
-
-            const response = await fetch(url, {
-                method: "POST",
-                credentials: "same-origin",
-                headers: {
-                    "Content-Type": "application/json",
-                    Accept: "application/json",
-                    "X-Requested-With": "XMLHttpRequest",
-                    "X-CSRF-TOKEN": csrfToken,
-                },
-                body: JSON.stringify({
-                    name: subName.trim(),
-                    code: genCode(subName, "SUB_"),
-                    description: String(subDescription).trim(),
-                    category_id: Number(catId),
-                }),
+        if (!catId) {
+            Swal.fire({
+                icon: "warning",
+                title: "Pilih kategori terlebih dahulu",
+                text: "Anda harus memilih kategori sebelum menambah subkategori.",
             });
-
-            if (!response.ok) {
-                let msg = "Gagal menambah subkategori";
-                try {
-                    const responseText = await response.text();
-                    if (responseText.includes("<!DOCTYPE")) {
-                        msg +=
-                            ": Endpoint tidak ditemukan atau redirect ke HTML page";
-                    } else {
-                        const errJson = JSON.parse(responseText);
-                        msg +=
-                            ": " + (errJson.message || JSON.stringify(errJson));
-                    }
-                } catch (e) {
-                    msg += ": Server error or invalid response";
-                }
-                throw new Error(msg);
-            }
-
-            let newSub;
-            try {
-                const responseText = await response.text();
-                if (responseText.includes("<!DOCTYPE")) {
-                    throw new Error(
-                        "Server returned HTML instead of JSON - endpoint may be wrong"
-                    );
-                }
-                newSub = JSON.parse(responseText);
-            } catch (e) {
-                throw new Error("Failed to parse response: " + e.message);
-            }
-
-            setSubcategoriesState((prev) => [...prev, newSub]);
-
-            // Set ke draft item terakhir agar langsung terpilih
-            try {
-                const items = [...data.items];
-                if (items.length) {
-                    items[items.length - 1].subcategory_id = String(newSub.id);
-                    setData("items", items);
-                }
-            } catch (e) { }
-
-            window.dispatchEvent(
-                new CustomEvent("purchase:subcategory-created", {
-                    detail: newSub,
-                })
-            );
-        } catch (err) {
-            console.error("Error tambah subkategori:", err);
-            try {
-                Swal.fire({
-                    title: "Gagal!",
-                    text: "Gagal menambah subkategori: " + err.message,
-                    icon: "error",
-                    confirmButtonText: "OK",
-                });
-            } catch (e) {
-                alert("Gagal menambah subkategori: " + err.message);
-            }
+            return;
         }
+
+        setSubcategoryQuickInitial({
+            name: name || "",
+            category_id: parseInt(catId)
+        });
+        setShowSubcategoryQuickModal(true);
     };
 
     const handleAddProduct = async (payload = {}) => {
@@ -990,6 +857,26 @@ export default function Create(props) {
             const selected = suppliersState.find((s) => s.name === value);
             setData("phone", selected?.phone || "");
             setData("address", selected?.address || "");
+
+            // Auto-reset items saat supplier berubah
+            // Reset hanya baris input terakhir (draft item)
+            const items = [...data.items];
+            if (items.length > 0) {
+                const lastItem = items[items.length - 1];
+                // Reset category, subcategory, dan product di baris input terakhir
+                items[items.length - 1] = {
+                    ...lastItem,
+                    category_id: "",
+                    subcategory_id: "",
+                    product_id: "",
+                };
+                setData("items", items);
+                // Clear draft dari localStorage
+                localStorage.setItem(
+                    "purchase_draft_item",
+                    JSON.stringify(items[items.length - 1])
+                );
+            }
         } else if (name === "toko_id") {
             setData("toko_id", value);
             const selected = tokos.find((t) => String(t.id) === String(value));
@@ -1327,13 +1214,14 @@ export default function Create(props) {
                     unitConversion = parseFloat(unitObj.conversion_to_kg) || 1;
                 }
             }
-            const subtotal = qty * unitConversion * harga;
+            // Subtotal dasar: qty * harga (TIDAK dikali unitConversion karena harga sudah per unit!)
+            const subtotal = qty * harga;
             subtotalSum += subtotal;
             const feeRate = parseFloat(item.kuli_fee) || 0;
             // fee per item = flat fee (not multiplied by qty)
             kuliSum += feeRate;
-            // timbangan: (qty_timbang - qty_input) * unit_conversion * harga_satuan
-            const selisihTimbangan = (qtyTimbangan - qty) * unitConversion * harga;
+            // timbangan: (qty_timbang - qty_input) * harga_satuan (TIDAK pakai unitConversion, harga sudah per unit!)
+            const selisihTimbangan = (qtyTimbangan - qty) * harga;
             timbanganSum += selisihTimbangan;
         });
         // Return total termasuk fee kuli dan timbangan agar terhitung otomatis
@@ -1495,21 +1383,21 @@ export default function Create(props) {
                                     <h3 className="font-semibold text-gray-700 text-md">
                                         Tambah Item Pembelian
                                     </h3>
-                                    <div className="text-sm text-gray-500">
+                                    {/* <div className="text-sm text-gray-500">
                                         Total:{" "}
                                         <span className="font-medium text-gray-800">
                                             {totalHarga.toLocaleString?.(
                                                 "id-ID"
                                             ) ?? totalHarga}
                                         </span>
-                                    </div>
+                                    </div> */}
                                 </div>
 
                                 <PurchaseItemInput
                                     item={data.items[data.items.length - 1]}
-                                    categories={categoriesState}
-                                    subcategories={subcategoriesState}
-                                    products={productsState}
+                                    categories={filteredCategories}
+                                    subcategories={filteredSubcategories}
+                                    products={filteredProducts}
                                     units={unitsState}
                                     onChange={(e) =>
                                         handleItemChange(
@@ -1535,10 +1423,11 @@ export default function Create(props) {
                                         <div className="min-w-[900px]">
                                             <PurchaseItemsTable
                                                 items={data.items.slice(0, -1)}
-                                                products={productsState}
+                                                products={filteredProducts}
                                                 units={unitsState}
-                                                categories={categoriesState}
-                                                subcategories={subcategoriesState}
+                                                categories={filteredCategories}
+                                                subcategories={filteredSubcategories}
+                                                supplierName={selectedSupplierName}
                                                 onRemove={removeItem}
                                                 onItemUpdate={(itemIndex, updatedItem) => {
                                                     const items = [...data.items];
@@ -1636,10 +1525,80 @@ export default function Create(props) {
                                     type="button"
                                     variant="outline"
                                     onClick={() => {
-                                        // optional: clear draft
+                                        // Konfirmasi sebelum reset
+                                        Swal.fire({
+                                            title: "Reset Form?",
+                                            text: "Semua data yang belum disimpan akan hilang. Apakah Anda yakin?",
+                                            icon: "warning",
+                                            showCancelButton: true,
+                                            confirmButtonText: "Ya, Reset",
+                                            cancelButtonText: "Batal",
+                                            confirmButtonColor: "#ef4444",
+                                            reverseButtons: true,
+                                        }).then((result) => {
+                                            if (result.isConfirmed) {
+                                                // Clear localStorage
+                                                localStorage.removeItem("purchase_draft_item");
+                                                localStorage.removeItem("purchase_items_table");
+
+                                                // Reset all form data
+                                                setData({
+                                                    invoice_number: "",
+                                                    supplier_name: "",
+                                                    toko_id: "",
+                                                    toko_name: "",
+                                                    toko_address: "",
+                                                    toko_phone: "",
+                                                    purchase_date: "",
+                                                    phone: "",
+                                                    address: "",
+                                                    items: [{
+                                                        product_id: "",
+                                                        unit_id: "",
+                                                        category_id: "",
+                                                        subcategory_id: "",
+                                                        qty: 0,
+                                                        qty_gudang: 0,
+                                                        qty_toko: 0,
+                                                        harga_pembelian: 0,
+                                                        kuli_fee: 0,
+                                                        _kuli_manual: false,
+                                                    }],
+                                                });
+
+                                                // Reset timbangan global
+                                                setTimbanganGlobal(0);
+
+                                                // Reset selected supplier
+                                                setSelectedSupplierId(null);
+
+                                                // Reset modal states
+                                                setShowTokoModal(false);
+                                                setShowSupplierModal(false);
+                                                setShowUnitModal(false);
+                                                setShowProductQuickModal(false);
+                                                setShowCategoryQuickModal(false);
+                                                setShowSubcategoryQuickModal(false);
+
+                                                // Reset manual forms
+                                                setManualToko({ name: "", address: "", phone: "" });
+                                                setManualSupplier({ name: "", address: "", phone: "" });
+                                                setManualUnit({ name: "", conversion_to_kg: "" });
+
+                                                // Show success message
+                                                Swal.fire({
+                                                    toast: true,
+                                                    position: "top-end",
+                                                    icon: "success",
+                                                    title: "Form berhasil direset",
+                                                    showConfirmButton: false,
+                                                    timer: 2000,
+                                                });
+                                            }
+                                        });
                                     }}
                                 >
-                                    Batal
+                                    Reset
                                 </Button>
                                 <Button
                                     type="submit"
@@ -1684,6 +1643,7 @@ export default function Create(props) {
                                 units={units}
                                 categories={categoriesState}
                                 subcategories={subcategoriesState}
+                                supplierId={selectedSupplierId}
                                 onCreated={(newProd) => {
                                     // Append to local products state and dispatch event
                                     setProductsState((prev) => [
@@ -1699,6 +1659,75 @@ export default function Create(props) {
                                         )
                                     );
                                     setShowProductQuickModal(false);
+                                }}
+                            />
+                            {/* Category quick-create modal */}
+                            <CategoryQuickModal
+                                show={showCategoryQuickModal}
+                                onClose={() => setShowCategoryQuickModal(false)}
+                                initial={categoryQuickInitial}
+                                onCreated={(newCategory) => {
+                                    // Append to local categories state
+                                    setCategoriesState((prev) => [
+                                        ...prev,
+                                        newCategory,
+                                    ]);
+
+                                    // Auto-select category yang baru dibuat di item terakhir
+                                    try {
+                                        const items = [...data.items];
+                                        if (items.length) {
+                                            items[items.length - 1].category_id = String(newCategory.id);
+                                            setData("items", items);
+                                        }
+                                    } catch (e) {
+                                        console.error("Error auto-selecting category:", e);
+                                    }
+
+                                    window.dispatchEvent(
+                                        new CustomEvent(
+                                            "purchase:category-created",
+                                            {
+                                                detail: newCategory,
+                                            }
+                                        )
+                                    );
+                                    setShowCategoryQuickModal(false);
+                                }}
+                            />
+                            {/* Subcategory quick-create modal */}
+                            <SubcategoryQuickModal
+                                show={showSubcategoryQuickModal}
+                                onClose={() => setShowSubcategoryQuickModal(false)}
+                                initial={subcategoryQuickInitial}
+                                categories={filteredCategories}
+                                onCreated={(newSubcategory) => {
+                                    // Append to local subcategories state
+                                    setSubcategoriesState((prev) => [
+                                        ...prev,
+                                        newSubcategory,
+                                    ]);
+
+                                    // Auto-select subcategory yang baru dibuat di item terakhir
+                                    try {
+                                        const items = [...data.items];
+                                        if (items.length) {
+                                            items[items.length - 1].subcategory_id = String(newSubcategory.id);
+                                            setData("items", items);
+                                        }
+                                    } catch (e) {
+                                        console.error("Error auto-selecting subcategory:", e);
+                                    }
+
+                                    window.dispatchEvent(
+                                        new CustomEvent(
+                                            "purchase:subcategory-created",
+                                            {
+                                                detail: newSubcategory,
+                                            }
+                                        )
+                                    );
+                                    setShowSubcategoryQuickModal(false);
                                 }}
                             />
                         </form>

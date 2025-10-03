@@ -528,8 +528,10 @@ export default function CustomerTransactionHistory({ selectedCustomer, customers
                             <TableCell colSpan={3} className="font-medium">Total</TableCell>
                             <TableCell className="text-green-600 font-medium">{formatRupiah(totalPurchaseCost)}</TableCell>
                             <TableCell className="text-blue-600 font-medium">&nbsp;</TableCell>
-                            <TableCell className="font-medium">{itemsQtyTotal}</TableCell>
-                            <TableCell className="font-medium">{totalQtyKg > 0 ? Math.floor(totalQtyKg) + ' kg' : '-'}</TableCell>
+                            <TableCell> </TableCell>
+                            {/* <TableCell className="font-medium">{itemsQtyTotal}</TableCell> */}
+                            <TableCell> </TableCell>
+                            {/* <TableCell className="font-medium">{totalQtyKg > 0 ? Math.floor(totalQtyKg) + ' kg' : '-'}</TableCell> */}
                             <TableCell className="font-bold text-right">{formatRupiah(totalRevenue)}</TableCell>
                           </TableRow>
                         </TableBody>

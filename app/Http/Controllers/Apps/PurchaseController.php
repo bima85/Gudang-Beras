@@ -129,7 +129,7 @@ class PurchaseController extends Controller
         return Inertia::render('Dashboard/Purchases/Create', [
             'suppliers' => Supplier::select('id', 'name', 'phone', 'address')->get(),
             'warehouses' => Warehouse::select('id', 'name', 'address', 'phone')->get(),
-            'products' => Product::select('id', 'name', 'category_id', 'subcategory_id')->get(),
+            'products' => Product::select('id', 'name', 'category_id', 'subcategory_id', 'supplier_id')->get(),
             'units' => Unit::select('id', 'name', 'conversion_to_kg')->get(),
             'categories' => $categories,
             'subcategories' => $subcategories,
@@ -265,7 +265,7 @@ class PurchaseController extends Controller
 
             // Jika alokasi belum diatur (keduanya 0), buat alokasi otomatis
             if ($qtyGudang == 0 && $qtyToko == 0) {
-                // Default: 50% ke gudang, 50% ke toko (sesuai permintaan user: 100 unit sak → 100 masuk toko, 100 masuk gudang)
+                // Default: 50% ke gudang, 50% ke toko
                 $qtyGudang = round($totalQty * 0.5, 2);
                 $qtyToko = round($totalQty * 0.5, 2);
 
@@ -285,27 +285,19 @@ class PurchaseController extends Controller
                     'qty_toko' => $qtyToko
                 ]);
             } else {
-                // Validasi alokasi manual, adjust jika tidak sesuai
-                $totalAlokasi = $qtyGudang + $qtyToko;
-                if (abs($totalAlokasi - $totalQty) > 0.01) { // Toleransi untuk floating point
-                    // Adjust qty_toko agar total sesuai
-                    $qtyToko = $totalQty - $qtyGudang;
-                    if ($qtyToko < 0) {
-                        $qtyGudang = $totalQty;
-                        $qtyToko = 0;
-                    }
-                    $validated['items'][$key]['qty_gudang'] = $qtyGudang;
-                    $validated['items'][$key]['qty_toko'] = $qtyToko;
+                // Jika user hanya mengisi qty_toko (tanpa qty_gudang), biarkan qty_gudang tetap 0
+                // Jika user hanya mengisi qty_gudang (tanpa qty_toko), biarkan qty_toko tetap 0
+                // Tidak perlu adjust otomatis jika user sudah mengisi salah satu
 
-                    Log::info('[PurchaseController] Alokasi disesuaikan otomatis', [
-                        'product_id' => $item['product_id'],
-                        'original_qty_gudang' => $item['qty_gudang'],
-                        'original_qty_toko' => $item['qty_toko'],
-                        'adjusted_qty_gudang' => $qtyGudang,
-                        'adjusted_qty_toko' => $qtyToko,
-                        'total_qty' => $totalQty
-                    ]);
-                }
+                $validated['items'][$key]['qty_gudang'] = $qtyGudang;
+                $validated['items'][$key]['qty_toko'] = $qtyToko;
+
+                Log::info('[PurchaseController] Alokasi manual diterima', [
+                    'product_id' => $item['product_id'],
+                    'qty_gudang' => $qtyGudang,
+                    'qty_toko' => $qtyToko,
+                    'total_qty' => $totalQty
+                ]);
             }
         }
 
@@ -334,10 +326,21 @@ class PurchaseController extends Controller
                     }
                 }
 
-                // Gudang logic - Readonly, hanya menggunakan warehouse yang sudah ada
+                // Gudang logic - Auto create jika ada qty_gudang yang diinput
                 $warehouse = null;
-                if (!empty($validated['warehouse_id'])) {
-                    $warehouse = Warehouse::find($validated['warehouse_id']);
+                // Cek apakah ada item yang memiliki qty_gudang > 0
+                $hasGudangQty = collect($validated['items'])->some(fn($item) => ($item['qty_gudang'] ?? 0) > 0);
+
+                if ($hasGudangQty) {
+                    // Cari atau buat warehouse default
+                    $warehouse = Warehouse::firstOrCreate(
+                        ['name' => 'Gudang Utama'],
+                        [
+                            'address' => 'Alamat Gudang',
+                            'phone' => null,
+                            'description' => 'Auto created from pembelian',
+                        ]
+                    );
                 }
 
                 $totalPembelian = 0;
@@ -351,12 +354,12 @@ class PurchaseController extends Controller
                     $totalQtyKg += $item['qty'] * $conversion;
                 }
 
-                // Fee kuli dan timbangan (flat rate berdasarkan total qty kg)
-                $kuliFeeRate = 0;
+                // Fee kuli: input dari frontend adalah total nominal (Rp total), bukan tarif per-kg
+                // Sama seperti timbangan, ambil langsung nilai total yang dikirim
+                $kuliFee = 0;
                 if (count($validated['items']) > 0 && isset($validated['items'][0]['kuli_fee'])) {
-                    $kuliFeeRate = floatval($validated['items'][0]['kuli_fee']);
+                    $kuliFee = floatval($validated['items'][0]['kuli_fee']);
                 }
-                $kuliFee = $totalQtyKg * $kuliFeeRate;
 
                 // Perubahan: anggap input 'timbangan' dari frontend adalah total nominal (Rp total)
                 // bukan tarif per-kg. Jadi baca langsung nilai total yang dikirim.
@@ -373,8 +376,8 @@ class PurchaseController extends Controller
                     $conversion = $unit ? $unit->conversion_to_kg : 1;
                     $itemQtyKg = $item['qty'] * $conversion;
 
-                    // Subtotal dasar (qty * harga)
-                    $baseSubtotal = $itemQtyKg * $item['harga_pembelian'];
+                    // Subtotal dasar (qty * harga) - harga_pembelian adalah per UNIT, bukan per kg!
+                    $baseSubtotal = $item['qty'] * $item['harga_pembelian'];
 
                     // Proporsi fee kuli dan timbangan untuk item ini
                     $itemKuliFee = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $kuliFee : 0;
@@ -398,7 +401,6 @@ class PurchaseController extends Controller
 
                 Log::info('Total subtotal pembelian:', ['total_subtotal' => $totalPembelian]);
                 Log::info('Total qty dalam kg:', ['total_qty_kg' => $totalQtyKg]);
-                Log::info('Fee kuli rate:', ['kuli_fee_rate' => $kuliFeeRate]);
                 Log::info('Fee kuli total:', ['fee_kuli_total' => $kuliFee]);
                 Log::info('Total timbangan (nominal):', ['total_timbangan' => $totalTimbangan]);
                 Log::info('Total akhir pembelian:', ['total_final' => $totalFinal]);
@@ -692,19 +694,70 @@ class PurchaseController extends Controller
             'items.*.qty' => 'required|numeric|min:1',
             'items.*.harga_pembelian' => 'required|numeric|min:0',
             'items.*.kuli_fee' => 'required|numeric|min:0',
+            'items.*.timbangan' => 'nullable|numeric|min:0',
         ]);
 
         $purchase = Purchase::findOrFail($id);
+
+        // Calculate total qty in kg first
+        $totalQtyKg = 0;
+        foreach ($validated['items'] as $item) {
+            $unit = Unit::find($item['unit_id']);
+            $conversion = $unit ? $unit->conversion_to_kg : 1;
+            $totalQtyKg += $item['qty'] * $conversion;
+        }
+
+        // Fee kuli: input from frontend is total nominal (not rate per kg)
+        $kuliFee = 0;
+        if (count($validated['items']) > 0 && isset($validated['items'][0]['kuli_fee'])) {
+            $kuliFee = floatval($validated['items'][0]['kuli_fee']);
+        }
+
+        // Timbangan: also total nominal
+        $totalTimbangan = 0;
+        if (count($validated['items']) > 0 && isset($validated['items'][0]['timbangan'])) {
+            $totalTimbangan = floatval($validated['items'][0]['timbangan']);
+        }
+
+        // Calculate item subtotals with proportional kuli_fee and timbangan
+        $itemSubtotals = [];
+        $totalPembelian = 0;
+        foreach ($validated['items'] as $item) {
+            $unit = Unit::find($item['unit_id']);
+            $conversion = $unit ? $unit->conversion_to_kg : 1;
+            $itemQtyKg = $item['qty'] * $conversion;
+
+            // Base subtotal (qty * price) - harga_pembelian adalah per UNIT, bukan per kg!
+            $baseSubtotal = $item['qty'] * $item['harga_pembelian'];            // Proportional kuli_fee and timbangan for this item
+            $itemKuliFee = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $kuliFee : 0;
+            $itemTimbangan = $totalQtyKg > 0 ? ($itemQtyKg / $totalQtyKg) * $totalTimbangan : 0;
+
+            // Final subtotal including kuli_fee and timbangan
+            $finalSubtotal = $baseSubtotal + $itemKuliFee + $itemTimbangan;
+
+            $itemSubtotals[] = [
+                'item' => $item,
+                'subtotal' => $finalSubtotal,
+                'item_kuli_fee' => $itemKuliFee,
+                'item_timbangan' => $itemTimbangan,
+            ];
+            $totalPembelian += $baseSubtotal;
+        }
+
+        $totalFinal = $totalPembelian + $kuliFee + $totalTimbangan;
+
         $purchase->update([
             'invoice_number' => $validated['invoice_number'],
             'supplier_id' => $validated['supplier_id'],
             'warehouse_id' => $validated['warehouse_id'],
             'purchase_date' => $validated['purchase_date'],
+            'total' => $totalFinal,
         ]);
 
         $purchase->items()->delete();
 
-        foreach ($validated['items'] as $item) {
+        foreach ($itemSubtotals as $itemData) {
+            $item = $itemData['item'];
             $createdItem = $purchase->items()->create([
                 'product_id' => $item['product_id'],
                 'unit_id' => $item['unit_id'],
@@ -712,8 +765,9 @@ class PurchaseController extends Controller
                 'subcategory_id' => $item['subcategory_id'] ?? null,
                 'qty' => $item['qty'],
                 'harga_pembelian' => $item['harga_pembelian'],
-                'subtotal' => ($item['qty'] * $item['harga_pembelian']),
-                'kuli_fee' => $item['kuli_fee'] ?? 0,
+                'subtotal' => $itemData['subtotal'],
+                'kuli_fee' => $itemData['item_kuli_fee'],
+                'timbangan' => $itemData['item_timbangan'],
             ]);
             Log::info('Item created:', $createdItem->toArray());
         }

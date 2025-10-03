@@ -42,10 +42,10 @@ export default function PurchaseItemInput({
          if (qtyValue !== qtyToko) {
             if (isFormMode) {
                const newItems = [...data.items];
-               newItems[formItemIndex] = { ...newItems[formItemIndex], qty_toko: qtyValue };
+               newItems[formItemIndex] = { ...newItems[formItemIndex], qty_toko: 0 };
                setData("items", newItems);
             } else if (onChange) {
-               onChange({ target: { name: "qty_toko", value: qtyValue.toString() } });
+               onChange({ target: { name: "qty_toko", value: "" } });
             }
          }
          // Clear qty_gudang when checkbox is not checked
@@ -81,6 +81,12 @@ export default function PurchaseItemInput({
    // Display helper for qty_gudang
    const displayQtyGudang = (() => {
       const q = currentItem?.qty_gudang;
+      if (q === 0 || q === "0") return "";
+      return q ?? "";
+   })();
+   // Display helper for qty_toko
+   const displayQtyToko = (() => {
+      const q = currentItem?.qty_toko;
       if (q === 0 || q === "0") return "";
       return q ?? "";
    })();
@@ -452,6 +458,22 @@ export default function PurchaseItemInput({
                         min="0"
                         step="0.01"
                         value={displayQtyGudang}
+                        onChange={handleFieldChange}
+                        className="text-base"
+                        placeholder="0"
+                     />
+                  </div>
+                  {/* Qty Toko */}
+                  <div className="md:col-span-1">
+                     <label className="block mb-1 text-sm font-medium text-gray-700">
+                        Qty Toko
+                     </label>
+                     <Input
+                        type="number"
+                        name="qty_toko"
+                        min="0"
+                        step="0.01"
+                        value={displayQtyToko}
                         onChange={handleFieldChange}
                         className="text-base"
                         placeholder="0"
